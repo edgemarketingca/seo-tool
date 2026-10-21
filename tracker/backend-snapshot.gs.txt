@@ -1,0 +1,3005 @@
+//////// FILE: Code.gs ////////
+/**
+ * AI Visibility Tracker - EDGE Marketing (multi-client)
+ *
+ * Records how each client's site shows up in AI search and LLM answers:
+ *   GA4            - clicks from AI platforms (automatic, monthly on the 27th, every client)
+ *   Search Console - Generative AI impressions (monthly export or browser sync)
+ *   Bing WMT       - Copilot / Bing AI citations (monthly export or browser sync)
+ *   Server logs    - live AI fetches like ChatGPT-User (optional file drop)
+ *   DataforSEO     - prompt checks on ChatGPT, Gemini, Perplexity, Claude (monthly on the 27th, opt-in per client)
+ *
+ * Files: Code.gs (core), Sources.gs (data pulls), Clients.gs (client registry), Api.gs (feed for the SEO tool).
+ * Global settings live on the Config tab. Clients live on the Clients tab. Logins live in Script Properties.
+ */
+
+const START_MS = Date.now();
+const MAX_RUN_MS = 4.5 * 60 * 1000; // Apps Script stops at 6 minutes; leave headroom.
+
+const TABS = {
+  clients: 'Clients',
+  prompts: 'Prompts',
+  ga4: 'GA4 AI Clicks',
+  imports: 'AI Impressions & Citations',
+  fetches: 'AI Fetches (Logs)',
+  llm: 'LLM Checks',
+  aio: 'AI Overview Checks',
+  channels: 'GA4 Channels',
+  keyev: 'GA4 AI Key Events',
+  gorg: 'GA4 Google Organic Pages',
+  gorgev: 'GA4 Google Organic Key Events',
+  aiokw: 'AIO Keywords',
+  summary: 'Monthly Summary',
+  log: 'Run Log',
+  config: 'Config'
+};
+
+const HEADERS = {
+  clients: ['Domain', 'Client name', 'SEO tool ID', 'GA4 property', 'Brand terms', 'LLM checks', 'Status', 'Last synced'],
+  prompts: ['Domain', 'Prompt', 'Type', 'Active', 'Source'],
+  ga4: ['Domain', 'Date', 'AI platform', 'Session source', 'Landing page', 'Sessions', 'Engaged sessions', 'Key events', 'Key'],
+  imports: ['Domain', 'Source', 'Report', 'Period / date', 'Item', 'Metric', 'Value', 'File', 'Imported', 'Key'],
+  fetches: ['Domain', 'Date', 'Bot', 'Category', 'Path', 'Hits', 'Key'],
+  llm: ['Domain', 'Run date', 'Platform', 'Model', 'Prompt', 'Prompt type', 'Domain cited', 'Brand mentioned', 'Our cited URLs', 'Other domains cited', 'Cost (USD)', 'Error'],
+  aio: ['Domain', 'Run date', 'Keyword', 'Location', 'AI Overview shown', 'Cited', 'Brand named', 'Our cited URLs', 'Other domains cited', 'Cost (USD)', 'Error'],
+  aiokw: ['Domain', 'Keyword', 'Location', 'Lat', 'Lng'],
+  channels: ['Domain', 'Date', 'Channel', 'Sessions', 'Key events', 'Key'],
+  keyev: ['Domain', 'Date', 'AI platform', 'Session source', 'Landing page', 'Event name', 'Key events', 'Key'],
+  gorg: ['Domain', 'Date', 'Landing page', 'Sessions', 'Engaged sessions', 'Key events', 'Key'],
+  gorgev: ['Domain', 'Date', 'Landing page', 'Event name', 'Key events', 'Key'],
+  summary: ['Domain', 'Month', 'AI clicks (GA4)', 'Google AI impressions', 'Bing / Copilot citations', 'AI live fetches (logs)', 'LLM checks run', 'LLM checks citing us', 'LLM citation rate'],
+  log: ['Time', 'Step', 'Status', 'Details'],
+  config: ['Setting', 'Value', 'Notes']
+};
+const KEY_COL = { keyev: 7, gorg: 6, gorgev: 5, ga4: 8, imports: 9, fetches: 6, channels: 5 };
+
+const DEFAULT_CONFIG = [
+  ['GA4_LOOKBACK_DAYS', '35', 'Days of GA4 data re-pulled each run (overlaps are de-duplicated)'],
+  ['LLM_PLATFORMS', 'ChatGPT,Gemini,Perplexity,Claude', 'Platforms to run prompt checks on'],
+  ['MODEL_CHATGPT', 'gpt-4.1-mini', 'Leave blank to auto-pick a web-search model'],
+  ['MODEL_GEMINI', 'gemini-2.5-flash', 'Leave blank to auto-pick a web-search model'],
+  ['MODEL_PERPLEXITY', '', 'Leave blank to auto-pick'],
+  ['MODEL_CLAUDE', '', 'Leave blank to auto-pick a web-search model'],
+  ['MAX_AUTO_PROMPTS', '5', 'Prompts built from each client\'s tracked keywords (plus one branded prompt)']
+];
+
+/* ------------------------------------------------------------------ */
+/* Menu and setup                                                      */
+/* ------------------------------------------------------------------ */
+
+function onOpen() {
+  SpreadsheetApp.getUi().createMenu('AI Tracker')
+    .addItem('Run everything now', 'runWeekly')
+    .addItem('Import files from Drive folder', 'runImportsOnly')
+    .addItem('Pull GA4 AI clicks', 'runGa4Only')
+    .addItem('Run LLM prompt checks', 'runLlmChecks')
+    .addItem('Run Google AI Overview checks', 'runAioChecks')
+    .addItem('Find GA4 properties for clients', 'runGa4Discovery')
+    .addItem('Rebuild monthly summary', 'buildSummary')
+    .addSeparator()
+    .addItem('Connect the SEO tool', 'showConnection')
+    .addItem('Open import folder', 'showImportFolder')
+    .addItem('Set DataforSEO login', 'setDataForSeoCredentials')
+    .addSeparator()
+    .addItem('Connect Easyleads for a client', 'connectEasyleads')
+    .addItem('Pull Easyleads submissions now', 'resyncEasyleads')
+    .addItem('First-time setup / upgrade', 'setup')
+    .addToUi();
+}
+
+function setup() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  migrateToMultiClient_();
+  Object.keys(TABS).forEach(function (k) { tab_(k); });
+
+  const cfg = tab_('config');
+  const have = {};
+  values_('config').forEach(function (r) { have[String(r[0]).trim()] = true; });
+  const missing = DEFAULT_CONFIG.filter(function (r) { return !have[r[0]]; });
+  if (missing.length) cfg.getRange(cfg.getLastRow() + 1, 1, missing.length, 3).setValues(missing);
+
+  const blank = ss.getSheetByName('Sheet1');
+  if (blank && blank.getLastRow() === 0 && ss.getSheets().length > 1) ss.deleteSheet(blank);
+
+  const props = PropertiesService.getScriptProperties();
+  if (!props.getProperty('IMPORT_FOLDER_ID') || !folderExists_(props.getProperty('IMPORT_FOLDER_ID'))) {
+    const folder = DriveApp.createFolder('AI Visibility Imports');
+    folder.createFolder('Processed');
+    props.setProperty('IMPORT_FOLDER_ID', folder.getId());
+  }
+  if (!props.getProperty('ADMIN_KEY')) props.setProperty('ADMIN_KEY', Utilities.getUuid().replace(/-/g, ''));
+
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'runWeekly') ScriptApp.deleteTrigger(t);
+  });
+  scheduleMonthly_();
+
+  log_('Setup', 'OK', 'Multi-client tabs, import folder, SEO tool key and monthly trigger (27th, 7am) are in place.');
+  ss.toast('Setup finished.', 'AI Tracker', 6);
+}
+
+// v1 sheets had no Domain column. Add it, fill it with the old single domain, and prefix the de-dup keys.
+function migrateToMultiClient_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const cfgSheet = ss.getSheetByName(TABS.config);
+  const old = {};
+  if (cfgSheet && cfgSheet.getLastRow() > 1) {
+    cfgSheet.getRange(2, 1, cfgSheet.getLastRow() - 1, 2).getValues().forEach(function (r) { old[String(r[0]).trim()] = r[1]; });
+  }
+  const domain = String(old.DOMAIN || '').toLowerCase().replace(/^www\./, '');
+  if (!domain) return;
+
+  ['ga4', 'imports', 'fetches', 'llm', 'summary', 'prompts'].forEach(function (k) {
+    const sh = ss.getSheetByName(TABS[k]);
+    if (!sh || String(sh.getRange(1, 1).getValue()) === 'Domain') return;
+    sh.insertColumnBefore(1);
+    const rows = sh.getLastRow() - 1;
+    sh.getRange(1, 1, 1, HEADERS[k].length).setValues([HEADERS[k]]).setFontWeight('bold');
+    if (rows > 0) {
+      sh.getRange(2, 1, rows, 1).setValue(domain);
+      if (KEY_COL[k] !== undefined) {
+        const kr = sh.getRange(2, KEY_COL[k] + 1, rows, 1);
+        kr.setValues(kr.getValues().map(function (r) { return [domain + '|' + r[0]]; }));
+      }
+      if (k === 'prompts') sh.getRange(2, 5, rows, 1).setValue('manual');
+      if (k === 'summary') sh.getRange(2, 1, rows, HEADERS.summary.length).clearContent();
+    }
+  });
+
+  const cl = tab_('clients');
+  if (cl.getLastRow() < 2) {
+    cl.getRange(2, 1, 1, 8).setValues([[domain, String(old.BRAND_TERMS || domain), '', String(old.GA4_PROPERTY_ID || ''), String(old.BRAND_TERMS || ''), true, 'Active', '']]);
+    cl.getRange(2, 6).insertCheckboxes().setValue(true);
+  }
+  // Retire the single-client settings so nobody edits them by mistake.
+  if (cfgSheet) {
+    for (var r = cfgSheet.getLastRow(); r >= 2; r--) {
+      if (['DOMAIN', 'BRAND_TERMS', 'GA4_PROPERTY_ID'].indexOf(String(cfgSheet.getRange(r, 1).getValue()).trim()) > -1) cfgSheet.deleteRow(r);
+    }
+  }
+  CFG_CACHE = null;
+  log_('Upgrade', 'OK', 'Converted single-client data for ' + domain + ' to the multi-client layout.');
+}
+
+function setDataForSeoCredentials() {
+  const ui = SpreadsheetApp.getUi();
+  const login = ui.prompt('DataforSEO API login', 'Paste the API login from app.dataforseo.com/api-access', ui.ButtonSet.OK_CANCEL);
+  if (login.getSelectedButton() !== ui.Button.OK) return;
+  const pass = ui.prompt('DataforSEO API password', 'Paste the API password (not your account password)', ui.ButtonSet.OK_CANCEL);
+  if (pass.getSelectedButton() !== ui.Button.OK) return;
+  PropertiesService.getScriptProperties().setProperties({
+    DATAFORSEO_LOGIN: login.getResponseText().trim(),
+    DATAFORSEO_PASSWORD: pass.getResponseText().trim()
+  });
+  ui.alert('Saved. The login is stored in Script Properties, not in the sheet.');
+}
+
+function showImportFolder() {
+  const id = PropertiesService.getScriptProperties().getProperty('IMPORT_FOLDER_ID');
+  if (!id) return SpreadsheetApp.getUi().alert('Run AI Tracker > First-time setup first.');
+  const url = DriveApp.getFolderById(id).getUrl();
+  const html = HtmlService.createHtmlOutput(
+    '<p style="font-family:sans-serif">Drop Search Console, Bing and server log exports here. Put the client domain in the file name.</p>' +
+    '<p style="font-family:sans-serif"><a href="' + url + '" target="_blank">Open AI Visibility Imports</a></p>'
+  ).setWidth(380).setHeight(130);
+  SpreadsheetApp.getUi().showModalDialog(html, 'Import folder');
+}
+
+function showConnection() {
+  const key = PropertiesService.getScriptProperties().getProperty('ADMIN_KEY');
+  const url = PropertiesService.getScriptProperties().getProperty('WEBAPP_URL') || ScriptApp.getService().getUrl();
+  const body = !url
+    ? '<p>Deploy this script as a web app first (Deploy &gt; New deployment &gt; Web app, execute as me, access: Anyone).</p>'
+    : '<p>Paste these into the AI Visibility tab in the SEO tool:</p>' +
+      '<p><b>Tracker URL</b><br><input style="width:100%" readonly value="' + url + '" onclick="this.select()"></p>' +
+      '<p><b>Key</b><br><input style="width:100%" readonly value="' + key + '" onclick="this.select()"></p>' +
+      '<p style="color:#666;font-size:12px">The key unlocks every client\'s data. Keep it inside the team.</p>';
+  SpreadsheetApp.getUi().showModalDialog(
+    HtmlService.createHtmlOutput('<div style="font-family:sans-serif;font-size:13px">' + body + '</div>').setWidth(460).setHeight(260),
+    'Connect the SEO tool');
+}
+
+/* ------------------------------------------------------------------ */
+/* Entry points                                                        */
+/* ------------------------------------------------------------------ */
+
+function runGa4Only() { step_('GA4', pullGa4_); step_('Summary', buildSummary); }
+function runGa4Discovery() { step_('GA4 discovery', function () { return discoverGa4_(true); }); }
+function runImportsOnly() { step_('Imports', processImports_); step_('Summary', buildSummary); }
+function runLlmChecks() { step_('LLM checks', startLlmChecks_); step_('Summary', buildSummary); }
+
+
+/* ------------------------------------------------------------------ */
+/* Monthly summary                                                     */
+/* ------------------------------------------------------------------ */
+
+function monthlyFor_(domainFilter) {
+  const months = {};
+  const bucket = function (d, m) {
+    const k = d + '|' + m;
+    if (!months[k]) months[k] = { domain: d, month: m, clicks: 0, gImp: 0, bCit: 0, fetch: 0, llm: 0, llmYes: 0 };
+    return months[k];
+  };
+  const want = function (d) { return !domainFilter || d === domainFilter; };
+
+  values_('ga4').forEach(function (r) { const m = month_(r[1]); if (m && want(r[0])) bucket(r[0], m).clicks += Number(r[5]) || 0; });
+  values_('imports').forEach(function (r) {
+    if (r[2] !== 'Daily' || !want(r[0])) return;
+    const m = month_(r[3]); if (!m) return;
+    const metric = String(r[5]).toLowerCase();
+    if (r[1] === 'Google AI (GSC)' && metric.indexOf('impression') > -1) bucket(r[0], m).gImp += Number(r[6]) || 0;
+    if (r[1] === 'Bing / Copilot' && metric.indexOf('citation') > -1 && metric.indexOf('share') < 0 && metric.indexOf('page') < 0) bucket(r[0], m).bCit += Number(r[6]) || 0;
+  });
+  values_('fetches').forEach(function (r) {
+    const m = month_(r[1]); if (m && want(r[0]) && String(r[3]).indexOf('User fetch') === 0) bucket(r[0], m).fetch += Number(r[5]) || 0;
+  });
+  values_('llm').forEach(function (r) {
+    const m = month_(r[1]); if (!m || r[11] || !want(r[0])) return;
+    bucket(r[0], m).llm++; if (r[6] === 'Yes') bucket(r[0], m).llmYes++;
+  });
+  return Object.keys(months).map(function (k) { return months[k]; })
+    .sort(function (a, b) { return a.domain === b.domain ? (a.month < b.month ? 1 : -1) : (a.domain < b.domain ? -1 : 1); });
+}
+
+function buildSummary() {
+  const rows = monthlyFor_().map(function (b) {
+    return [b.domain, b.month, b.clicks, b.gImp, b.bCit, b.fetch, b.llm, b.llmYes, b.llm ? b.llmYes / b.llm : ''];
+  });
+  const sh = tab_('summary');
+  if (sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, HEADERS.summary.length).clearContent();
+  if (rows.length) {
+    sh.getRange(2, 1, rows.length, HEADERS.summary.length).setValues(rows);
+    sh.getRange(2, 9, rows.length, 1).setNumberFormat('0%');
+  }
+  CacheService.getScriptCache().removeAll(clients_().map(function (c) { return 'feed:' + c.domain; }));
+  return rows.length + ' client-months';
+}
+
+/* ------------------------------------------------------------------ */
+/* Helpers                                                             */
+/* ------------------------------------------------------------------ */
+
+function tab_(k) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sh = ss.getSheetByName(TABS[k]);
+  if (!sh) {
+    sh = ss.insertSheet(TABS[k]);
+    sh.getRange(1, 1, 1, HEADERS[k].length).setValues([HEADERS[k]]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+
+function values_(k) {
+  const sh = tab_(k);
+  if (sh.getLastRow() < 2) return [];
+  return sh.getRange(2, 1, sh.getLastRow() - 1, HEADERS[k].length).getValues();
+}
+
+// Replace rows with the same key, append the rest. Keeps re-imports from double counting.
+// While a batch is open (see pullGa4_), rows are collected and written once per tab at the end,
+// instead of re-reading and re-writing the whole tab for every client.
+var UPSERT_BUF_ = null;
+function upsert_(k, rows) {
+  if (!rows.length) return;
+  if (UPSERT_BUF_) { UPSERT_BUF_[k] = (UPSERT_BUF_[k] || []).concat(rows); return; }
+  const keyIdx = KEY_COL[k];
+  const sh = tab_(k);
+  const width = HEADERS[k].length;
+  const existing = values_(k);
+  const index = {};
+  existing.forEach(function (r, i) { index[String(r[keyIdx])] = i; });
+  rows.forEach(function (r) {
+    const key = String(r[keyIdx]);
+    if (key in index) existing[index[key]] = r;
+    else { index[key] = existing.length; existing.push(r); }
+  });
+  sh.getRange(2, 1, existing.length, width).setValues(existing);
+}
+
+function appendRows_(k, rows) {
+  if (!rows.length) return;
+  const sh = tab_(k);
+  sh.getRange(sh.getLastRow() + 1, 1, rows.length, HEADERS[k].length).setValues(rows);
+}
+
+var CFG_CACHE = null;
+function cfg_(key) {
+  if (!CFG_CACHE) {
+    CFG_CACHE = {};
+    values_('config').forEach(function (r) { CFG_CACHE[String(r[0]).trim()] = r[1]; });
+  }
+  return CFG_CACHE[key] === undefined ? '' : CFG_CACHE[key];
+}
+function setCfg_(key, val) {
+  const sh = tab_('config');
+  const rows = values_('config');
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i][0]).trim() === key) { sh.getRange(i + 2, 2).setValue(val); break; }
+  }
+  if (CFG_CACHE) CFG_CACHE[key] = val;
+}
+
+function step_(name, fn) {
+  try { log_(name, 'OK', fn() || ''); }
+  catch (e) { log_(name, 'ERROR', e.message); }
+}
+function log_(stepName, status, details) {
+  const sh = tab_('log');
+  sh.insertRowAfter(1);
+  sh.getRange(2, 1, 1, 4).setValues([[new Date(), stepName, status, String(details).slice(0, 5000)]]).setFontWeight('normal');
+}
+
+function subfolder_(parent, name) {
+  const it = parent.getFoldersByName(name);
+  return it.hasNext() ? it.next() : parent.createFolder(name);
+}
+function folderExists_(id) {
+  try { return !DriveApp.getFolderById(id).isTrashed(); } catch (e) { return false; }
+}
+
+function tz_() { return Session.getScriptTimeZone(); }
+function today_() { return Utilities.formatDate(new Date(), tz_(), 'yyyy-MM-dd'); }
+function fmtDate_(v) {
+  if (v instanceof Date) return Utilities.formatDate(v, tz_(), 'yyyy-MM-dd');
+  return String(v || '').slice(0, 10);
+}
+function month_(v) {
+  if (v instanceof Date) return Utilities.formatDate(v, tz_(), 'yyyy-MM');
+  const s = String(v);
+  return /^\d{4}-\d{2}/.test(s) ? s.slice(0, 7) : null;
+}
+function normDate_(v) {
+  if (v instanceof Date) return Utilities.formatDate(v, tz_(), 'yyyy-MM-dd');
+  const s = String(v).trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  const d = new Date(s);
+  return isNaN(d) ? s : Utilities.formatDate(d, tz_(), 'yyyy-MM-dd');
+}
+function toNumber_(v) {
+  if (typeof v === 'number') return v;
+  const s = String(v).replace(/[,\s]/g, '');
+  if (s === '' || s === '-' || s === '~') return null;
+  const pct = s.endsWith('%');
+  const n = Number(pct ? s.slice(0, -1) : s);
+  if (isNaN(n)) return null;
+  return pct ? n / 100 : n;
+}
+function unique_(arr) {
+  const seen = {};
+  return arr.filter(function (x) { if (seen[x]) return false; seen[x] = true; return true; });
+}
+function normDomain_(v) {
+  return String(v || '').trim().toLowerCase().replace(/^[a-z]+:\/\//, '').replace(/^www\./, '').split(/[\/?#:]/)[0];
+}
+
+/* ==========================================================================
+   RELIABLE RUNS
+   Apps Script stops any single run after 6 minutes, and a network blip can
+   throw in the middle of a batch. Two rules keep the weekly work going:
+
+   1. The weekly job is split into stages, each in its own run. Every stage
+      books the next one before it starts working (7 minutes out, so it fires
+      even if this stage is cut off), then moves it to 1 minute out when it
+      finishes early.
+   2. A follow-up run (LLM checks, AI Overview checks) books its own retry
+      before it does anything, and never runs twice at once. If it succeeds the retry is cancelled; if it
+      throws or is cut off, the retry runs 10 minutes later. After 6 failed
+      tries in a row it stops and says so in the Run Log.
+   ========================================================================== */
+
+const RETRY_MINUTES_ = 10;
+const MAX_RETRIES_ = 6;
+const WEEKLY_STAGES_ = ['weeklyStage2', 'weeklyStage3', 'weeklyStage4'];
+
+function trig_(fn, ms) { return ScriptApp.newTrigger(fn).timeBased().after(ms).create(); }
+/* Deletes one trigger by its id (a trigger object kept from earlier in the run can go stale). */
+function untrig_(t) {
+  try { const id = t.getUniqueId(); ScriptApp.getProjectTriggers().forEach(function (x) { if (x.getUniqueId() === id) ScriptApp.deleteTrigger(x); }); } catch (e) {}
+}
+function dropTriggers_(fn) {
+  ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === fn) ScriptApp.deleteTrigger(t); });
+}
+
+/* Runs work() with a retry already booked; see rule 2. */
+function guarded_(fn, label, work) {
+  const props = PropertiesService.getScriptProperties(), k = 'TRIES_' + fn, busyK = 'BUSY_' + fn;
+  /* Another run of this job is still working: it has already booked what comes next. */
+  const busy = Number(props.getProperty(busyK) || 0);
+  if (busy && Date.now() - busy < 6.5 * 60 * 1000) return;
+  props.setProperty(busyK, String(Date.now()));
+  try { guardedRun_(fn, label, work, props, k); }
+  finally { props.deleteProperty(busyK); }
+}
+function guardedRun_(fn, label, work, props, k) {
+  dropTriggers_(fn);
+  const retry = trig_(fn, RETRY_MINUTES_ * 60 * 1000);
+  const n = Number(props.getProperty(k) || 0) + 1;
+  props.setProperty(k, String(n));
+  if (n > MAX_RETRIES_ + 1) {
+    props.deleteProperty(k);
+    untrig_(retry);
+    log_(label, 'ERROR', 'Stopped after ' + MAX_RETRIES_ + ' retries in a row. Run it again from the AI Visibility menu once the problem is fixed.');
+    return;
+  }
+  try {
+    log_(label, 'OK', work() || '');
+    props.deleteProperty(k);
+    untrig_(retry);
+  } catch (e) {
+    if (!ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === fn; })) trig_(fn, RETRY_MINUTES_ * 60 * 1000);
+    log_(label, 'RETRY', 'Try ' + n + ' failed, trying again in ' + RETRY_MINUTES_ + ' minutes: ' + e.message);
+  }
+}
+
+/* One weekly stage; see rule 1. */
+function stage_(next, work) {
+  const nt = next ? trig_(next, 7 * 60 * 1000) : null;
+  work();
+  if (nt) { untrig_(nt); trig_(next, 60 * 1000); }
+}
+
+/* The 27th of every month at 7am (one run a month keeps DataForSEO spend down): GA4 first.
+   The name stays runWeekly so existing menu items keep working. */
+function scheduleMonthly_() {
+  dropTriggers_('runWeekly');
+  ScriptApp.newTrigger('runWeekly').timeBased().onMonthDay(27).atHour(7).nearMinute(0).create();
+}
+/* Run once from the editor to switch the schedule. */
+function scheduleMonthly() {
+  scheduleMonthly_();
+  log_('Schedule', 'OK', 'Runs once a month: the 27th at 7am (' + Session.getScriptTimeZone() + ').');
+}
+function runWeekly() {
+  WEEKLY_STAGES_.forEach(dropTriggers_);
+  stage_('weeklyStage2', function () {
+    step_('GA4 discovery', discoverGa4_);
+    step_('GA4', pullGa4_);
+  });
+}
+function weeklyStage2() {
+  dropTriggers_('weeklyStage2');
+  stage_('weeklyStage3', function () {
+    step_('Imports', processImports_);
+    step_('LLM checks', startLlmChecks_);
+  });
+}
+function weeklyStage3() {
+  dropTriggers_('weeklyStage3');
+  stage_('weeklyStage4', function () { step_('AI Overview checks', startAioChecks_); });
+}
+function weeklyStage4() {
+  dropTriggers_('weeklyStage4');
+  stage_(null, function () { step_('Summary', buildSummary); step_('GSC health', function () { return startGscHealth_(); }); });
+}
+
+function continueLlmChecks() {
+  guarded_('continueLlmChecks', 'LLM checks (continued)', function () {
+    const r = processLlmQueue_();
+    step_('Summary', buildSummary);
+    return r;
+  });
+}
+
+function continueAioChecks() {
+  guarded_('continueAioChecks', 'AI Overview checks (continued)', processAioQueue_);
+}
+
+//////// FILE: appsscript.json ////////
+{
+  "timeZone": "America/Edmonton",
+  "dependencies": {
+    "enabledAdvancedServices": [
+      {
+        "userSymbol": "AnalyticsData",
+        "version": "v1beta",
+        "serviceId": "analyticsdata"
+      },
+      {
+        "userSymbol": "AnalyticsAdmin",
+        "version": "v1beta",
+        "serviceId": "analyticsadmin"
+      }
+    ]
+  },
+  "webapp": {
+    "executeAs": "USER_DEPLOYING",
+    "access": "ANYONE_ANONYMOUS"
+  },
+  "exceptionLogging": "STACKDRIVER",
+  "runtimeVersion": "V8",
+  "oauthScopes": [
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive",
+    "https://www.googleapis.com/auth/analytics.readonly",
+    "https://www.googleapis.com/auth/script.external_request",
+    "https://www.googleapis.com/auth/script.scriptapp",
+    "https://www.googleapis.com/auth/script.container.ui",
+    "https://www.googleapis.com/auth/webmasters.readonly"
+  ]
+}
+//////// FILE: Sources.gs ////////
+/* Data pulls: GA4, file imports (Search Console, Bing, logs), DataforSEO prompt checks. */
+
+const AI_SOURCE_REGEX = 'chatgpt|openai|perplexity|gemini\\.google|bard\\.google|copilot|claude\\.ai|anthropic|meta\\.ai|grok|deepseek|you\\.com|mistral|phind';
+const AI_PLATFORM_MAP = [
+  ['ChatGPT', /chatgpt|openai/i],
+  ['Perplexity', /perplexity/i],
+  ['Gemini', /gemini|bard/i],
+  ['Copilot', /copilot/i],
+  ['Claude', /claude|anthropic/i],
+  ['Meta AI', /meta\.ai/i],
+  ['Grok', /grok/i],
+  ['DeepSeek', /deepseek/i],
+  ['Other AI', /./]
+];
+
+// AI user agents in server logs. "User fetch" means a person's prompt made the AI read the page live.
+const AI_BOTS = [
+  ['ChatGPT-User', 'User fetch (live answer)'], ['Claude-User', 'User fetch (live answer)'],
+  ['Perplexity-User', 'User fetch (live answer)'], ['MistralAI-User', 'User fetch (live answer)'],
+  ['DuckAssistBot', 'User fetch (live answer)'], ['OAI-SearchBot', 'AI search index'],
+  ['Claude-SearchBot', 'AI search index'], ['PerplexityBot', 'AI search index'],
+  ['GPTBot', 'Training crawler'], ['ClaudeBot', 'Training crawler'], ['anthropic-ai', 'Training crawler'],
+  ['CCBot', 'Training crawler'], ['Bytespider', 'Training crawler'], ['meta-externalagent', 'Training crawler'],
+  ['Amazonbot', 'Training crawler']
+];
+const STATIC_ASSET = /\.(css|js|mjs|png|jpe?g|gif|svg|webp|avif|ico|woff2?|ttf|eot|map|mp4|webm)(\?|$)/i;
+
+const LLM_PLATFORMS = {
+  ChatGPT: { path: 'chat_gpt', modelKey: 'MODEL_CHATGPT', webSearch: true },
+  Gemini: { path: 'gemini', modelKey: 'MODEL_GEMINI', webSearch: true },
+  Perplexity: { path: 'perplexity', modelKey: 'MODEL_PERPLEXITY', webSearch: false },
+  Claude: { path: 'claude', modelKey: 'MODEL_CLAUDE', webSearch: true }
+};
+const DFS_BASE = 'https://api.dataforseo.com/v3/ai_optimization/';
+
+/* ---------------- GA4 ---------------- */
+
+function pullGa4_(onlyDomain) {
+  const days = Number(cfg_('GA4_LOOKBACK_DAYS')) || 35;
+  const done = [], failed = [], skipped = [];
+  UPSERT_BUF_ = {};   // batch all clients' rows; written once per tab below
+  clients_().forEach(function (c) {
+    if (!c.ga4 || (onlyDomain && c.domain !== onlyDomain)) return;
+    if (Date.now() - START_MS > MAX_RUN_MS) { skipped.push(c.domain); return; }   // stay under Apps Script's 6-minute limit
+    try {
+      const res = AnalyticsData.Properties.runReport({
+        dateRanges: [{ startDate: days + 'daysAgo', endDate: 'yesterday' }],
+        dimensions: [{ name: 'date' }, { name: 'sessionSource' }, { name: 'landingPage' }],
+        metrics: [{ name: 'sessions' }, { name: 'engagedSessions' }, { name: 'keyEvents' }],
+        dimensionFilter: { filter: { fieldName: 'sessionSource', stringFilter: { matchType: 'PARTIAL_REGEXP', value: AI_SOURCE_REGEX, caseSensitive: false } } },
+        limit: 100000
+      }, 'properties/' + c.ga4);
+      const rows = (res.rows || []).map(function (r) {
+        const d = r.dimensionValues[0].value;
+        const date = d.slice(0, 4) + '-' + d.slice(4, 6) + '-' + d.slice(6, 8);
+        const source = r.dimensionValues[1].value, page = r.dimensionValues[2].value;
+        const m = r.metricValues.map(function (v) { return Number(v.value) || 0; });
+        return [c.domain, date, platformFor_(source), source, page, m[0], m[1], m[2], [c.domain, 'ga4', date, source, page].join('|')];
+      });
+      upsert_('ga4', rows);
+      try { pullChannels_(c, days); } catch (e) { failed.push(c.domain + ' channels: ' + e.message); }
+      try { pullKeyEvents_(c, days); } catch (e) { failed.push(c.domain + ' key events: ' + e.message); }
+      try { pullGoogleOrganic_(c, days); } catch (e) { failed.push(c.domain + ' Google organic: ' + e.message); }
+      done.push(c.domain + ' (' + rows.length + ')');
+    } catch (e) { failed.push(c.domain + ': ' + e.message); }
+  });
+  const buf = UPSERT_BUF_; UPSERT_BUF_ = null;
+  Object.keys(buf).forEach(function (k) { upsert_(k, buf[k]); });
+  if (skipped.length) log_('GA4', 'WARN', 'Out of time, picked up next run: ' + skipped.join(', '));
+  if (failed.length) log_('GA4', 'ERROR', failed.join('; '));
+  return done.length ? 'Pulled ' + done.join(', ') : 'No clients with a GA4 property yet';
+}
+
+// Organic Search and Direct sessions per day, so reports can compare AI traffic with them.
+function pullChannels_(c, days) {
+  const res = AnalyticsData.Properties.runReport({
+    dateRanges: [{ startDate: days + 'daysAgo', endDate: 'yesterday' }],
+    dimensions: [{ name: 'date' }, { name: 'sessionDefaultChannelGroup' }],
+    metrics: [{ name: 'sessions' }, { name: 'keyEvents' }],
+    dimensionFilter: { filter: { fieldName: 'sessionDefaultChannelGroup', inListFilter: { values: ['Organic Search', 'Direct'] } } },
+    limit: 100000
+  }, 'properties/' + c.ga4);
+  const rows = (res.rows || []).map(function (r) {
+    const d = r.dimensionValues[0].value;
+    const date = d.slice(0, 4) + '-' + d.slice(4, 6) + '-' + d.slice(6, 8);
+    const ch = r.dimensionValues[1].value;
+    return [c.domain, date, ch, Number(r.metricValues[0].value) || 0, Number(r.metricValues[1].value) || 0, [c.domain, 'ch', date, ch].join('|')];
+  });
+  upsert_('channels', rows);
+}
+
+// Which key events AI visitors triggered, by GA4 event name, so the SEO tool can say what they did.
+function pullKeyEvents_(c, days) {
+  const res = AnalyticsData.Properties.runReport({
+    dateRanges: [{ startDate: days + 'daysAgo', endDate: 'yesterday' }],
+    dimensions: [{ name: 'date' }, { name: 'sessionSource' }, { name: 'landingPage' }, { name: 'eventName' }],
+    metrics: [{ name: 'keyEvents' }],
+    dimensionFilter: { filter: { fieldName: 'sessionSource', stringFilter: { matchType: 'PARTIAL_REGEXP', value: AI_SOURCE_REGEX, caseSensitive: false } } },
+    metricFilter: { filter: { fieldName: 'keyEvents', numericFilter: { operation: 'GREATER_THAN', value: { int64Value: '0' } } } },
+    limit: 100000
+  }, 'properties/' + c.ga4);
+  const rows = (res.rows || []).map(function (r) {
+    const d = r.dimensionValues.map(function (v) { return v.value; });
+    const date = d[0].slice(0, 4) + '-' + d[0].slice(4, 6) + '-' + d[0].slice(6, 8);
+    return [c.domain, date, platformFor_(d[1]), d[1], d[2], d[3], Number(r.metricValues[0].value) || 0, [c.domain, 'ke', date, d[1], d[2], d[3]].join('|')];
+  });
+  upsert_('keyev', rows);
+  return rows.length;
+}
+
+// One-off: fill in key event names for the past ~13 months (the weekly pull only covers GA4_LOOKBACK_DAYS).
+function backfillKeyEvents() {
+  const done = [];
+  clients_().forEach(function (c) {
+    if (!c.ga4) return;
+    try { done.push(c.domain + ' (' + pullKeyEvents_(c, 400) + ')'); } catch (e) { done.push(c.domain + ': ' + e.message); }
+  });
+  buildSummary();   // also clears the cached feeds
+  log_('Key events backfill', 'OK', done.join('; '));
+  return done.join('; ');
+}
+
+// Google organic visits and key events by landing page. Google doesn't say which of its clicks came from
+// AI Overviews / AI Mode, so the SEO tool shows these for the pages Google's AI showed, labelled as such.
+const GOOGLE_AI_START = '2026-05-18';   // Search Console's Generative AI report starts here
+// Paths of every page Search Console's Generative AI report has listed for this client.
+var AI_IMPORTS_ = null;   // read once per run
+function aiPageSet_(domain, importRows) {
+  const set = {};
+  (importRows || (AI_IMPORTS_ = AI_IMPORTS_ || values_('imports'))).forEach(function (r) {
+    if (r[0] === domain && r[1] === 'Google AI (GSC)' && r[2] === 'Pages') set[pathKey_(r[4])] = 1;
+  });
+  return set;
+}
+
+// Only pages Google's AI showed are kept: that's all the report uses, and it keeps the tabs small.
+function pullGoogleOrganic_(c, days, importRows) {
+  const ai = aiPageSet_(c.domain, importRows);
+  if (!Object.keys(ai).length) return 'no AI pages yet';
+  const start = Utilities.formatDate(new Date(Date.now() - days * 86400000), tz_(), 'yyyy-MM-dd');
+  const from = start < GOOGLE_AI_START ? GOOGLE_AI_START : start;
+  const filter = { filter: { fieldName: 'sessionSourceMedium', stringFilter: { matchType: 'EXACT', value: 'google / organic' } } };
+  const iso = function (d) { return d.slice(0, 4) + '-' + d.slice(4, 6) + '-' + d.slice(6, 8); };
+  const res = AnalyticsData.Properties.runReport({
+    dateRanges: [{ startDate: from, endDate: 'yesterday' }],
+    dimensions: [{ name: 'date' }, { name: 'landingPage' }],
+    metrics: [{ name: 'sessions' }, { name: 'engagedSessions' }, { name: 'keyEvents' }],
+    dimensionFilter: filter, limit: 100000
+  }, 'properties/' + c.ga4);
+  const rows = (res.rows || []).filter(function (r) { return ai[pathKey_(r.dimensionValues[1].value)]; }).map(function (r) {
+    const date = iso(r.dimensionValues[0].value), page = r.dimensionValues[1].value;
+    const m = r.metricValues.map(function (v) { return Number(v.value) || 0; });
+    return [c.domain, date, page, m[0], m[1], m[2], [c.domain, 'go', date, page].join('|')];
+  });
+  upsert_('gorg', rows);
+  const res2 = AnalyticsData.Properties.runReport({
+    dateRanges: [{ startDate: from, endDate: 'yesterday' }],
+    dimensions: [{ name: 'date' }, { name: 'landingPage' }, { name: 'eventName' }],
+    metrics: [{ name: 'keyEvents' }],
+    dimensionFilter: filter,
+    metricFilter: { filter: { fieldName: 'keyEvents', numericFilter: { operation: 'GREATER_THAN', value: { int64Value: '0' } } } },
+    limit: 100000
+  }, 'properties/' + c.ga4);
+  const evs = (res2.rows || []).filter(function (r) { return ai[pathKey_(r.dimensionValues[1].value)]; }).map(function (r) {
+    const d = r.dimensionValues.map(function (v) { return v.value; });
+    const date = iso(d[0]);
+    return [c.domain, date, d[1], d[2], Number(r.metricValues[0].value) || 0, [c.domain, 'goe', date, d[1], d[2]].join('|')];
+  });
+  upsert_('gorgev', evs);
+  return rows.length + ' pages/days, ' + evs.length + ' key event rows';
+}
+
+// One-off: fill in Google organic landings since Search Console's AI report began (May 18, 2026).
+function backfillGoogleOrganic() {
+  ['gorg', 'gorgev'].forEach(function (k) {   // start clean (a first attempt stored every page and ran out of time)
+    const sh = tab_(k);
+    if (sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, HEADERS[k].length).clearContent();
+  });
+  const imports = values_('imports');
+  const done = [];
+  clients_().forEach(function (c) {
+    if (!c.ga4) return;
+    try { done.push(c.domain + ' (' + pullGoogleOrganic_(c, 400, imports) + ')'); } catch (e) { done.push(c.domain + ': ' + e.message); }
+  });
+  buildSummary();   // also clears the cached feeds
+  log_('Google organic backfill', 'OK', done.join('; '));
+  return done.join('; ');
+}
+
+function platformFor_(source) {
+  for (var i = 0; i < AI_PLATFORM_MAP.length; i++) if (AI_PLATFORM_MAP[i][1].test(source)) return AI_PLATFORM_MAP[i][0];
+  return 'Other AI';
+}
+
+/* ---------------- File imports ---------------- */
+
+function processImports_() {
+  const id = PropertiesService.getScriptProperties().getProperty('IMPORT_FOLDER_ID');
+  if (!id) throw new Error('No import folder. Run First-time setup.');
+  const folder = DriveApp.getFolderById(id);
+  const processed = subfolder_(folder, 'Processed');
+  const files = folder.getFiles();
+  const done = [];
+  while (files.hasNext()) {
+    const f = files.next();
+    const name = f.getName();
+    try {
+      const domain = domainForName_(name);
+      if (f.getMimeType() === MimeType.GOOGLE_SHEETS) {
+        importParts_(SpreadsheetApp.openById(f.getId()).getSheets(), function (s) {
+          routeTable_(s.getDataRange().getValues(), name + ' / ' + s.getName(), domain);
+        });
+      } else {
+        importParts_(expand_(f.getBlob(), name), function (b) { routeBlob_(b, name, domain); });
+      }
+      f.moveTo(processed);
+      done.push(name);
+    } catch (e) {
+      log_('Import', 'ERROR', name + ': ' + e.message);
+    }
+  }
+  return done.length ? 'Imported: ' + done.join(', ') : 'No new files';
+}
+
+// The client is read from the file name (Search Console exports start with the domain).
+function domainForName_(name) {
+  const lower = String(name).toLowerCase();
+  const list = clients_().map(function (c) { return c.domain; }).sort(function (a, b) { return b.length - a.length; });
+  for (var i = 0; i < list.length; i++) if (lower.indexOf(list[i]) > -1) return list[i];
+  if (list.length === 1) return list[0];
+  throw new Error('Put the client domain in the file name so the tracker knows whose data it is.');
+}
+
+// Exports bundle several tabs or CSVs; some (like Filters) have no metrics. Skip those, fail only if nothing imports.
+function importParts_(parts, fn) {
+  var used = 0, lastErr = null;
+  parts.forEach(function (p) { try { fn(p); used++; } catch (e) { lastErr = e; } });
+  if (!used) throw lastErr || new Error('Nothing to import.');
+}
+
+function expand_(blob, name) {
+  const lower = name.toLowerCase();
+  if (lower.endsWith('.zip')) return Utilities.unzip(blob.setContentType('application/zip'));
+  if (lower.endsWith('.gz')) return [Utilities.ungzip(blob.setContentType('application/x-gzip')).setName(name.replace(/\.gz$/i, ''))];
+  if (/\.xlsx?$/.test(lower)) throw new Error('Excel files are not supported. Export as CSV or Google Sheets instead.');
+  return [blob];
+}
+
+function routeBlob_(blob, label, domain) {
+  const name = (blob.getName() || label).toLowerCase();
+  if (/\.(png|jpe?g|pdf)$/.test(name)) throw new Error('Not a data file');
+  const text = blob.getDataAsString().replace(/^\uFEFF/, '');
+  const firstLine = text.slice(0, 500).split('\n')[0];
+  if (/^\S+ \S+ \S+ \[[^\]]+\] "/.test(firstLine)) return parseLogs_(text, label, domain);
+  routeTable_(Utilities.parseCsv(text), label + (blob.getName() && blob.getName() !== label ? ' / ' + blob.getName() : ''), domain);
+}
+
+function routeTable_(rows, label, domain) {
+  var h = -1;
+  for (var i = 0; i < Math.min(rows.length, 10); i++) {
+    const joined = rows[i].join(' ').toLowerCase();
+    if (joined.indexOf('citation') > -1 || joined.indexOf('impression') > -1) { h = i; break; }
+  }
+  if (h < 0) throw new Error('Columns not recognised (expected Impressions or Citations).');
+
+  const header = rows[h].map(function (x) { return String(x).trim(); });
+  const source = header.join(' ').toLowerCase().indexOf('citation') > -1 ? 'Bing / Copilot' : 'Google AI (GSC)';
+  const dim = header[0].toLowerCase();
+  const report =
+    dim.indexOf('date') > -1 ? 'Daily' :
+    dim.indexOf('quer') > -1 ? 'Grounding queries' :
+    (dim.indexOf('page') > -1 || dim.indexOf('url') > -1) ? 'Pages' :
+    dim.indexOf('countr') > -1 ? 'Countries' :
+    dim.indexOf('device') > -1 ? 'Devices' : header[0];
+  const imported = today_();
+  const out = [];
+  rows.slice(h + 1).forEach(function (r) {
+    if (!r[0] && r[0] !== 0) return;
+    const isDaily = report === 'Daily';
+    const period = isDaily ? normDate_(r[0]) : 'Export ' + imported;
+    const item = isDaily ? '' : String(r[0]);
+    for (var j = 1; j < header.length; j++) {
+      const val = toNumber_(r[j]);
+      if (val === null) continue;
+      out.push([domain, source, report, period, item, header[j], val, label, imported, [domain, source, report, period, item, header[j]].join('|')]);
+    }
+  });
+  if (!out.length) throw new Error('No numbers found');
+  upsert_('imports', out);
+}
+
+function parseLogs_(text, label, domain) {
+  const re = /^(\S+) \S+ \S+ \[(\d{2})\/(\w{3})\/(\d{4}):[^\]]+\] "(\S+) (\S+)[^"]*" (\d{3}) \S+ "[^"]*" "([^"]*)"/;
+  const months = { Jan: '01', Feb: '02', Mar: '03', Apr: '04', May: '05', Jun: '06', Jul: '07', Aug: '08', Sep: '09', Oct: '10', Nov: '11', Dec: '12' };
+  const agg = {};
+  text.split('\n').forEach(function (line) {
+    const m = re.exec(line);
+    if (!m) return;
+    var bot = null;
+    for (var i = 0; i < AI_BOTS.length; i++) if (m[8].indexOf(AI_BOTS[i][0]) > -1) { bot = AI_BOTS[i]; break; }
+    if (!bot) return;
+    const path = m[6].split('#')[0];
+    if (STATIC_ASSET.test(path)) return;
+    const date = m[4] + '-' + months[m[3]] + '-' + m[2];
+    const key = [domain, 'log', date, bot[0], path].join('|');
+    if (!agg[key]) agg[key] = [domain, date, bot[0], bot[1], path, 0, key];
+    agg[key][5]++;
+  });
+  const rows = Object.keys(agg).map(function (k) { return agg[k]; });
+  upsert_('fetches', rows);
+  log_('Import', 'OK', label + ': ' + rows.length + ' AI bot rows');
+}
+
+/* ---------------- LLM prompt checks (DataforSEO) ---------------- */
+
+function startLlmChecks_(onlyDomain) {
+  const props = PropertiesService.getScriptProperties();
+  if (!props.getProperty('DATAFORSEO_LOGIN')) return 'Skipped: no DataforSEO login saved yet';
+  const platforms = String(cfg_('LLM_PLATFORMS')).split(',').map(function (s) { return s.trim(); }).filter(function (p) { return LLM_PLATFORMS[p]; });
+  const queue = [];
+  clients_().forEach(function (c) {
+    if (!c.llm || (onlyDomain && c.domain !== onlyDomain)) return;
+    activePrompts_(c.domain).forEach(function (p) {
+      platforms.forEach(function (pl) { queue.push([c.domain, pl, p[0], p[1]]); });
+    });
+  });
+  props.setProperty('LLM_QUEUE', JSON.stringify(queue));
+  return processLlmQueue_();
+}
+
+function processLlmQueue_() {
+  const props = PropertiesService.getScriptProperties();
+  var queue = JSON.parse(props.getProperty('LLM_QUEUE') || '[]');
+  if (!queue.length) return 'Nothing queued';
+  const auth = 'Basic ' + Utilities.base64Encode(props.getProperty('DATAFORSEO_LOGIN') + ':' + props.getProperty('DATAFORSEO_PASSWORD'));
+  const byDomain = {};
+  clients_().forEach(function (c) { byDomain[c.domain] = c; });
+  const models = {}, failed = {};
+  var ran = 0;
+
+  while (queue.length && Date.now() - START_MS < MAX_RUN_MS) {
+    const batch = queue.splice(0, 8);
+    const rows = [], ready = [];
+    batch.forEach(function (q) {
+      if (!(q[1] in models)) {
+        try { models[q[1]] = resolveModel_(q[1], auth); } catch (e) { models[q[1]] = null; failed[q[1]] = e.message; }
+      }
+      if (models[q[1]]) ready.push(q);
+      else rows.push([q[0], today_(), q[1], '', q[2], q[3], '', '', '', '', '', failed[q[1]]]);
+    });
+    const reqs = ready.map(function (q) {
+      const pl = LLM_PLATFORMS[q[1]];
+      const task = { user_prompt: q[2].slice(0, 500), model_name: models[q[1]] };
+      if (pl.webSearch) task.web_search = true;
+      return { url: DFS_BASE + pl.path + '/llm_responses/live', method: 'post', contentType: 'application/json', headers: { Authorization: auth }, payload: JSON.stringify([task]), muteHttpExceptions: true };
+    });
+    const responses = reqs.length ? UrlFetchApp.fetchAll(reqs) : [];
+    responses.forEach(function (resp, i) {
+      const q = ready[i], c = byDomain[q[0]] || { domain: q[0], brands: [] };
+      rows.push(parseLlmResponse_(resp, q, models[q[1]], c));
+    });
+    appendRows_('llm', rows);
+    ran += rows.length;
+    props.setProperty('LLM_QUEUE', JSON.stringify(queue));
+  }
+
+  if (queue.length) {
+    ScriptApp.newTrigger('continueLlmChecks').timeBased().after(60 * 1000).create();
+    return ran + ' checks done, ' + queue.length + ' continuing in a minute';
+  }
+  return ran + ' checks done';
+}
+
+function parseLlmResponse_(resp, q, model, c) {
+  const base = [q[0], today_(), q[1], model, q[2], q[3]];
+  const domain = c.domain;
+  try {
+    const json = JSON.parse(resp.getContentText());
+    const task = json.tasks && json.tasks[0];
+    if (!task || task.status_code !== 20000) {
+      return base.concat(['', '', '', '', '', (task && task.status_message) || json.status_message || ('HTTP ' + resp.getResponseCode())]);
+    }
+    const result = (task.result && task.result[0]) || {};
+    delete result.user_prompt;
+    const raw = JSON.stringify(result);
+    const urls = unique_((raw.match(/https?:\/\/[^\s"'<>)\]\\]+/g) || []));
+    const hostOf = function (u) { return normDomain_(u); };
+    const ours = urls.filter(function (u) { const h = hostOf(u); return h === domain || h.endsWith('.' + domain); });
+    const others = unique_(urls.map(hostOf).filter(function (h) {
+      return h && h !== domain && !h.endsWith('.' + domain) && h.indexOf('dataforseo') < 0 && h.indexOf('vertexaisearch') < 0;
+    }));
+    const lowerRaw = raw.toLowerCase();
+    const brandHit = c.brands.some(function (b) { return b && lowerRaw.indexOf(b) > -1; }) || lowerRaw.indexOf(domain) > -1;
+    return base.concat([ours.length ? 'Yes' : 'No', brandHit ? 'Yes' : 'No', ours.join('\n'), others.slice(0, 8).join(', '), task.cost || 0, '']);
+  } catch (e) {
+    return base.concat(['', '', '', '', '', e.message]);
+  }
+}
+
+function resolveModel_(platform, auth) {
+  const key = LLM_PLATFORMS[platform].modelKey;
+  const set = String(cfg_(key) || '').trim();
+  if (set) return set;
+  const resp = UrlFetchApp.fetch(DFS_BASE + LLM_PLATFORMS[platform].path + '/llm_responses/models', { headers: { Authorization: auth }, muteHttpExceptions: true });
+  const json = JSON.parse(resp.getContentText());
+  const list = (json.tasks && json.tasks[0] && json.tasks[0].result) || [];
+  const withSearch = list.filter(function (m) { return /web_search[^,}]*true/i.test(JSON.stringify(m)); });
+  const pick = (withSearch[0] || list[0] || {}).model_name;
+  if (!pick) {
+    const t = json.tasks && json.tasks[0];
+    throw new Error('No ' + platform + ' model found (HTTP ' + resp.getResponseCode() + ': ' + ((t && t.status_message) || json.status_message || 'empty model list') + ')');
+  }
+  setCfg_(key, pick);
+  return pick;
+}
+
+function activePrompts_(domain) {
+  return values_('prompts')
+    .filter(function (r) { return r[0] === domain && r[1] && r[3] === true; })
+    .map(function (r) { return [String(r[1]), String(r[2] || '')]; });
+}
+
+
+/* ---------------- Google AI Overview checks (DataforSEO SERP) ----------------
+ * For every client keyword + location tracked in the SEO tool, load the real Google
+ * results page (with the AI Overview) and record whether the client was cited as a
+ * source, named in the answer, and which page was cited. Weekly, resumable.
+ */
+
+const AIO_ENDPOINT = 'https://api.dataforseo.com/v3/serp/google/organic/live/advanced';
+
+// Called from the register endpoint: replace each client's keyword list with what the SEO tool sends.
+function saveAioKeywords_(list) {
+  const max = Number(cfg_('MAX_AIO_KEYWORDS')) || 60;
+  const fresh = {};
+  (list || []).forEach(function (c) {
+    const domain = normDomain_(c.website);
+    if (!domain || domain.indexOf('.') < 0) return;
+    const rows = [];
+    (c.keywords || []).forEach(function (k) {
+      const text = String(k.text || '').trim();
+      if (!text) return;
+      const locs = (k.locations && k.locations.length) ? k.locations : [{ label: k.location || '' }];
+      locs.forEach(function (l) {
+        if (rows.length >= max) return;
+        rows.push([domain, text, String(l.label || ''), l.lat == null ? '' : Number(l.lat), l.lng == null ? '' : Number(l.lng)]);
+      });
+    });
+    fresh[domain] = rows;
+  });
+  const kept = values_('aiokw').filter(function (r) { return r[0] && !(normDomain_(r[0]) in fresh); });
+  var all = kept;
+  Object.keys(fresh).forEach(function (d) { all = all.concat(fresh[d]); });
+  const sh = tab_('aiokw');
+  if (sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, HEADERS.aiokw.length).clearContent();
+  if (all.length) sh.getRange(2, 1, all.length, HEADERS.aiokw.length).setValues(all);
+  return all.length;
+}
+
+function startAioChecks_() {
+  const props = PropertiesService.getScriptProperties();
+  if (!props.getProperty('DATAFORSEO_LOGIN')) return 'Skipped: no DataforSEO login saved yet';
+  if (String(cfg_('AIO_ENABLED')).toUpperCase() === 'FALSE') return 'Skipped: AIO_ENABLED is FALSE';
+  props.setProperties({ AIO_CURSOR: '0', AIO_RUN: today_() });
+  return processAioQueue_();
+}
+
+function processAioQueue_() {
+  const props = PropertiesService.getScriptProperties();
+  const rows = values_('aiokw').filter(function (r) { return r[0] && r[1]; });
+  var cursor = Number(props.getProperty('AIO_CURSOR') || 0);
+  const runDate = props.getProperty('AIO_RUN') || today_();
+  const auth = 'Basic ' + Utilities.base64Encode(props.getProperty('DATAFORSEO_LOGIN') + ':' + props.getProperty('DATAFORSEO_PASSWORD'));
+  const byDomain = {};
+  clients_().forEach(function (c) { byDomain[c.domain] = c; });
+  var ran = 0;
+
+  while (cursor < rows.length && Date.now() - START_MS < MAX_RUN_MS) {
+    const batch = rows.slice(cursor, cursor + 10);
+    const reqs = batch.map(function (r) {
+      const task = { keyword: String(r[1]).slice(0, 700), language_code: 'en', device: 'desktop', depth: 10, load_async_ai_overview: true };
+      if (r[3] !== '' && r[4] !== '') task.location_coordinate = Number(r[3]).toFixed(7) + ',' + Number(r[4]).toFixed(7);
+      else task.location_name = 'Canada';
+      return { url: AIO_ENDPOINT, method: 'post', contentType: 'application/json', headers: { Authorization: auth }, payload: JSON.stringify([task]), muteHttpExceptions: true };
+    });
+    const resps = UrlFetchApp.fetchAll(reqs);
+    const retryIdx = [];
+    resps.forEach(function (resp, i) { if (aioFailed_(resp)) retryIdx.push(i); });
+    if (retryIdx.length) {
+      Utilities.sleep(1500);
+      const again = UrlFetchApp.fetchAll(retryIdx.map(function (i) { return reqs[i]; }));
+      retryIdx.forEach(function (i, j) { resps[i] = again[j]; });
+    }
+    const out = resps.map(function (resp, i) {
+      const r = batch[i];
+      return parseAio_(resp, runDate, r, byDomain[normDomain_(r[0])] || { domain: normDomain_(r[0]), brands: [] });
+    });
+    appendRows_('aio', out);
+    cursor += batch.length;
+    ran += batch.length;
+    props.setProperty('AIO_CURSOR', String(cursor));
+  }
+
+  if (cursor < rows.length) {
+    ScriptApp.newTrigger('continueAioChecks').timeBased().after(60 * 1000).create();
+    return ran + ' searches checked, ' + (rows.length - cursor) + ' continuing in a minute';
+  }
+  var fixed = 0;
+  try { fixed = retryAioErrors_(runDate); } catch (e) { log_('AI Overview retry', 'ERROR', e.message); }
+  return ran + ' searches checked (' + rows.length + ' total this run), ' + fixed + ' earlier failures fixed on retry';
+}
+
+function aioFailed_(resp) {
+  try { const j = JSON.parse(resp.getContentText()); const t = j.tasks && j.tasks[0]; return !t || t.status_code !== 20000; }
+  catch (e) { return true; }
+}
+
+// Re-check searches from this run that failed on DataforSEO's side, and overwrite them in place.
+function retryAioErrors_(runDate) {
+  const sh = tab_('aio');
+  const vals = values_('aio');
+  const idx = [];
+  vals.forEach(function (r, i) { if (fmtDate_(r[1]) === runDate && r[10]) idx.push(i); });
+  if (!idx.length) return 0;
+  const kw = {};
+  values_('aiokw').forEach(function (r) { kw[normDomain_(r[0]) + '|' + r[1] + '|' + r[2]] = r; });
+  const props = PropertiesService.getScriptProperties();
+  const auth = 'Basic ' + Utilities.base64Encode(props.getProperty('DATAFORSEO_LOGIN') + ':' + props.getProperty('DATAFORSEO_PASSWORD'));
+  const byDomain = {};
+  clients_().forEach(function (c) { byDomain[c.domain] = c; });
+  var fixed = 0;
+  for (var s = 0; s < idx.length && Date.now() - START_MS < MAX_RUN_MS; s += 10) {
+    const part = idx.slice(s, s + 10).map(function (i) { return { i: i, r: kw[normDomain_(vals[i][0]) + '|' + vals[i][2] + '|' + vals[i][3]] }; }).filter(function (x) { return x.r; });
+    if (!part.length) continue;
+    const reqs = part.map(function (x) {
+      const task = { keyword: String(x.r[1]).slice(0, 700), language_code: 'en', device: 'desktop', depth: 10, load_async_ai_overview: true };
+      if (x.r[3] !== '' && x.r[4] !== '') task.location_coordinate = Number(x.r[3]).toFixed(7) + ',' + Number(x.r[4]).toFixed(7);
+      else task.location_name = 'Canada';
+      return { url: AIO_ENDPOINT, method: 'post', contentType: 'application/json', headers: { Authorization: auth }, payload: JSON.stringify([task]), muteHttpExceptions: true };
+    });
+    UrlFetchApp.fetchAll(reqs).forEach(function (resp, j) {
+      const x = part[j];
+      const row = parseAio_(resp, runDate, x.r, byDomain[normDomain_(x.r[0])] || { domain: normDomain_(x.r[0]), brands: [] });
+      if (!row[10]) { sh.getRange(x.i + 2, 1, 1, row.length).setValues([row]); fixed++; }
+    });
+  }
+  return fixed;
+}
+
+function parseAio_(resp, runDate, r, c) {
+  const domain = c.domain;
+  const base = [domain, runDate, r[1], r[2]];
+  try {
+    const json = JSON.parse(resp.getContentText());
+    const task = json.tasks && json.tasks[0];
+    if (!task || task.status_code !== 20000) {
+      return base.concat(['', '', '', '', '', '', (task && task.status_message) || json.status_message || ('HTTP ' + resp.getResponseCode())]);
+    }
+    const result = (task.result && task.result[0]) || {};
+    const aio = (result.items || []).filter(function (it) { return it.type === 'ai_overview'; })[0];
+    if (!aio) return base.concat(['No', 'No', 'No', '', '', task.cost || 0, '']);
+
+    const refs = [];
+    const collect = function (node) {
+      if (!node || typeof node !== 'object') return;
+      if (Array.isArray(node)) { node.forEach(collect); return; }
+      if (node.url && /^https?:/i.test(node.url)) refs.push(String(node.url));
+      Object.keys(node).forEach(function (k) { if (node[k] && typeof node[k] === 'object') collect(node[k]); });
+    };
+    collect(aio);
+    const urls = unique_(refs);
+    const mine = urls.filter(function (u) { const h = normDomain_(u); return h === domain || h.endsWith('.' + domain); });
+    const others = unique_(urls.map(normDomain_).filter(function (h) {
+      return h && h !== domain && !h.endsWith('.' + domain) && h.indexOf('google.') < 0 && h.indexOf('gstatic') < 0;
+    }));
+
+    // "Named" looks only at the answer text, not at the source list.
+    var text = String(aio.markdown || '');
+    if (!text) (aio.items || []).forEach(function (el) { text += ' ' + (el.text || '') + ' ' + (el.title || '') + ' ' + (el.markdown || ''); });
+    const lower = text.toLowerCase();
+    const named = (c.brands || []).some(function (b) { return b && b.length > 2 && lower.indexOf(b) > -1; }) || lower.indexOf(domain) > -1;
+
+    return base.concat(['Yes', mine.length ? 'Yes' : 'No', named ? 'Yes' : 'No', mine.join('\n'), others.slice(0, 8).join(', '), task.cost || 0, '']);
+  } catch (e) {
+    return base.concat(['', '', '', '', '', '', e.message]);
+  }
+}
+
+// Feed section for the SEO tool: newest run first.
+function aioFor_(domain, inRange) {
+  const out = [];
+  values_('aio').forEach(function (r) {
+    if (normDomain_(r[0]) !== domain || r[10]) return;
+    const d = fmtDate_(r[1]); if (!inRange(d)) return;
+    out.push({ d: d, k: String(r[2]), loc: String(r[3]), shown: r[4] === 'Yes', cited: r[5] === 'Yes', named: r[6] === 'Yes',
+      urls: String(r[7] || '').split('\n').filter(String), comp: String(r[8] || '').split(',').map(function (s) { return s.trim(); }).filter(String) });
+  });
+  out.sort(function (a, b) { return a.d < b.d ? 1 : -1; });
+  return { checks: out.slice(0, 1500) };
+}
+
+function runAioChecks() { step_('AI Overview checks', startAioChecks_); }
+
+// One-keyword test from the editor: logs what DataforSEO returns for the first tracked keyword.
+function testAioOne() {
+  const rows = values_('aiokw').filter(function (r) { return r[0] && r[1]; });
+  if (!rows.length) { Logger.log('No keywords yet. Open the AI Visibility tab in the SEO tool once.'); return; }
+  const props = PropertiesService.getScriptProperties();
+  const auth = 'Basic ' + Utilities.base64Encode(props.getProperty('DATAFORSEO_LOGIN') + ':' + props.getProperty('DATAFORSEO_PASSWORD'));
+  const r = rows[0];
+  const task = { keyword: r[1], language_code: 'en', device: 'desktop', depth: 10, load_async_ai_overview: true };
+  if (r[3] !== '' && r[4] !== '') task.location_coordinate = Number(r[3]).toFixed(7) + ',' + Number(r[4]).toFixed(7);
+  const resp = UrlFetchApp.fetch(AIO_ENDPOINT, { method: 'post', contentType: 'application/json', headers: { Authorization: auth }, payload: JSON.stringify([task]), muteHttpExceptions: true });
+  const c = clients_().filter(function (x) { return x.domain === normDomain_(r[0]); })[0] || { domain: normDomain_(r[0]), brands: [] };
+  Logger.log(JSON.stringify(parseAio_(resp, today_(), r, c)));
+}
+
+//////// FILE: Clients.gs ////////
+/* Client registry. The SEO tool sends its client list here; the tracker fills in the rest. */
+
+function clients_() {
+  return values_('clients').filter(function (r) { return r[0]; }).map(function (r) {
+    const name = String(r[1] || r[0]);
+    return {
+      domain: normDomain_(r[0]),
+      name: name,
+      seoId: String(r[2] || ''),
+      ga4: String(r[3] || '').replace(/\D/g, ''),
+      brands: String(r[4] || name).split(',').map(function (s) { return s.trim().toLowerCase(); }).filter(String),
+      llm: r[5] === true,
+      status: String(r[6] || '')
+    };
+  });
+}
+
+// list: [{id, name, website, status, logoUrl, keywords:[{text, location}]}]
+function registerClients_(list) {
+  const sh = tab_('clients');
+  const rows = values_('clients');
+  const index = {};
+  rows.forEach(function (r, i) { index[normDomain_(r[0])] = i; });
+  const now = new Date();
+  const added = [];
+
+  (list || []).forEach(function (c) {
+    const domain = normDomain_(c.website);
+    if (!domain || domain.indexOf('.') < 0) return;
+    if (domain in index) {
+      const r = rows[index[domain]];
+      r[1] = c.name || r[1]; r[2] = c.id || r[2]; r[6] = c.status || r[6]; r[7] = now;
+      if (!r[4]) r[4] = c.name || '';
+    } else {
+      index[domain] = rows.length;
+      rows.push([domain, c.name || domain, c.id || '', '', c.name || '', false, c.status || '', now]);
+      added.push(domain);
+    }
+  });
+
+  if (rows.length) {
+    sh.getRange(2, 1, rows.length, HEADERS.clients.length).setValues(rows);
+    sh.getRange(2, 6, rows.length, 1).insertCheckboxes();
+    // insertCheckboxes resets values to FALSE only for empty cells; restore what was there.
+    sh.getRange(2, 6, rows.length, 1).setValues(rows.map(function (r) { return [r[5] === true]; }));
+  }
+
+  const haveAuto = {};
+  values_('prompts').forEach(function (r) { haveAuto[r[0]] = true; });
+  var promptsAdded = 0;
+  (list || []).forEach(function (c) {
+    const domain = normDomain_(c.website);
+    if (!domain || haveAuto[domain]) return;
+    promptsAdded += addAutoPrompts_(domain, c.name, c.keywords || []);
+    haveAuto[domain] = true;
+  });
+
+  try { saveAioKeywords_(list); } catch (e) { log_('AIO keywords', 'ERROR', e.message); }
+  return { added: added, promptsAdded: promptsAdded };
+}
+
+// Turn tracked keywords into the kind of question a person would ask an AI assistant.
+function addAutoPrompts_(domain, name, keywords) {
+  const max = Number(cfg_('MAX_AUTO_PROMPTS')) || 5;
+  const seen = {};
+  const out = [];
+  keywords.forEach(function (k) {
+    const kw = String(k.text || '').trim();
+    if (!kw || out.length >= max) return;
+    const loc = String(k.location || '').trim();
+    const prompt = loc ? 'best ' + kw + ' in ' + loc : 'best ' + kw + ' company';
+    if (seen[prompt.toLowerCase()]) return;
+    seen[prompt.toLowerCase()] = true;
+    out.push([domain, prompt, 'Unbranded', true, 'auto (keywords)']);
+  });
+  if (name) out.push([domain, 'What is ' + name + ' (' + domain + ') known for?', 'Branded', true, 'auto (keywords)']);
+  if (!out.length) return 0;
+  const sh = tab_('prompts');
+  const start = sh.getLastRow() + 1;
+  sh.getRange(start, 1, out.length, HEADERS.prompts.length).setValues(out);
+  sh.getRange(start, 4, out.length, 1).insertCheckboxes().setValue(true);
+  return out.length;
+}
+
+// Match each client's website to a GA4 web stream. Cached for a week; force=true rebuilds the map.
+function discoverGa4_(force) {
+  const props = PropertiesService.getScriptProperties();
+  var cache = null;
+  try { cache = JSON.parse(props.getProperty('GA4_MAP') || 'null'); } catch (e) { cache = null; }
+  const stale = !cache || (Date.now() - cache.at) > 7 * 24 * 3600 * 1000;
+  const missing = clients_().filter(function (c) { return !c.ga4; });
+  if (!missing.length && !force) return 'Every client already has a GA4 property';
+
+  if (force || stale) {
+    const map = {};
+    var token = null;
+    do {
+      const res = AnalyticsAdmin.AccountSummaries.list({ pageSize: 200, pageToken: token });
+      (res.accountSummaries || []).forEach(function (acc) {
+        (acc.propertySummaries || []).forEach(function (p) {
+          try {
+            const streams = AnalyticsAdmin.Properties.DataStreams.list(p.property, { pageSize: 50 }).dataStreams || [];
+            streams.forEach(function (s) {
+              const host = s.webStreamData && normDomain_(s.webStreamData.defaultUri);
+              if (host && !map[host]) map[host] = p.property.replace('properties/', '');
+            });
+          } catch (e) { /* no access to this property's streams */ }
+        });
+      });
+      token = res.nextPageToken;
+    } while (token);
+    cache = { at: Date.now(), map: map };
+    props.setProperty('GA4_MAP', JSON.stringify(cache));
+  }
+
+  const sh = tab_('clients');
+  const rows = values_('clients');
+  const found = [];
+  rows.forEach(function (r, i) {
+    if (String(r[3] || '').trim()) return;
+    const id = cache.map[normDomain_(r[0])];
+    if (id) { sh.getRange(i + 2, 4).setValue(id); found.push(normDomain_(r[0])); }
+  });
+  return 'Matched ' + found.length + ' client(s) to GA4' + (found.length ? ': ' + found.join(', ') : '') +
+    ' (' + Object.keys(cache.map).length + ' web streams visible)';
+}
+
+// Read-only token for one client's public report. Derived from the admin key, so nothing extra is stored.
+function tokenFor_(domain) {
+  const key = PropertiesService.getScriptProperties().getProperty('ADMIN_KEY');
+  const sig = Utilities.computeHmacSha256Signature(normDomain_(domain), key);
+  return sig.map(function (b) { return ('0' + (b & 0xff).toString(16)).slice(-2); }).join('').slice(0, 24);
+}
+
+//////// FILE: Api.gs ////////
+/* Web app API used by the SEO tool and the public AI reports.
+ *
+ * GET  ?action=feed&domain=x&key=ADMIN      full feed (SEO tool)
+ * GET  ?action=feed&domain=x&t=TOKEN        same feed, one client only (public report embeds)
+ * GET  action=gscQueries, domain, key or t        last full month of Search Console queries
+ * POST {key, action:'setGscLayout', domain, widgets:[...]}       choose which search-queries widgets show
+ * POST {key, action:'register', clients:[...]}                 sync the SEO tool's client list
+ * POST {key, action:'ingest', domain, source:'bing'|'gsc', rows:[[...]], report}   browser-captured exports
+ * POST {key, action:'refresh', domain}                          pull GA4 for one client now
+ * POST {key, action:'setLlm', domain, on}                       turn prompt checks on/off for a client
+ *
+ * Deploy: Deploy > New deployment > Web app, execute as me, access Anyone. Every call needs the key or a client token.
+ */
+
+function doGet(e) {
+  const p = (e && e.parameter) || {};
+  try {
+    const domain = normDomain_(p.domain);
+    const admin = isAdmin_(p.key);
+    if (!admin && !(domain && p.t && p.t === tokenFor_(domain))) return json_({ error: 'unauthorized' });
+    if ((p.action || 'feed') === 'clients' && admin) {
+      return json_({ clients: clients_().map(function (c) { return { domain: c.domain, name: c.name, seoId: c.seoId, ga4: !!c.ga4, llm: c.llm, token: tokenFor_(c.domain) }; }) });
+    }
+    if (!domain) return json_({ error: 'domain required' });
+    /* A client's read-only token: only the date ranges a report can show, and a few requests a minute. */
+    if (!admin) {
+      if (!tokenRangeOk_(p)) return json_({ error: 'unauthorized' });
+      if (!tokenRateOk_(p.t)) return json_({ error: 'busy, try again in a few minutes' });
+      if (Number(p.months) > 13) p.months = 13;
+    }
+    if (p.action === 'gscQueries') { var gq = gscQueriesFor_(domain, p.start, p.end); return json_(gq.error ? gq : Object.assign({}, gq, { layout: gscLayout_(domain) })); }
+    if (p.action === 'gscLayout') return json_({ layout: gscLayout_(domain) });
+    if (p.action === 'ga4report') return json_(ga4ReportFor_(domain, p.start, p.end));
+    if (p.action === 'pages') return json_(pagesFor_(domain, p.start, p.end, p.split, p.path));
+    if (p.action === 'pathway') return json_(pathwayFor_(domain, p.start, p.end, p.channel));
+    if (p.action === 'forms') return json_(formsFor_(domain, p.start, p.end, admin, p.src));
+    if (p.action === 'gscHealth') return json_(gscHealthFor_(domain));
+    if (p.action === 'journeys') { if (!admin) return json_({ error: 'unauthorized' }); return json_(journeysFor_(domain, p.start, p.end)); }
+    return json_(feedFor_(domain, Number(p.months) || 12));
+  } catch (err) {
+    return json_({ error: err.message });
+  }
+}
+
+function doPost(e) {
+  try {
+    const body = JSON.parse((e && e.postData && e.postData.contents) || '{}');
+    /* Website forms post here without the key; see forms.gs. */
+    if (body.action === 'form') return json_(formIntake_(body));
+    if (body.action === 'formsImport') { if (!fsImportOk_(body.importKey)) return json_({ error: 'unauthorized' }); return json_(formsImport_(body)); }
+    if (!isAdmin_(body.key)) return json_({ error: 'unauthorized' });
+    if (body.action === 'gscHealthNow') return json_({ ok: true, msg: startGscHealth_(normDomain_(body.domain)) });
+    const lock = LockService.getScriptLock();
+    lock.waitLock(25000);
+    try {
+      if (body.action === 'register') {
+      if (body.url && /^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(body.url)) PropertiesService.getScriptProperties().setProperty('WEBAPP_URL', body.url);
+        const res = registerClients_(body.clients || []);
+        var ga4 = '';
+        if (res.added.length) { try { ga4 = discoverGa4_(); } catch (err) { ga4 = 'GA4 lookup failed: ' + err.message; } }
+        log_('SEO tool sync', 'OK', (body.clients || []).length + ' clients received, ' + res.added.length + ' new, ' + res.promptsAdded + ' prompts added. ' + ga4);
+        return json_({ ok: true, added: res.added, clients: clients_().map(function (c) { return { domain: c.domain, seoId: c.seoId, ga4: !!c.ga4, llm: c.llm, token: tokenFor_(c.domain) }; }) });
+      }
+      if (body.action === 'ingest') {
+        const domain = normDomain_(body.domain);
+        if (!domain) return json_({ error: 'domain required' });
+        routeTable_(body.rows || [], 'Browser sync ' + (body.source || '') + ' ' + (body.report || ''), domain);
+        CacheService.getScriptCache().remove('feed:' + domain);
+        log_('Browser sync', 'OK', domain + ' ' + (body.source || '') + ' ' + (body.report || '') + ': ' + Math.max(0, (body.rows || []).length - 1) + ' rows');
+        return json_({ ok: true });
+      }
+      if (body.action === 'setGscLayout') {
+      const domain = normDomain_(body.domain);
+      if (!domain) return json_({ error: 'domain required' });
+      const widgets = (body.widgets || []).filter(function (x) { return /^[a-z_]{2,30}$/.test(x); }).slice(0, 40);
+      PropertiesService.getScriptProperties().setProperty('GSC_LAYOUT_' + domain, JSON.stringify({ widgets: widgets, updatedAt: new Date().toISOString() }));
+      log_('Search queries layout', 'OK', domain + ': ' + widgets.length + ' widgets');
+      return json_({ ok: true, layout: gscLayout_(domain) });
+    }
+    if (body.action === 'refresh') {
+        const domain = normDomain_(body.domain);
+        const msg = pullGa4_(domain);
+        CacheService.getScriptCache().remove('feed:' + domain);
+        return json_({ ok: true, message: msg });
+      }
+      if (body.action === 'setLlm') {
+        const domain = normDomain_(body.domain);
+        const rows = values_('clients');
+        for (var i = 0; i < rows.length; i++) {
+          if (normDomain_(rows[i][0]) === domain) { tab_('clients').getRange(i + 2, 6).setValue(!!body.on); return json_({ ok: true, llm: !!body.on }); }
+        }
+        return json_({ error: 'unknown client' });
+      }
+      return json_({ error: 'unknown action' });
+    } finally { lock.releaseLock(); }
+  } catch (err) {
+    return json_({ error: err.message });
+  }
+}
+
+function isAdmin_(key) {
+  const real = PropertiesService.getScriptProperties().getProperty('ADMIN_KEY');
+  return !!(key && real && key === real);
+}
+
+function keyEventsFor_(domain, since) {
+  const out = [];
+  values_('keyev').forEach(function (r) {
+    if (r[0] !== domain) return;
+    const d = normDate_(r[1]);
+    if (since && d < since) return;
+    out.push([d, String(r[2]), String(r[4]), String(r[5]), Number(r[6]) || 0]);
+  });
+  return out;
+}
+
+// One key per page whether it came from Search Console (full URL, sometimes www and non-www,
+// sometimes with copied button text after it) or GA4 (a path).
+function pathKey_(u) {
+  var s = String(u || '').trim().toLowerCase().split(/\s/)[0];
+  s = s.replace(/^https?:\/\/[^\/]+/, '').split(/[?#]/)[0] || '/';
+  if (s.length > 1) s = s.replace(/\/+$/, '');
+  return s || '/';
+}
+
+// Pages Google's AI showed (merged by path, top 40 by impressions), with Google organic
+// visits [date, page, sessions, engaged, key events] and key events [date, page, event, count] for them.
+function googleOrganicFor_(domain, g, inRange) {
+  const ai = {};
+  Object.keys((g && g.pages) || {}).forEach(function (u) { const k = pathKey_(u); ai[k] = (ai[k] || 0) + (Number(g.pages[u]) || 0); });
+  const top = Object.keys(ai).sort(function (a, b) { return ai[b] - ai[a]; }).slice(0, 25);   // keeps the cached feed well under 100 KB
+  const want = {}; top.forEach(function (k) { want[k] = 1; });
+  const rows = [], events = [];
+  values_('gorg').forEach(function (r) {
+    if (r[0] !== domain) return;
+    const d = normDate_(r[1]), k = pathKey_(r[2]);
+    if (!want[k] || !inRange(d)) return;
+    rows.push([d, k, Number(r[3]) || 0, Number(r[4]) || 0, Number(r[5]) || 0]);
+  });
+  values_('gorgev').forEach(function (r) {
+    if (r[0] !== domain) return;
+    const d = normDate_(r[1]), k = pathKey_(r[2]);
+    if (!want[k] || !inRange(d)) return;
+    events.push([d, k, String(r[3]), Number(r[4]) || 0]);
+  });
+  return { aiPages: top.map(function (k) { return { u: k, n: ai[k] }; }), rows: rows, events: events };
+}
+
+function json_(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
+
+// Everything the AI Visibility tab needs for one client, newest data first. Cached for 10 minutes.
+function feedFor_(domain, months) {
+  const cache = CacheService.getScriptCache();
+  const ck = 'feed:' + domain;
+  const hit = months === 12 ? cacheGetBig_(ck) : null;   // split across keys: big clients' feeds pass 100 KB
+  if (hit) return hit;
+
+  const client = clients_().filter(function (c) { return c.domain === domain; })[0];
+  if (!client) return { error: 'unknown client', domain: domain };
+  const since = Utilities.formatDate(new Date(Date.now() - months * 31 * 86400000), tz_(), 'yyyy-MM-dd');
+  const inRange = function (d) { return d && d >= since; };
+
+  const ga4Daily = {}, ga4Pages = {};
+  var ga4Last = '';
+  values_('ga4').forEach(function (r) {
+    if (r[0] !== domain) return;
+    const d = fmtDate_(r[1]); if (!inRange(d)) return;
+    const k = d + '|' + r[2];
+    if (!ga4Daily[k]) ga4Daily[k] = { d: d, p: r[2], s: 0, k: 0 };
+    ga4Daily[k].s += Number(r[5]) || 0; ga4Daily[k].k += Number(r[7]) || 0;
+    ga4Pages[r[4]] = (ga4Pages[r[4]] || 0) + (Number(r[5]) || 0);
+    if (d > ga4Last) ga4Last = d;
+  });
+
+  const src = { 'Google AI (GSC)': { daily: {}, pages: {}, queries: {}, latest: '' }, 'Bing / Copilot': { daily: {}, pages: {}, queries: {}, latest: '' } };
+  const exportDate = { 'Google AI (GSC)': '', 'Bing / Copilot': '' };
+  const rowsImp = values_('imports').filter(function (r) { return r[0] === domain && src[r[1]]; });
+  rowsImp.forEach(function (r) { const imp = fmtDate_(r[8]); if (r[2] !== 'Daily' && imp > exportDate[r[1]]) exportDate[r[1]] = imp; });
+  rowsImp.forEach(function (r) {
+    const s = src[r[1]], metric = String(r[5]).toLowerCase(), v = Number(r[6]) || 0;
+    if (r[2] === 'Daily') {
+      const d = fmtDate_(r[3]); if (!inRange(d)) return;
+      if ((metric.indexOf('impression') > -1) || (metric.indexOf('citation') > -1 && metric.indexOf('share') < 0 && metric.indexOf('page') < 0)) {
+        s.daily[d] = (s.daily[d] || 0) + v;
+        if (d > s.latest) s.latest = d;
+      }
+      return;
+    }
+    if (fmtDate_(r[8]) !== exportDate[r[1]]) return; // only the newest export of page / query tables
+    if (r[2] === 'Pages' && (metric.indexOf('impression') > -1 || metric === 'citations')) s.pages[r[4]] = v;
+    if (r[2] === 'Grounding queries') {
+      if (!s.queries[r[4]]) s.queries[r[4]] = { q: r[4], n: 0, share: null };
+      if (metric.indexOf('share') > -1) s.queries[r[4]].share = v; else if (metric.indexOf('citation') > -1) s.queries[r[4]].n = v;
+    }
+  });
+  const toDaily = function (o) { return Object.keys(o).sort().map(function (d) { return { d: d, n: o[d] }; }); };
+  const toTop = function (o, n) { return Object.keys(o).map(function (u) { return { u: u, n: o[u] }; }).sort(function (a, b) { return b.n - a.n; }).slice(0, n); };
+
+  const checks = [];
+  var llmLast = '';
+  values_('llm').forEach(function (r) {
+    if (r[0] !== domain || r[11]) return;
+    const d = fmtDate_(r[1]); if (!inRange(d)) return;
+    if (d > llmLast) llmLast = d;
+    checks.push({ d: d, p: r[2], m: r[3], q: r[4], t: r[5], cited: r[6] === 'Yes', brand: r[7] === 'Yes',
+      urls: String(r[8] || '').split('\n').filter(String), comp: String(r[9] || '').split(',').map(function (s) { return s.trim(); }).filter(String) });
+  });
+  checks.sort(function (a, b) { return a.d < b.d ? 1 : -1; });
+
+  const fetchDaily = {};
+  values_('fetches').forEach(function (r) {
+    if (r[0] !== domain || String(r[3]).indexOf('User fetch') !== 0) return;
+    const d = fmtDate_(r[1]); if (!inRange(d)) return;
+    const k = d + '|' + r[2];
+    if (!fetchDaily[k]) fetchDaily[k] = { d: d, b: r[2], n: 0 };
+    fetchDaily[k].n += Number(r[5]) || 0;
+  });
+
+  const g = src['Google AI (GSC)'], b = src['Bing / Copilot'];
+  const feed = {
+    domain: domain, name: client.name, generatedAt: new Date().toISOString(), since: since,
+    tracking: { ga4: !!client.ga4, llm: client.llm },
+    updated: { ga4: ga4Last, google: g.latest, bing: b.latest, llm: llmLast },
+    monthly: monthlyFor_(domain).filter(function (m) { return m.month >= since.slice(0, 7); }).reverse()
+      .map(function (m) { return { m: m.month, ga4: m.clicks, google: m.gImp, bing: m.bCit, fetch: m.fetch, llm: m.llm, llmYes: m.llmYes }; }),
+    google: { daily: toDaily(g.daily), pages: toTop(g.pages, 15), exported: exportDate['Google AI (GSC)'] },
+    bing: { daily: toDaily(b.daily), pages: toTop(b.pages, 15), queries: Object.keys(b.queries).map(function (q) { return b.queries[q]; }).sort(function (x, y) { return y.n - x.n; }).slice(0, 20), exported: exportDate['Bing / Copilot'] },
+    ga4: { daily: Object.keys(ga4Daily).sort().map(function (k) { return ga4Daily[k]; }), pages: toTop(ga4Pages, 15) },
+    llm: { checks: checks.slice(0, 600) },
+    fetches: { daily: Object.keys(fetchDaily).sort().map(function (k) { return fetchDaily[k]; }) }
+  };
+  try { feed.aio = aioFor_(domain, inRange); } catch (e) { feed.aio = { checks: [] }; }
+  // Raw AI sessions for click-through detail: [date, platform, source, landing page, sessions, engaged, key events].
+  const ga4Rows = [];
+  values_('ga4').forEach(function (r) {
+    if (r[0] !== domain) return;
+    const d = fmtDate_(r[1]); if (!inRange(d)) return;
+    ga4Rows.push([d, String(r[2]), String(r[3]), String(r[4]), Number(r[5]) || 0, Number(r[6]) || 0, Number(r[7]) || 0]);
+  });
+  feed.ga4.rows = ga4Rows.slice(-6000);
+  const chMap = {};
+  values_('channels').forEach(function (r) {
+    if (r[0] !== domain) return;
+    const d = fmtDate_(r[1]); if (!inRange(d)) return;
+    chMap[d + '|' + r[2]] = { d: d, ch: String(r[2]), s: Number(r[3]) || 0, k: Number(r[4]) || 0 };
+  });
+  feed.channels = { daily: Object.keys(chMap).sort().map(function (k) { return chMap[k]; }) };
+  // Google organic visits + key events on the pages Google's AI showed. The closest honest view of
+  // AI Overview / AI Mode click-throughs: Google doesn't separate those clicks from ordinary ones.
+  feed.gorg = googleOrganicFor_(domain, g, inRange);
+  // Key events by name: [date, platform, landing page, event name, count].
+  feed.ga4.events = keyEventsFor_(domain, since);
+  if (months === 12) cachePutBig_(ck, feed, 600);
+  return feed;
+}
+
+/* =======================================================================
+   AI VISITOR JOURNEYS
+   Follows individual AI visitors page by page, using the anonymous IDs Tag
+   Manager adds to GA4 on every client site:
+     edge_vid  one per browser (the visitor)
+     edge_sid  one per visit (30 minutes of inactivity starts a new one)
+     edge_src  where the visit came from: utm_source or the referring site
+
+   GET ?action=journeys&domain=x&key=ADMIN&start=YYYY-MM-DD&end=YYYY-MM-DD
+   Internal only: the admin key is required, client report tokens are refused.
+
+   Two GA4 queries per call:
+     1. which visitor IDs came from an AI assistant (edge_src, or GA4's own
+        session source for visits before edge_src existed)
+     2. everything those visitors did in the range, including later visits
+        that came from elsewhere (Google, direct...), so a ChatGPT visitor who
+        comes back a week later and calls is still one journey.
+   Results are cached for 15 minutes per client and range.
+   ========================================================================== */
+
+const JRN_MAX_VISITORS_ = 300;
+/* Events that say nothing about the path. */
+const JRN_SKIP_EVENTS_ = ['session_start', 'first_visit', 'user_engagement', 'scroll', 'form_start'];
+
+function journeysFor_(domain, start, end) {
+  const c = clients_().filter(function (x) { return x.domain === domain; })[0];
+  if (!c) return { error: 'unknown client' };
+  if (!c.ga4) return { error: 'GA4 is not matched for this client yet' };
+  const iso = /^\d{4}-\d{2}-\d{2}$/;
+  end = iso.test(end || '') ? end : 'today';
+  start = iso.test(start || '') ? start : '30daysAgo';
+  const ck = 'jrn:' + domain + ':' + start + ':' + end;
+  const cache = CacheService.getScriptCache();
+  const hit = cache.get(ck);
+  if (hit) { try { return JSON.parse(hit); } catch (e) {} }
+
+  const prop = 'properties/' + c.ga4;
+  const notSet = function (f) {
+    return { notExpression: { filter: { fieldName: f, inListFilter: { values: ['(not set)', ''] } } } };
+  };
+  const out = { domain: domain, start: start, end: end, visitors: [], notes: [] };
+
+  /* 1. AI visitors */
+  var q1;
+  try {
+    q1 = AnalyticsData.Properties.runReport({
+      dateRanges: [{ startDate: start, endDate: end }],
+      dimensions: [{ name: 'customEvent:edge_vid' }, { name: 'customEvent:edge_src' }, { name: 'sessionSource' }, { name: 'dateHourMinute' }],
+      metrics: [{ name: 'eventCount' }],
+      dimensionFilter: { andGroup: { expressions: [notSet('customEvent:edge_vid'), { orGroup: { expressions: [
+        { filter: { fieldName: 'customEvent:edge_src', stringFilter: { matchType: 'PARTIAL_REGEXP', value: AI_SOURCE_REGEX, caseSensitive: false } } },
+        { filter: { fieldName: 'sessionSource', stringFilter: { matchType: 'PARTIAL_REGEXP', value: AI_SOURCE_REGEX, caseSensitive: false } } }
+      ] } }] } },
+      orderBys: [{ dimension: { dimensionName: 'dateHourMinute' }, desc: true }],
+      limit: 20000,
+      returnPropertyQuota: false
+    }, prop);
+  } catch (e) {
+    /* edge_src may not be registered yet on a property: fall back to session source alone. */
+    try {
+      q1 = AnalyticsData.Properties.runReport({
+        dateRanges: [{ startDate: start, endDate: end }],
+        dimensions: [{ name: 'customEvent:edge_vid' }, { name: 'sessionSource' }, { name: 'dateHourMinute' }],
+        metrics: [{ name: 'eventCount' }],
+        dimensionFilter: { andGroup: { expressions: [notSet('customEvent:edge_vid'),
+          { filter: { fieldName: 'sessionSource', stringFilter: { matchType: 'PARTIAL_REGEXP', value: AI_SOURCE_REGEX, caseSensitive: false } } }] } },
+        orderBys: [{ dimension: { dimensionName: 'dateHourMinute' }, desc: true }],
+        limit: 20000
+      }, prop);
+      (q1.rows || []).forEach(function (r) { r.dimensionValues.splice(1, 0, { value: '' }); });
+      out.notes.push('Visit source (edge_src) is not available on this GA4 property yet.');
+    } catch (e2) {
+      return { error: /edge_vid/.test(e2.message) ? 'The visitor ID dimension is not registered on this GA4 property yet.' : e2.message };
+    }
+  }
+  if (q1.metadata && q1.metadata.subjectToThresholding) out.thresholded = true;
+
+  const aiOf = {};   // vid -> {platform, src}
+  const order = [];
+  (q1.rows || []).forEach(function (r) {
+    const d = r.dimensionValues.map(function (v) { return v.value; });
+    const vid = d[0];
+    if (aiOf[vid]) return;
+    const raw = new RegExp(AI_SOURCE_REGEX, 'i').test(d[1]) ? d[1] : d[2];
+    aiOf[vid] = { platform: platformFor_(raw), src: raw };
+    order.push(vid);
+  });
+  if (order.length > JRN_MAX_VISITORS_) out.notes.push('Showing the ' + JRN_MAX_VISITORS_ + ' most recent AI visitors of ' + order.length + '.');
+  const vids = order.slice(0, JRN_MAX_VISITORS_);
+  if (!vids.length) return store_(cache, ck, out);
+
+  /* 2. their full paths */
+  const steps = {};
+  for (var i = 0; i < vids.length; i += 100) {
+    const chunk = vids.slice(i, i + 100);
+    var q2;
+    const run = function (withSrc) {
+      const dims = [{ name: 'customEvent:edge_vid' }, { name: 'customEvent:edge_sid' }, { name: 'dateHourMinute' },
+        { name: 'pagePath' }, { name: 'eventName' }, { name: 'sessionSource' }];
+      if (withSrc) dims.push({ name: 'customEvent:edge_src' });
+      return AnalyticsData.Properties.runReport({
+        dateRanges: [{ startDate: start, endDate: end }],
+        dimensions: dims,
+        metrics: [{ name: 'eventCount' }, { name: 'keyEvents' }],
+        dimensionFilter: { andGroup: { expressions: [
+          { filter: { fieldName: 'customEvent:edge_vid', inListFilter: { values: chunk } } },
+          { notExpression: { filter: { fieldName: 'eventName', inListFilter: { values: JRN_SKIP_EVENTS_ } } } }
+        ] } },
+        limit: 50000
+      }, prop);
+    };
+    try { q2 = run(true); } catch (e) { q2 = run(false); }
+    if (q2.metadata && q2.metadata.subjectToThresholding) out.thresholded = true;
+    (q2.rows || []).forEach(function (r) {
+      const d = r.dimensionValues.map(function (v) { return v.value; });
+      const m = r.metricValues.map(function (v) { return Number(v.value) || 0; });
+      (steps[d[0]] = steps[d[0]] || []).push({
+        sid: d[1] === '(not set)' ? '' : d[1],
+        t: d[2].slice(0, 4) + '-' + d[2].slice(4, 6) + '-' + d[2].slice(6, 8) + ' ' + d[2].slice(8, 10) + ':' + d[2].slice(10, 12),
+        page: d[3], ev: d[4], ss: d[5], src: d[6] && d[6] !== '(not set)' ? d[6] : '', n: m[0], k: m[1]
+      });
+    });
+  }
+
+  /* Visitor -> visits -> steps. A page step is page_view or edge_page (sites that load GA4
+     themselves send both for one page load; keep one). */
+  vids.forEach(function (vid) {
+    const list = steps[vid] || [];
+    if (!list.length) return;
+    const visits = {};
+    list.forEach(function (s) {
+      const key = s.sid || ('t' + s.t.slice(0, 13));
+      const v = visits[key] = visits[key] || { sid: s.sid, src: '', ss: '', steps: [] };
+      if (s.src && !v.src) v.src = s.src;
+      if (s.ss && s.ss !== '(not set)' && !v.ss) v.ss = s.ss;
+      v.steps.push(s);
+    });
+    const vs = Object.keys(visits).map(function (k) {
+      const v = visits[k];
+      v.steps.sort(function (a, b) {
+        if (a.t !== b.t) return a.t < b.t ? -1 : 1;
+        const pa = isPage_(a.ev) ? 0 : 1, pb = isPage_(b.ev) ? 0 : 1;
+        return pa - pb;
+      });
+      const seq = [];
+      v.steps.forEach(function (s) {
+        const page = isPage_(s.ev);
+        const prev = seq[seq.length - 1];
+        if (page && prev && prev[2] === 'page' && prev[1] === s.page && prev[0] === s.t) return;   // same load sent twice
+        if (page) { for (var r = 0; r < Math.max(1, s.n); r++) seq.push([s.t, s.page, 'page', 0]); }
+        else seq.push([s.t, s.page, s.ev, s.k > 0 ? 1 : 0, s.n]);
+      });
+      const raw = v.src || v.ss || '';
+      return { sid: v.sid, start: seq.length ? seq[0][0] : '', src: raw, platform: new RegExp(AI_SOURCE_REGEX, 'i').test(raw) ? platformFor_(raw) : '',
+        steps: seq.slice(0, 200) };
+    }).filter(function (v) { return v.steps.length; })
+      .sort(function (a, b) { return a.start < b.start ? -1 : 1; });
+    if (!vs.length) return;
+    out.visitors.push({ vid: vid, platform: aiOf[vid].platform, src: aiOf[vid].src, visits: vs });
+  });
+  out.visitors.sort(function (a, b) {
+    const la = a.visits[a.visits.length - 1].start, lb = b.visits[b.visits.length - 1].start;
+    return la < lb ? 1 : -1;
+  });
+  out.generatedAt = new Date().toISOString();
+  return store_(cache, ck, out);
+}
+
+function isPage_(ev) { return ev === 'page_view' || ev === 'edge_page'; }
+
+function store_(cache, ck, out) {
+  try { const s = JSON.stringify(out); if (s.length < 95000) cache.put(ck, s, 900); } catch (e) {}
+  return out;
+}
+
+/* Run from the editor to check one client: logs a short summary. */
+function testJourneys() {
+  const r = journeysFor_('advanceconstructiondemo.ca', '', '');
+  console.log(r.error || (r.visitors.length + ' AI visitors' + (r.thresholded ? ' (thresholded)' : '') + '\n' +
+    r.visitors.slice(0, 5).map(function (v) {
+      return v.platform + ' ' + v.vid + ': ' + v.visits.map(function (x) {
+        return x.start + ' [' + (x.src || '?') + '] ' + x.steps.map(function (s) { return s[2] === 'page' ? s[1] : '→ ' + s[2]; }).join(' › ');
+      }).join(' || ');
+    }).join('\n')));
+}
+
+/* Run from the editor: AI visitors with IDs per client, last 7 days. Read-only. */
+function testJourneysAll() {
+  const out = [];
+  clients_().forEach(function (c) {
+    if (!c.ga4) return;
+    try {
+      const all = AnalyticsData.Properties.runReport({ dateRanges: [{ startDate: '7daysAgo', endDate: 'today' }],
+        dimensions: [{ name: 'customEvent:edge_vid' }], metrics: [{ name: 'eventCount' }], limit: 100000 }, 'properties/' + c.ga4);
+      const ids = (all.rows || []).filter(function (r) { return r.dimensionValues[0].value !== '(not set)'; }).length;
+      const j = journeysFor_(c.domain, '', '');
+      out.push(c.domain + ': ' + ids + ' visitor IDs, ' + (j.error || (j.visitors.length + ' AI visitors' + (j.thresholded ? ' (thresholded)' : ''))));
+    } catch (e) { out.push(c.domain + ': ' + e.message.slice(0, 120)); }
+  });
+  console.log(out.join('\n'));
+}
+
+/* =======================================================================
+   GA4 CONVERSIONS AND TRAFFIC, ALL CHANNELS (for the Team and Client reports)
+
+   GET ?action=ga4report&domain=x&key=ADMIN|t=TOKEN&start=YYYY-MM-DD&end=YYYY-MM-DD
+   {
+     range: {start, end},
+     conv:    [[date, channel, source, eventName, landingPage, count]]   key events only
+     traffic: [[date, channel, sessions, engagedSessions, users, keyEvents]]
+   }
+   channel is GA4's default channel group, except visits from AI assistants,
+   which are labelled "AI: <assistant>" so they can be told apart from
+   Referral / Direct. Aggregated numbers only, so a client token may read it.
+   Cached 30 minutes per client and range.
+   ========================================================================== */
+
+function ga4ReportFor_(domain, start, end) {
+  const c = clients_().filter(function (x) { return x.domain === domain; })[0];
+  if (!c) return { error: 'unknown client' };
+  if (!c.ga4) return { error: 'GA4 is not matched for this client yet' };
+  const iso = /^\d{4}-\d{2}-\d{2}$/;
+  end = iso.test(end || '') ? end : 'yesterday';
+  start = iso.test(start || '') ? start : '30daysAgo';
+  const ck = 'g4r:' + domain + ':' + start + ':' + end;
+  const cache = CacheService.getScriptCache();
+  const hit = cache.get(ck);
+  if (hit) { try { return JSON.parse(hit); } catch (e) {} }
+
+  const prop = 'properties/' + c.ga4;
+  const ai = new RegExp(AI_SOURCE_REGEX, 'i');
+  const chOf = function (channel, source) { return ai.test(source) ? 'AI: ' + platformFor_(source) : channel; };
+  const day = function (d) { return d.slice(0, 4) + '-' + d.slice(4, 6) + '-' + d.slice(6, 8); };
+  const page = function (fn, base) {
+    const out = [];
+    var offset = 0;
+    while (true) {
+      const req = Object.assign({}, base, { limit: 25000, offset: offset });
+      const res = AnalyticsData.Properties.runReport(req, prop);
+      (res.rows || []).forEach(function (r) { fn(r.dimensionValues.map(function (v) { return v.value; }), r.metricValues.map(function (v) { return Number(v.value) || 0; }), out); });
+      offset += (res.rows || []).length;
+      if (!(res.rows || []).length || offset >= (res.rowCount || 0) || offset >= 100000) break;
+    }
+    return out;
+  };
+
+  const conv = page(function (d, m, out) {
+    if (m[0] > 0) out.push([day(d[0]), chOf(d[1], d[2]), d[2], d[3], d[4] || '(not set)', Math.round(m[0])]);
+  }, {
+    dateRanges: [{ startDate: start, endDate: end }],
+    dimensions: [{ name: 'date' }, { name: 'sessionDefaultChannelGroup' }, { name: 'sessionSource' }, { name: 'eventName' }, { name: 'landingPage' }],
+    metrics: [{ name: 'keyEvents' }],
+    metricFilter: { filter: { fieldName: 'keyEvents', numericFilter: { operation: 'GREATER_THAN', value: { int64Value: '0' } } } }
+  });
+
+  /* Traffic by channel: summed per day after relabelling AI sources. */
+  const tmap = {};
+  page(function (d, m) {
+    const k = day(d[0]) + '|' + chOf(d[1], d[2]);
+    const o = tmap[k] = tmap[k] || [0, 0, 0, 0];
+    for (var i = 0; i < 4; i++) o[i] += m[i];
+  }, {
+    dateRanges: [{ startDate: start, endDate: end }],
+    dimensions: [{ name: 'date' }, { name: 'sessionDefaultChannelGroup' }, { name: 'sessionSource' }],
+    metrics: [{ name: 'sessions' }, { name: 'engagedSessions' }, { name: 'totalUsers' }, { name: 'keyEvents' }]
+  });
+  const traffic = Object.keys(tmap).map(function (k) {
+    const p = k.split('|'), o = tmap[k];
+    return [p[0], p[1], Math.round(o[0]), Math.round(o[1]), Math.round(o[2]), Math.round(o[3])];
+  }).sort(function (a, b) { return a[0] < b[0] ? -1 : 1; });
+
+  const out = { domain: domain, range: { start: start, end: end }, conv: conv, traffic: traffic, generatedAt: new Date().toISOString() };
+  try { const s = JSON.stringify(out); if (s.length < 95000) cache.put(ck, s, 1800); } catch (e) {}
+  return out;
+}
+
+function testGa4Report() {
+  const r = ga4ReportFor_('edgemarketing.ca', '', '');
+  if (r.error) { console.log(r.error); return; }
+  const by = {};
+  r.conv.forEach(function (x) { by[x[1]] = (by[x[1]] || 0) + x[5]; });
+  console.log(r.conv.length + ' conversion rows, ' + r.traffic.length + ' traffic rows. Key events by channel: ' + JSON.stringify(by) +
+    ' | size ' + JSON.stringify(r).length);
+}
+
+
+/* A client report shows at most the last 12 months, compared with the 12 months
+   before them. A token can ask for nothing wider or older than that. */
+function tokenRangeOk_(p) {
+  if (!p.start && !p.end) return true;
+  const re = /^\d{4}-\d{2}-\d{2}$/;
+  if (!re.test(p.start || '') || !re.test(p.end || '')) return false;
+  const DAY = 86400000, now = Date.now();
+  const s = Date.parse(p.start + 'T12:00:00Z'), e = Date.parse(p.end + 'T12:00:00Z');
+  if (!(s <= e)) return false;
+  if (e > now + DAY) return false;
+  if ((e - s) / DAY > 740) return false;
+  if ((now - s) / DAY > 800) return false;
+  return true;
+}
+
+/* At most 60 requests per token every 10 minutes: plenty for people viewing a
+   report, too few to drain the GA4 quota. */
+function tokenRateOk_(t) {
+  const c = CacheService.getScriptCache(), k = 'rl_' + String(t).slice(0, 64);
+  const n = Number(c.get(k) || 0);
+  if (n >= 60) return false;
+  c.put(k, String(n + 1), 600);
+  return true;
+}
+
+/* ==========================================================================
+   PAGE PERFORMANCE (the "Page performance" report widget)
+
+   GET ?action=pages&domain=x&key=ADMIN|t=TOKEN&start=YYYY-MM-DD&end=YYYY-MM-DD&split=YYYY-MM-DD
+     start..split-1 is the previous period, split..end the current one
+     (one request covers both, the same range ga4report reads).
+   {
+     range: {start, split, end},
+     cols:  ['views', 'users', 'sessions', 'engaged', 'keyEvents', 'entryKeyEvents', 'engSec'],
+     pages: [[path, title, cur[7], prev[7]]]    GA4, one row per page path
+     sitemap: [path, ...]                        every page in the site's XML sitemap(s)
+     sitemapFrom: 'https://…/sitemap.xml' | ''
+   }
+     views, users, keyEvents, engSec   events on the page itself (pagePath)
+     sessions, engaged, entryKeyEvents sessions that started on the page (landingPage)
+
+   GET …&path=/some-page/   one page, day by day for the current period:
+   { path, series: [[date, views, users, sessions, keyEvents]] }
+
+   Aggregated numbers only, so a client report token may read it.
+   GA4 results cached 30 minutes, the sitemap 6 hours.
+   ========================================================================== */
+
+const PG_MAX_ = 2000;
+
+function pagesFor_(domain, start, end, split, path) {
+  const c = clients_().filter(function (x) { return x.domain === domain; })[0];
+  if (!c) return { error: 'unknown client' };
+  if (!c.ga4) return { error: 'GA4 is not matched for this client yet' };
+  const iso = /^\d{4}-\d{2}-\d{2}$/;
+  if (!iso.test(end || '')) end = Utilities.formatDate(new Date(Date.now() - 86400000), 'UTC', 'yyyy-MM-dd');
+  if (!iso.test(split || '')) split = Utilities.formatDate(new Date(Date.parse(end + 'T12:00:00Z') - 29 * 86400000), 'UTC', 'yyyy-MM-dd');
+  if (!iso.test(start || '') || start >= split) start = Utilities.formatDate(new Date(Date.parse(split + 'T12:00:00Z') - 30 * 86400000), 'UTC', 'yyyy-MM-dd');
+  if (split > end) split = end;
+  const prevEnd = Utilities.formatDate(new Date(Date.parse(split + 'T12:00:00Z') - 86400000), 'UTC', 'yyyy-MM-dd');
+  const prop = 'properties/' + c.ga4;
+  const day = function (d) { return d.slice(0, 4) + '-' + d.slice(4, 6) + '-' + d.slice(6, 8); };
+  const run = function (req, max) {
+    const rows = [];
+    var offset = 0;
+    while (true) {
+      const res = AnalyticsData.Properties.runReport(Object.assign({}, req, { limit: 10000, offset: offset }), prop);
+      (res.rows || []).forEach(function (r) { rows.push([r.dimensionValues.map(function (v) { return v.value; }), r.metricValues.map(function (v) { return Number(v.value) || 0; })]); });
+      offset += (res.rows || []).length;
+      if (!(res.rows || []).length || offset >= (res.rowCount || 0) || offset >= (max || 50000)) break;
+    }
+    return rows;
+  };
+
+  /* One page, day by day. */
+  if (path) {
+    path = String(path).slice(0, 500);
+    const pk = pgKey_(path);
+    const sk = 'pgs2:' + domain + ':' + split + ':' + end + ':' + Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, pk));
+    const sh = CacheService.getScriptCache().get(sk);
+    if (sh) { try { return JSON.parse(sh); } catch (e) {} }
+    const variants = pgVariants_(pk);
+    const byDay = {};
+    const slot = function (d) { return byDay[d] = byDay[d] || [d, 0, 0, 0, 0]; };
+    run({ dateRanges: [{ startDate: split, endDate: end }], dimensions: [{ name: 'date' }, { name: 'pagePath' }],
+      metrics: [{ name: 'screenPageViews' }, { name: 'totalUsers' }, { name: 'keyEvents' }],
+      dimensionFilter: { filter: { fieldName: 'pagePath', inListFilter: { values: variants, caseSensitive: false } } } }, 5000)
+      .forEach(function (r) { const o = slot(day(r[0][0])); o[1] += r[1][0]; o[2] += r[1][1]; o[4] += r[1][2]; });
+    run({ dateRanges: [{ startDate: split, endDate: end }], dimensions: [{ name: 'date' }, { name: 'landingPage' }],
+      metrics: [{ name: 'sessions' }],
+      dimensionFilter: { filter: { fieldName: 'landingPage', inListFilter: { values: variants, caseSensitive: false } } } }, 5000)
+      .forEach(function (r) { slot(day(r[0][0]))[3] += r[1][0]; });
+    const series = Object.keys(byDay).sort().map(function (k) { return byDay[k].map(function (v, i) { return i ? Math.round(v) : v; }); });
+    /* Every event on the page, key events marked, so the widget can say what they were. */
+    const events = run({ dateRanges: [{ startDate: split, endDate: end }], dimensions: [{ name: 'eventName' }],
+      metrics: [{ name: 'eventCount' }, { name: 'keyEvents' }],
+      dimensionFilter: { filter: { fieldName: 'pagePath', inListFilter: { values: variants, caseSensitive: false } } },
+      orderBys: [{ metric: { metricName: 'eventCount' }, desc: true }] }, 200)
+      .map(function (r) { return [r[0][0], Math.round(r[1][0]), Math.round(r[1][1])]; });
+    const one = { path: pk, range: { split: split, end: end }, series: series, events: events };
+    try { CacheService.getScriptCache().put(sk, JSON.stringify(one), 1800); } catch (e) {}
+    return one;
+  }
+
+  const ck = 'pg:' + domain + ':' + start + ':' + split + ':' + end;
+  const hit = cacheGetBig_(ck);
+  if (hit) return hit;
+
+  const ranges = [{ startDate: split, endDate: end, name: 'cur' }, { startDate: start, endDate: prevEnd, name: 'prev' }];
+  const m = {};
+  const row = function (k) { return m[k] = m[k] || { title: '', cur: [0, 0, 0, 0, 0, 0, 0], prev: [0, 0, 0, 0, 0, 0, 0] }; };
+  /* What happened on each page. */
+  run({ dateRanges: ranges, dimensions: [{ name: 'pagePath' }, { name: 'pageTitle' }],
+    metrics: [{ name: 'screenPageViews' }, { name: 'totalUsers' }, { name: 'keyEvents' }, { name: 'userEngagementDuration' }],
+    orderBys: [{ metric: { metricName: 'screenPageViews' }, desc: true }] }, 30000)
+    .forEach(function (r) {
+      const o = row(pgKey_(r[0][0])), b = r[0][2] === 'prev' ? o.prev : o.cur;
+      if (!o.title && r[0][1] && r[0][1] !== '(not set)') o.title = r[0][1].slice(0, 140);
+      b[0] += r[1][0]; b[1] += r[1][1]; b[4] += r[1][2]; b[6] += r[1][3];
+    });
+  /* Sessions that started on each page. */
+  run({ dateRanges: ranges, dimensions: [{ name: 'landingPage' }],
+    metrics: [{ name: 'sessions' }, { name: 'engagedSessions' }, { name: 'keyEvents' }],
+    orderBys: [{ metric: { metricName: 'sessions' }, desc: true }] }, 30000)
+    .forEach(function (r) {
+      if (!r[0][0] || r[0][0] === '(not set)') return;
+      const o = row(pgKey_(r[0][0])), b = r[0][1] === 'prev' ? o.prev : o.cur;
+      b[2] += r[1][0]; b[3] += r[1][1]; b[5] += r[1][2];
+    });
+  const pages = Object.keys(m).map(function (k) {
+    const o = m[k], r = function (a) { return a.map(function (v) { return Math.round(v); }); };
+    return [k, o.title, r(o.cur), r(o.prev)];
+  }).sort(function (a, b) { return (b[2][0] + b[2][2]) - (a[2][0] + a[2][2]); }).slice(0, PG_MAX_);
+
+  const sm = sitemapFor_(domain);
+  const out = { domain: domain, range: { start: start, split: split, end: end },
+    cols: ['views', 'users', 'sessions', 'engaged', 'keyEvents', 'entryKeyEvents', 'engSec'],
+    pages: pages, sitemap: sm.paths, sitemapFrom: sm.from, generatedAt: new Date().toISOString() };
+  cachePutBig_(ck, out, 1800);
+  return out;
+}
+
+/* A page path as one key: no query string or #fragment, no trailing slash (except the home page), lower-case. */
+function pgKey_(p) {
+  var s = String(p || '').trim();
+  s = s.replace(/^https?:\/\/[^\/]+/i, '').split('#')[0].split('?')[0];
+  if (!s || s.charAt(0) !== '/') s = '/' + s;
+  try { s = decodeURI(s); } catch (e) {}
+  s = s.toLowerCase().replace(/\/{2,}/g, '/');
+  if (s.length > 1) s = s.replace(/\/+$/, '');
+  return s || '/';
+}
+/* The ways GA4 may have stored one path (with and without the trailing slash). */
+function pgVariants_(k) {
+  if (k === '/') return ['/', '/index.html', '/index.php'];
+  return [k, k + '/', k + '/index.html'];
+}
+
+/* Every page URL in the site's sitemap(s), as path keys. Follows sitemap
+   indexes (WordPress, Yoast, Rank Math, Squarespace, Wix…) and the
+   Sitemap: lines in robots.txt. Media and attachment sitemaps are skipped. */
+function sitemapFor_(domain) {
+  const ck = 'sm:' + domain;
+  const hit = cacheGetBig_(ck);
+  if (hit) return hit;
+  const host = String(domain).replace(/^www\./, '');
+  const fetch = function (url) {
+    try {
+      const r = UrlFetchApp.fetch(url, { muteHttpExceptions: true, followRedirects: true, validateHttpsCertificates: true,
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; EDGE-SEO-Reporter/1.0)' } });
+      if (r.getResponseCode() !== 200) return '';
+      return r.getContentText().slice(0, 5000000);
+    } catch (e) { return ''; }
+  };
+  const sameSite = function (u) { const m = /^https?:\/\/([^\/:]+)/i.exec(u); return !!m && m[1].toLowerCase().replace(/^www\./, '') === host; };
+  const locs = function (xml) {
+    const out = [], re = /<loc>\s*(?:<!\[CDATA\[)?\s*([^<\]\s]+)\s*(?:\]\]>)?\s*<\/loc>/gi;
+    var x;
+    while ((x = re.exec(xml))) out.push(x[1].replace(/&amp;/g, '&'));
+    return out;
+  };
+  const skip = /(image|video|attachment|media|author|tag|category_?tag|post_tag|format)[-_]?sitemap|sitemap[-_]?(image|video|news|author|tag)/i;
+
+  var queue = [], from = '';
+  ['https://' + domain, 'https://www.' + host, 'https://' + host].filter(function (v, i, a) { return a.indexOf(v) === i; }).some(function (base) {
+    const robots = fetch(base + '/robots.txt');
+    const listed = (robots.match(/^\s*sitemap:\s*(\S+)/gim) || []).map(function (l) { return l.replace(/^\s*sitemap:\s*/i, '').trim(); }).filter(sameSite);
+    queue = listed.length ? listed : [base + '/sitemap.xml', base + '/sitemap_index.xml', base + '/wp-sitemap.xml', base + '/sitemap-index.xml'];
+    return listed.length > 0;
+  });
+
+  const seen = {}, pages = {};
+  var fetched = 0;
+  while (queue.length && fetched < 25 && Object.keys(pages).length < 5000) {
+    const u = queue.shift();
+    if (seen[u]) continue;
+    seen[u] = 1;
+    const xml = fetch(u);
+    fetched++;
+    if (!xml || !/<(urlset|sitemapindex)/i.test(xml)) continue;
+    if (!from) from = u;
+    if (/<sitemapindex/i.test(xml)) {
+      locs(xml).filter(sameSite).forEach(function (s) { if (!skip.test(s) && !seen[s]) queue.push(s); });
+    } else {
+      locs(xml).filter(sameSite).forEach(function (p) {
+        if (/\.(jpe?g|png|gif|webp|svg|pdf|mp4|zip|docx?|xlsx?)$/i.test(p)) return;
+        pages[pgKey_(p)] = 1;
+      });
+    }
+  }
+  const out = { paths: Object.keys(pages).sort().slice(0, 5000), from: from, at: new Date().toISOString() };
+  cachePutBig_(ck, out, 21600);
+  return out;
+}
+
+function testPages() {
+  const c = clients_().filter(function (x) { return x.ga4; })[0];
+  const r = pagesFor_(c.domain, '', '', '', '');
+  if (r.error) { console.log(r.error); return; }
+  console.log(c.domain + ': ' + r.pages.length + ' pages, ' + r.sitemap.length + ' in sitemap (' + r.sitemapFrom + '). Top: ' + JSON.stringify(r.pages.slice(0, 3)) +
+    ' | size ' + JSON.stringify(r).length);
+  if (r.pages[0]) console.log(JSON.stringify(pagesFor_(c.domain, '', '', '', r.pages[0][0]).series.slice(0, 5)));
+}
+/* ==========================================================================
+   PATHWAY STRUCTURE (the "Pathways" report widget and the Pathway button
+   on Page performance)
+
+   GET ?action=pathway&domain=x&key=ADMIN|t=TOKEN&start=YYYY-MM-DD&end=YYYY-MM-DD[&channel=organic|paid|direct|referral|other]
+   {
+     range: {start, end}, channel,
+     channels: {all, organic, paid, direct, referral, other}   sessions per traffic type (always all traffic)
+     total, reached                    sessions, and sessions that reached a key event
+     landings: [[page, sessions, reached, keyEvents]]          every page sessions started on
+     steps:    [[landing, from, to, views]]  page-to-page moves inside sessions that started on landing
+     moves:    [[from, to, views]]           the same moves for every session (whatever page it started on)
+     views:    [[page, views]]               page views per page
+     keys:     [[page, event, count]]        key events and where they fired
+     keyLand:  [[landing, event, sessions, count]]  key events reached by sessions that started on landing
+   }
+   A "move" is a page view whose referrer is another page of the same site,
+   so the step after a starting page is counted exactly; deeper steps are
+   estimated from the moves out of each page (GA4's API has no path report).
+   Aggregated numbers only, so a client report token may read it.
+   Every page and move is kept (no top-N cut), so every page visited is in the chart.
+   Cached 30 minutes per client, range and traffic type.
+   ========================================================================== */
+
+const PW_CHANNELS_ = {
+  organic: ['Organic Search', 'Organic Social', 'Organic Video', 'Organic Shopping'],
+  paid: ['Paid Search', 'Paid Social', 'Paid Shopping', 'Paid Video', 'Paid Other', 'Display', 'Cross-network'],
+  direct: ['Direct'],
+  referral: ['Referral']
+};
+
+function pathwayFor_(domain, start, end, channel) {
+  const c = clients_().filter(function (x) { return x.domain === domain; })[0];
+  if (!c) return { error: 'unknown client' };
+  if (!c.ga4) return { error: 'GA4 is not matched for this client yet' };
+  const iso = /^\d{4}-\d{2}-\d{2}$/;
+  end = iso.test(end || '') ? end : 'yesterday';
+  start = iso.test(start || '') ? start : '30daysAgo';
+  channel = PW_CHANNELS_[channel] || channel === 'other' ? channel : 'all';
+  const ck = 'pw4:' + domain + ':' + start + ':' + end + ':' + channel;
+  const hit = cacheGetBig_(ck);
+  if (hit) return hit;
+
+  const prop = 'properties/' + c.ga4;
+  const host = String(domain).replace(/^www\./, '').toLowerCase();
+  const range = [{ startDate: start, endDate: end }];
+  var all = [];
+  Object.keys(PW_CHANNELS_).forEach(function (k) { all = all.concat(PW_CHANNELS_[k]); });
+  const chFilter = channel === 'all' ? null : channel === 'other'
+    ? { notExpression: { filter: { fieldName: 'sessionDefaultChannelGroup', inListFilter: { values: all } } } }
+    : { filter: { fieldName: 'sessionDefaultChannelGroup', inListFilter: { values: PW_CHANNELS_[channel] } } };
+  const withCh = function (f) {
+    if (!chFilter) return f || undefined;
+    if (!f) return chFilter;
+    return { andGroup: { expressions: [chFilter, f] } };
+  };
+  const run = function (req, max) {
+    const rows = [];
+    var offset = 0, thresholded = false;
+    while (true) {
+      const res = AnalyticsData.Properties.runReport(Object.assign({}, req, { limit: 10000, offset: offset }), prop);
+      if (res.metadata && res.metadata.subjectToThresholding) thresholded = true;
+      (res.rows || []).forEach(function (r) { rows.push([r.dimensionValues.map(function (v) { return v.value; }), r.metricValues.map(function (v) { return Number(v.value) || 0; })]); });
+      offset += (res.rows || []).length;
+      if (!(res.rows || []).length || offset >= (res.rowCount || 0) || offset >= (max || 30000)) break;
+    }
+    rows.thresholded = thresholded;
+    return rows;
+  };
+  /* A referrer on this site, as a page key; '' for an outside referrer or none. */
+  const refKey = function (u) {
+    const m = /^https?:\/\/([^\/?#:]+)/i.exec(String(u || ''));
+    if (!m || m[1].toLowerCase().replace(/^www\./, '') !== host) return '';
+    return pgKey_(u);
+  };
+  const out = { domain: domain, range: { start: start, end: end }, channel: channel, notes: [] };
+
+  /* Sessions per traffic type, always for all traffic so the switches can show their counts. */
+  const chs = { all: 0, organic: 0, paid: 0, direct: 0, referral: 0, other: 0 };
+  run({ dateRanges: range, dimensions: [{ name: 'sessionDefaultChannelGroup' }], metrics: [{ name: 'sessions' }] }, 200).forEach(function (r) {
+    const g = r[0][0], n = r[1][0];
+    chs.all += n;
+    var b = 'other';
+    Object.keys(PW_CHANNELS_).forEach(function (k) { if (PW_CHANNELS_[k].indexOf(g) > -1) b = k; });
+    chs[b] += n;
+  });
+  out.channels = chs;
+
+  /* 1. Starting pages, with the sessions that reached a key event. */
+  const land = {};
+  run({ dateRanges: range, dimensions: [{ name: 'landingPage' }], metrics: [{ name: 'sessions' }, { name: 'sessionKeyEventRate' }, { name: 'keyEvents' }],
+    dimensionFilter: withCh(null), orderBys: [{ metric: { metricName: 'sessions' }, desc: true }] }, 5000).forEach(function (r) {
+    if (!r[0][0] || r[0][0] === '(not set)') return;
+    const k = pgKey_(r[0][0]), o = land[k] = land[k] || [k, 0, 0, 0];
+    o[1] += r[1][0]; o[2] += r[1][0] * r[1][1]; o[3] += r[1][2];
+  });
+  const landings = Object.keys(land).map(function (k) { const o = land[k]; return [o[0], Math.round(o[1]), Math.round(o[2]), Math.round(o[3])]; })
+    .sort(function (a, b) { return b[1] - a[1]; });
+  out.total = landings.reduce(function (t, r) { return t + r[1]; }, 0);
+  out.reached = landings.reduce(function (t, r) { return t + r[2]; }, 0);
+  out.landings = landings.slice(0, 1500);
+  const top = {};
+  out.landings.forEach(function (r) { top[r[0]] = 1; });
+
+  /* 2. Page-to-page moves, inside each starting page's sessions. */
+  const st = {}, mv = {}, vw = {};
+  const q2 = run({ dateRanges: range, dimensions: [{ name: 'landingPage' }, { name: 'pageReferrer' }, { name: 'pagePath' }], metrics: [{ name: 'screenPageViews' }],
+    dimensionFilter: withCh(null), orderBys: [{ metric: { metricName: 'screenPageViews' }, desc: true }] }, 200000);
+  if (q2.thresholded) out.thresholded = true;
+  q2.forEach(function (r) {
+    const n = r[1][0];
+    if (!n) return;
+    const to = pgKey_(r[0][2]), from = refKey(r[0][1]), l = r[0][0] && r[0][0] !== '(not set)' ? pgKey_(r[0][0]) : '';
+    vw[to] = (vw[to] || 0) + n;
+    if (!from || from === to) return;
+    const mk = from + '\u0001' + to;
+    mv[mk] = (mv[mk] || 0) + n;
+    if (l && top[l]) { const sk = l + '\u0001' + mk; st[sk] = (st[sk] || 0) + n; }
+  });
+  out.steps = Object.keys(st).map(function (k) { const p = k.split('\u0001'); return [p[0], p[1], p[2], st[k]]; })
+    .sort(function (a, b) { return b[3] - a[3]; }).slice(0, 60000);
+  out.moves = Object.keys(mv).map(function (k) { const p = k.split('\u0001'); return [p[0], p[1], mv[k]]; })
+    .sort(function (a, b) { return b[2] - a[2]; }).slice(0, 60000);
+  out.views = Object.keys(vw).map(function (k) { return [k, vw[k]]; }).sort(function (a, b) { return b[1] - a[1]; }).slice(0, 20000);
+
+  /* 3. Key events: where they fired, and which starting pages' sessions reached them. */
+  const kf = { filter: { fieldName: 'keyEvents', numericFilter: { operation: 'GREATER_THAN', value: { int64Value: '0' } } } };
+  const kp = {};
+  run({ dateRanges: range, dimensions: [{ name: 'pagePath' }, { name: 'eventName' }], metrics: [{ name: 'keyEvents' }],
+    dimensionFilter: withCh(null), metricFilter: kf }, 50000).forEach(function (r) {
+    const k = pgKey_(r[0][0]) + '\u0001' + r[0][1];
+    kp[k] = (kp[k] || 0) + r[1][0];
+  });
+  out.keys = Object.keys(kp).map(function (k) { const p = k.split('\u0001'); return [p[0], p[1], Math.round(kp[k])]; })
+    .sort(function (a, b) { return b[2] - a[2]; }).slice(0, 20000);
+  const kl = {};
+  run({ dateRanges: range, dimensions: [{ name: 'landingPage' }, { name: 'eventName' }], metrics: [{ name: 'sessions' }, { name: 'keyEvents' }],
+    dimensionFilter: withCh(null), metricFilter: kf }, 50000).forEach(function (r) {
+    if (!r[0][0] || r[0][0] === '(not set)') return;
+    const k = pgKey_(r[0][0]) + '\u0001' + r[0][1], o = kl[k] = kl[k] || [0, 0];
+    o[0] += r[1][0]; o[1] += r[1][1];
+  });
+  out.keyLand = Object.keys(kl).map(function (k) { const p = k.split('\u0001'); return [p[0], p[1], Math.round(kl[k][0]), Math.round(kl[k][1])]; })
+    .sort(function (a, b) { return b[2] - a[2]; }).slice(0, 20000);
+
+  /* 4. Real key events only, counted as distinct sessions.
+     Many GA4 setups mark page visits as key events (home_page, about_page, featured_projects_page…).
+     Counted as conversions they make almost every session "convert", so they are found and left out:
+     by name, and by behaviour (an event that fires on about every view of one page is a page view).
+     Then GA4 is asked for sessions with at least one real key event, which never counts a session twice. */
+  const markers = pwMarkers_(out.keys, vw);
+  out.markers = markers;
+  const real = unique_(out.keys.map(function (r) { return r[1]; })).filter(function (e) { return markers.indexOf(e) < 0; });
+  out.realKeys = real;
+  out.reachedReal = 0;
+  out.stepKeys = [];
+  if (real.length) {
+    const ef = { filter: { fieldName: 'eventName', inListFilter: { values: real } } };
+    const lr = {};
+    run({ dateRanges: range, dimensions: [{ name: 'landingPage' }], metrics: [{ name: 'sessions' }], dimensionFilter: withCh(ef) }, 5000).forEach(function (r) {
+      if (!r[0][0] || r[0][0] === '(not set)') return;
+      const k = pgKey_(r[0][0]); lr[k] = (lr[k] || 0) + r[1][0];
+    });
+    out.landings.forEach(function (r) { r[4] = Math.min(r[1], Math.round(lr[r[0]] || 0)); });
+    out.reachedReal = out.landings.reduce(function (t, r) { return t + r[4]; }, 0);
+    /* The page after a starting page: sessions that started there and fired a real key event on that page, and which ones. */
+    const sk = {};
+    run({ dateRanges: range, dimensions: [{ name: 'landingPage' }, { name: 'pagePath' }, { name: 'eventName' }], metrics: [{ name: 'sessions' }, { name: 'keyEvents' }],
+      dimensionFilter: withCh(ef) }, 50000).forEach(function (r) {
+      if (!r[0][0] || r[0][0] === '(not set)') return;
+      const k = pgKey_(r[0][0]) + '\u0001' + pgKey_(r[0][1]) + '\u0001' + r[0][2], o = sk[k] = sk[k] || [0, 0];
+      o[0] += r[1][0]; o[1] += r[1][1];
+    });
+    const ss = {};
+    run({ dateRanges: range, dimensions: [{ name: 'landingPage' }, { name: 'pagePath' }], metrics: [{ name: 'sessions' }], dimensionFilter: withCh(ef) }, 50000).forEach(function (r) {
+      if (!r[0][0] || r[0][0] === '(not set)') return;
+      const k = pgKey_(r[0][0]) + '\u0001' + pgKey_(r[0][1]); ss[k] = (ss[k] || 0) + r[1][0];
+    });
+    /* [landing, page, sessions with a real key event on that page, [[event, sessions, times]]] */
+    const byLp = {};
+    Object.keys(sk).forEach(function (k) { const p = k.split('\u0001'), lp = p[0] + '\u0001' + p[1]; (byLp[lp] = byLp[lp] || []).push([p[2], Math.round(sk[k][0]), Math.round(sk[k][1])]); });
+    out.stepKeys = Object.keys(byLp).map(function (lp) { const p = lp.split('\u0001'); return [p[0], p[1], Math.round(ss[lp] || 0), byLp[lp].sort(function (a, b) { return b[1] - a[1]; })]; })
+      .sort(function (a, b) { return b[2] - a[2]; }).slice(0, 20000);
+  } else out.landings.forEach(function (r) { r[4] = 0; });
+
+  out.generatedAt = new Date().toISOString();
+  cachePutBig_(ck, out, 1800);
+  return out;
+}
+
+/* Key events that only record a page being seen. keys: [[page, event, count]], views: {page: views}.
+   In order: a name saying something was done (thank-you, confirmation, form completed...) is a result;
+   a page-visit name (*_page_visit, *_page...) is a page visit; an action name (clicks, submit, lead,
+   call, purchase...) is a result. Anything else is decided by the data: an event named after the page
+   it fires on, or firing on about every view of its pages, is a page visit. */
+const PW_DONE_ = /(^|_)(thank|thanks|thankyou|confirmation|confirmed|complete|completed|sent|submitted|received)(_|$)/i;
+const PW_MARKER_ = /(^|_)(page_?visit|page_?view|pageview|visit_page|scroll|session_start|first_visit|user_engagement)$|_page$|^page_|_visit$|^view_|_view$/i;
+const PW_ACTION_ = /(^|_)(booked|purchase|purchased|success|order|ordered|click|clicks|tap|taps|submit|submission|lead|leads|call|calls|download|downloads|signup|sign_up|register|registration|cta|form|chat|checkout|add_to_cart|apply|application|subscribe|newsletter)(_|$)/i;
+function pwWords_(s) {
+  return String(s).toLowerCase().replace(/(_|^)(page_?visit|page_?view|page|visit|view)(_|$)/g, ' ').replace(/[^a-z0-9]+/g, ' ').trim();
+}
+function pwMarkers_(keys, views) {
+  const ev = {};
+  keys.forEach(function (r) { const o = ev[r[1]] = ev[r[1]] || { n: 0, pages: {} }; o.n += r[2]; o.pages[r[0]] = (o.pages[r[0]] || 0) + r[2]; });
+  return Object.keys(ev).filter(function (e) {
+    if (PW_DONE_.test(e)) return false;
+    if (PW_MARKER_.test(e)) return true;
+    if (PW_ACTION_.test(e)) return false;
+    const o = ev[e], ps = Object.keys(o.pages).sort(function (a, b) { return o.pages[b] - o.pages[a]; }), top = ps[0];
+    const sumV = ps.reduce(function (t, p) { return t + (views[p] || 0); }, 0), topV = views[top] || 0;
+    if (/^(home|homepage|home_page|index|main)$/i.test(e) && ps.indexOf('/') > -1) return true;
+    const w = pwWords_(e), segs = top.split('/').filter(Boolean).map(pwWords_).filter(function (x) { return x.length >= 3; });
+    if (w.length >= 3 && segs.some(function (x) { return x.indexOf(w) > -1 || w.indexOf(x) > -1; }) && o.pages[top] >= 0.5 * topV) return true;
+    return sumV >= 5 && o.n >= 0.6 * sumV;
+  });
+}
+
+function testPathway() {
+  const c = clients_().filter(function (x) { return x.ga4; })[0];
+  const r = pathwayFor_(c.domain, '', '', 'all');
+  if (r.error) { console.log(r.error); return; }
+  console.log(c.domain + ': ' + r.total + ' sessions, ' + r.reached + ' reached a key event; ' + r.landings.length + ' starting pages, ' +
+    r.steps.length + ' steps, ' + r.moves.length + ' moves, ' + r.keys.length + ' key event rows. Channels ' + JSON.stringify(r.channels) +
+    '. Top: ' + JSON.stringify(r.landings.slice(0, 3)) + ' first steps: ' + JSON.stringify(r.steps.slice(0, 4)) + ' | size ' + JSON.stringify(r).length);
+}
+
+/* ==========================================================================
+   FORM SUBMISSIONS (the "Form submissions" report widget)
+
+   Website forms reach the tracker three ways:
+   1. Live: a small script in each Concrete site's tracking codes posts every
+      successful submission here (action 'form'). No key is needed, so each
+      post is checked: the site must be a client, a few per hour at most,
+      and sizes are capped.
+   2. Old submissions: exported once from the site's dashboard and posted
+      with a short-lived import key (action 'formsImport').
+
+   3. Easyleads (GoHighLevel) forms: read from GoHighLevel's API (easyleads.gs),
+      origin 'easyleads'.
+
+   Everything lands on the "Form Submissions" tab, one row per submission.
+
+   GET action=forms, domain, key|t, start, end[, src=site|easyleads|all]
+   { rows: [{t, form, page, channel, sm, campaign, land, origin,
+             (team key only:) name, email, phone, company, message, fields, ref, id}],
+     first }   first = the oldest submission on file for the client
+   Names, emails, phones and messages are only returned with the team key,
+   never to a client report token.
+   ========================================================================== */
+
+const FS_TAB_ = 'Form Submissions';
+const FS_HEAD_ = ['Domain', 'Received', 'Form', 'Page', 'Name', 'Email', 'Phone', 'Company', 'Message', 'Fields',
+  'Channel', 'Source / medium', 'Campaign', 'Landing page', 'Referrer', 'Origin', 'Key'];
+const FS_PER_HOUR_ = 30;
+
+function fsSheet_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sh = ss.getSheetByName(FS_TAB_);
+  if (!sh) {
+    sh = ss.insertSheet(FS_TAB_);
+    sh.getRange(1, 1, 1, FS_HEAD_.length).setValues([FS_HEAD_]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+function fsValues_() {
+  const sh = fsSheet_();
+  return sh.getLastRow() < 2 ? [] : sh.getRange(2, 1, sh.getLastRow() - 1, FS_HEAD_.length).getValues();
+}
+
+function fsPick_(f, re) {
+  for (var k in f) if (re.test(k) && String(f[k]).trim()) return String(f[k]).trim();
+  return '';
+}
+/* Name, email, phone, company and message, whatever each form calls them. */
+function fsNorm_(f) {
+  const first = fsPick_(f, /^first\s*name/i), last = fsPick_(f, /^last\s*name/i);
+  return {
+    name: fsPick_(f, /^(full\s*)?name$|your name|contact name|^name\b/i) || [first, last].filter(String).join(' '),
+    email: fsPick_(f, /e-?mail/i),
+    phone: fsPick_(f, /phone|^tel|mobile|cell/i),
+    company: fsPick_(f, /company|business name|organi[sz]ation/i),
+    message: fsPick_(f, /message|comment|question|details|additional|inquiry|enquiry|how can we help|scope of work/i)
+  };
+}
+function fsHost_(u) {
+  const m = /^https?:\/\/([^\/?#:]+)/i.exec(String(u || ''));
+  return m ? m[1].toLowerCase().replace(/^www\./, '') : '';
+}
+/* Channel from the visitor's first visit: UTM tags, ad click ids and referrer. */
+function fsChannel_(s) {
+  const src = String(s.us || '').toLowerCase(), med = String(s.um || '').toLowerCase(), ref = fsHost_(s.ref);
+  const both = src + ' ' + ref;
+  if (s.gclid || s.msclkid || /^(cpc|ppc|paid|paidsearch|paid_search|sem)$/.test(med)) return 'Paid Search';
+  if (/paid.?social|^(paid_?social|social_?paid)$/.test(med) || (s.fbclid && /cpc|paid/.test(med))) return 'Paid Social';
+  if (/^e-?mail$/.test(med) || /newsletter|mailchimp/.test(src)) return 'Email';
+  if (/chatgpt|openai|perplexity|gemini\.google|copilot|claude\.ai|bard\./.test(both)) return 'AI assistants';
+  if (/social/.test(med) || s.fbclid || /facebook|instagram|linkedin|twitter|^x\.com|^t\.co$|tiktok|youtube|pinterest|reddit/.test(both)) return 'Organic Social';
+  if (med === 'organic' || /(^|\.)(google|bing|yahoo|duckduckgo|ecosia|baidu|yandex)\./.test(ref)) return 'Organic Search';
+  if (src) return med === 'referral' ? 'Referral' : 'Other campaign';
+  if (ref) return 'Referral';
+  return 'Direct';
+}
+function fsRow_(domain, when, form, page, f, s, origin, id) {
+  const n = fsNorm_(f), known = !!(s.us || s.ref || s.gclid || s.land), later = origin === 'import' || origin === 'easyleads';
+  /* s.ch: a channel the source system already worked out (GoHighLevel's own source label). */
+  const channel = s.ch && !s.us && !s.ref && !s.gclid ? s.ch : later && !known ? 'Not tracked yet' : fsChannel_(s);
+  const sm = s.us ? s.us + ' / ' + (s.um || '(none)') : s.gclid ? 'google / cpc' : s.ref ? fsHost_(s.ref) + ' / referral' : s.ch ? s.ch : later && !known ? '' : '(direct) / (none)';
+  return [domain, when, form, page, n.name, n.email, n.phone, n.company, n.message, JSON.stringify(f).slice(0, 45000),
+    channel, sm, String(s.uc || '').slice(0, 200), String(s.land || '').slice(0, 300), String(s.ref || '').slice(0, 300), origin,
+    origin + ':' + domain + ':' + String(id || Utilities.getUuid()).slice(0, 80)];
+}
+function fsClean_(fields) {
+  const f = {};
+  Object.keys(fields || {}).slice(0, 60).forEach(function (k) {
+    const v = fields[k] == null ? '' : String(fields[k]).slice(0, 4000);
+    if (v.trim() && !/recaptcha|ccm_token|^_|password/i.test(k)) f[String(k).slice(0, 120)] = v;
+  });
+  return f;
+}
+
+/* POST {action:'form', domain, form, page, fields:{label: value}, src:{us, um, uc, gclid, fbclid, msclkid, ref, land}, id, hp} */
+function formIntake_(b) {
+  const domain = normDomain_(b.domain);
+  if (!domain || !clients_().some(function (c) { return c.domain === domain; })) return { error: 'unknown site' };
+  if (b.hp) return { ok: true };   /* honeypot field filled in: a bot */
+  const cache = CacheService.getScriptCache(), rk = 'fsr:' + domain, n = Number(cache.get(rk) || 0);
+  if (n >= FS_PER_HOUR_) return { error: 'busy' };
+  cache.put(rk, String(n + 1), 3600);
+  const f = fsClean_(b.fields);
+  if (!Object.keys(f).length) return { error: 'empty' };
+  const row = fsRow_(domain, new Date(), String(b.form || 'Website form').slice(0, 120), String(b.page || '').slice(0, 300), f, b.src || {}, 'live', b.id);
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    if (!fsValues_().some(function (r) { return r[16] === row[16]; })) fsSheet_().appendRow(row);
+  } finally { lock.releaseLock(); }
+  return { ok: true };
+}
+
+/* An import key is the FORM_IMPORT script property: 'key|expiry in ms'. Set it for an hour, import, then it lapses. */
+function fsImportOk_(k) {
+  const v = String(PropertiesService.getScriptProperties().getProperty('FORM_IMPORT') || '').split('|');
+  return !!k && v[0] === k && Date.now() < Number(v[1] || 0);
+}
+/* POST {action:'formsImport', importKey, domain, rows:[{id, form, date (ISO), page, fields}]} */
+function formsImport_(b) {
+  const domain = normDomain_(b.domain);
+  if (!clients_().some(function (c) { return c.domain === domain; })) return { error: 'unknown site' };
+  const lock = LockService.getScriptLock();
+  lock.waitLock(25000);
+  try {
+    const have = {}, live = [];
+    fsValues_().forEach(function (r) {
+      have[r[16]] = 1;
+      if (r[0] === domain && r[15] === 'live') live.push([String(r[5]).toLowerCase(), new Date(r[1]).getTime()]);
+    });
+    const add = [];
+    var skipped = 0;
+    (b.rows || []).forEach(function (x) {
+      const when = new Date(x.date);
+      const f = fsClean_(x.fields);
+      if (isNaN(when) || !Object.keys(f).length) { skipped++; return; }
+      const row = fsRow_(domain, when, String(x.form || 'Website form').slice(0, 120), String(x.page || '').slice(0, 300), f, x.src || {}, 'import', String(x.form) + ':' + x.id);
+      /* Already captured live (same email within 15 minutes): keep the live row, it has the source. */
+      const dup = row[5] && live.some(function (l) { return l[0] === String(row[5]).toLowerCase() && Math.abs(l[1] - when.getTime()) < 15 * 60 * 1000; });
+      if (have[row[16]] || dup) { skipped++; return; }
+      have[row[16]] = 1;
+      add.push(row);
+    });
+    if (add.length) {
+      const sh = fsSheet_();
+      sh.getRange(sh.getLastRow() + 1, 1, add.length, FS_HEAD_.length).setValues(add);
+    }
+    log_('Form import', 'OK', domain + ': ' + add.length + ' added, ' + skipped + ' already there or empty');
+    return { ok: true, added: add.length, skipped: skipped };
+  } finally { lock.releaseLock(); }
+}
+
+/* src: 'site' (default: the website's own forms), 'easyleads' (GoHighLevel), or 'all'. */
+function formsFor_(domain, start, end, admin, src) {
+  src = src === 'easyleads' || src === 'all' ? src : 'site';
+  const iso = /^\d{4}-\d{2}-\d{2}$/;
+  const s = iso.test(start || '') ? start : '2000-01-01', e = iso.test(end || '') ? end : '2999-12-31';
+  const tz = Session.getScriptTimeZone();
+  const out = { domain: domain, range: { start: s, end: e }, details: !!admin, rows: [], first: '', src: src };
+  if (src === 'easyleads') out.connected = typeof elConnected_ === 'function' && elConnected_(domain);
+  fsValues_().forEach(function (r) {
+    if (r[0] !== domain) return;
+    if (src === 'site' && r[15] === 'easyleads') return;
+    if (src === 'easyleads' && r[15] !== 'easyleads') return;
+    const d = r[1] instanceof Date ? r[1] : new Date(r[1]);
+    if (isNaN(d)) return;
+    const day = Utilities.formatDate(d, tz, 'yyyy-MM-dd');
+    if (!out.first || day < out.first) out.first = day;
+    if (day < s || day > e) return;
+    const o = { t: Utilities.formatDate(d, tz, "yyyy-MM-dd'T'HH:mm"), form: r[2], page: r[3], channel: r[10], sm: r[11], campaign: r[12], land: r[13], origin: r[15] };
+    if (admin) {
+      o.name = r[4]; o.email = r[5]; o.phone = r[6]; o.company = r[7]; o.message = r[8]; o.ref = r[14]; o.id = r[16];
+      try { o.fields = JSON.parse(r[9] || '{}'); } catch (err) { o.fields = {}; }
+    }
+    out.rows.push(o);
+  });
+  out.rows.sort(function (a, b) { return a.t < b.t ? 1 : a.t > b.t ? -1 : 0; });
+  return out;
+}
+
+//////// FILE: Gsc.gs ////////
+/* Search Console: every organic search query that brought people to a client's site
+ * last full calendar month (e.g. on any day in October it reports Sep 1 to 30).
+ *
+ * GET ?action=gscQueries&domain=x&key=ADMIN   (or &t=TOKEN for one client)
+ *
+ * Needs the webmasters.readonly scope and the deploying account to have access to
+ * the client's Search Console property (domain property or URL-prefix property).
+ */
+
+var GSC_PAGE = 25000;        // Search Console max rows per request
+var GSC_MAX_QUERIES = 50000; // safety cap for very large sites
+var GSC_MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+function gscQueriesFor_(domain, start, end) {
+  var range = gscRange_(start, end);
+  var cacheKey = 'gscq4:' + domain + ':' + range.start + ':' + range.end;
+  var cached = cacheGetBig_(cacheKey);
+  if (cached) return cached;
+
+  var site = gscSiteFor_(domain);
+  if (!site) return { error: 'No Search Console property for ' + domain + ' is shared with this account.' };
+
+  // dataState 'all' includes Google's fresh (not yet final) days, the same as Search Console's own screen.
+  var base = { startDate: range.start, endDate: range.end, type: 'web', dataState: 'all' };
+  var r1 = function (x) { return Math.round(x * 10) / 10; };
+  var pct = function (x) { return Math.round(x * 1000) / 10; };
+
+  // Totals (no dimensions = whole site, including anonymized queries)
+  var t = (gscQuery_(site, base)[0]) || { clicks: 0, impressions: 0, ctr: 0, position: 0 };
+
+  // The same number of days just before, for the up/down arrows
+  var prevRange = previousRange_(range);
+  var pt = (gscQuery_(site, { startDate: prevRange.start, endDate: prevRange.end, type: 'web', dataState: 'all' })[0]) || { clicks: 0, impressions: 0, ctr: 0, position: 0 };
+
+  // Every query, paged
+  var rows = [], start = 0;
+  while (start < GSC_MAX_QUERIES) {
+    var page = gscQuery_(site, Object.assign({}, base, { dimensions: ['query'], rowLimit: GSC_PAGE, startRow: start }));
+    rows = rows.concat(page);
+    if (page.length < GSC_PAGE) break;
+    start += GSC_PAGE;
+  }
+
+  // Best landing page for each query (by clicks, then impressions)
+  var landing = {};
+  gscQuery_(site, Object.assign({}, base, { dimensions: ['query', 'page'], rowLimit: GSC_PAGE })).forEach(function (r) {
+    var q = r.keys[0], cur = landing[q];
+    if (!cur || r.clicks > cur.c || (r.clicks === cur.c && r.impressions > cur.i)) landing[q] = { p: r.keys[1], c: r.clicks, i: r.impressions };
+  });
+
+  var queries = rows.map(function (r) {
+    var q = r.keys[0];
+    return [q, r.clicks, r.impressions, pct(r.ctr), r1(r.position), landing[q] ? landing[q].p : ''];
+  });
+  var qClicks = queries.reduce(function (s, r) { return s + r[1]; }, 0);
+  var qImpr = queries.reduce(function (s, r) { return s + r[2]; }, 0);
+
+  var simple = function (dim, limit) {
+    return gscQuery_(site, Object.assign({}, base, { dimensions: [dim], rowLimit: limit || 1000 })).map(function (r) {
+      return [r.keys[0], r.clicks, r.impressions, pct(r.ctr), r1(r.position)];
+    });
+  };
+
+  var out = {
+    domain: domain,
+    site: site,
+    range: range,
+    generatedAt: new Date().toISOString(),
+    totals: { clicks: t.clicks, impressions: t.impressions, ctr: pct(t.ctr), position: r1(t.position), queries: queries.length },
+    previous: { range: prevRange, totals: { clicks: pt.clicks, impressions: pt.impressions, ctr: pct(pt.ctr), position: r1(pt.position) } },
+    hidden: { clicks: Math.max(0, t.clicks - qClicks), impressions: Math.max(0, t.impressions - qImpr) },
+    columns: ['query', 'clicks', 'impressions', 'ctr', 'position', 'page'],
+    queries: queries,
+    daily: simple('date', 500),
+    devices: simple('device', 5),
+    countries: simple('country', 15),
+    pages: simple('page', 50)
+  };
+  cachePutBig_(cacheKey, out, 6 * 3600);
+  return out;
+}
+
+// A custom range (YYYY-MM-DD to YYYY-MM-DD) if one was asked for and is valid, otherwise last full month.
+// Search Console keeps 16 months. Fresh days are included (dataState 'all'), up to yesterday.
+function gscRange_(start, end) {
+  var re = /^\d{4}-\d{2}-\d{2}$/;
+  if (!re.test(String(start || '')) || !re.test(String(end || '')) || start > end) return lastMonthRange_();
+  var tz = Session.getScriptTimeZone(), day = 86400000;
+  var latest = Utilities.formatDate(new Date(Date.now() - 1 * day), tz, 'yyyy-MM-dd');
+  var oldest = Utilities.formatDate(new Date(Date.now() - 486 * day), tz, 'yyyy-MM-dd');
+  if (end > latest) end = latest;
+  if (start < oldest) start = oldest;
+  if (start > end) return lastMonthRange_();
+  return { start: start, end: end, label: rangeLabel_(start, end) };
+}
+
+function previousRange_(range) {
+  var A = range.start.split('-').map(Number), B = range.end.split('-').map(Number);
+  // Whole calendar months compare with the same number of whole months just before
+  if (A[2] === 1 && B[2] === new Date(Date.UTC(B[0], B[1], 0)).getUTCDate()) {
+    var months = (B[0] - A[0]) * 12 + (B[1] - A[1]) + 1;
+    var s0 = new Date(Date.UTC(A[0], A[1] - 1 - months, 1)), e0 = new Date(Date.UTC(A[0], A[1] - 1, 0));
+    var ps0 = s0.toISOString().slice(0, 10), pe0 = e0.toISOString().slice(0, 10);
+    return { start: ps0, end: pe0, label: rangeLabel_(ps0, pe0) };
+  }
+  var day = 86400000, s = Date.parse(range.start + 'T12:00:00Z'), e = Date.parse(range.end + 'T12:00:00Z');
+  var n = Math.round((e - s) / day) + 1, pe = new Date(s - day), ps = new Date(s - n * day);
+  var iso = function (d) { return d.toISOString().slice(0, 10); };
+  return { start: iso(ps), end: iso(pe), label: rangeLabel_(iso(ps), iso(pe)) };
+}
+
+function rangeLabel_(start, end) {
+  var a = start.split('-').map(Number), b = end.split('-').map(Number), m = function (x) { return GSC_MONTHS[x - 1].slice(0, 3); };
+  var lastDay = new Date(Date.UTC(b[0], b[1], 0)).getUTCDate();
+  if (a[0] === b[0] && a[1] === b[1] && a[2] === 1 && b[2] === lastDay) return GSC_MONTHS[a[1] - 1] + ' ' + a[0];
+  return m(a[1]) + ' ' + a[2] + (a[0] !== b[0] ? ', ' + a[0] : '') + ' \u2013 ' + m(b[1]) + ' ' + b[2] + ', ' + b[0];
+}
+
+function lastMonthRange_() {
+  var tz = Session.getScriptTimeZone();
+  var ym = Utilities.formatDate(new Date(), tz, 'yyyy-MM').split('-');
+  var y = Number(ym[0]), m = Number(ym[1]) - 1;
+  if (m === 0) { m = 12; y -= 1; }
+  var days = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  var mm = ('0' + m).slice(-2);
+  return { start: y + '-' + mm + '-01', end: y + '-' + mm + '-' + ('0' + days).slice(-2), label: GSC_MONTHS[m - 1] + ' ' + y };
+}
+
+function gscSiteFor_(domain) {
+  var res = UrlFetchApp.fetch('https://www.googleapis.com/webmasters/v3/sites', {
+    headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, muteHttpExceptions: true
+  });
+  var data = JSON.parse(res.getContentText() || '{}');
+  if (res.getResponseCode() !== 200) throw new Error('Search Console: ' + ((data.error && data.error.message) || res.getResponseCode()));
+  var sites = (data.siteEntry || []).filter(function (s) { return s.permissionLevel !== 'siteUnverifiedUser'; }).map(function (s) { return s.siteUrl; });
+  var bare = String(domain).replace(/^www\./, '');
+  if (sites.indexOf('sc-domain:' + bare) >= 0) return 'sc-domain:' + bare;
+  var prefs = ['https://' + bare + '/', 'https://www.' + bare + '/', 'http://' + bare + '/', 'http://www.' + bare + '/'];
+  for (var i = 0; i < prefs.length; i++) if (sites.indexOf(prefs[i]) >= 0) return prefs[i];
+  return '';
+}
+
+function gscQuery_(site, body) {
+  var url = 'https://www.googleapis.com/webmasters/v3/sites/' + encodeURIComponent(site) + '/searchAnalytics/query';
+  var res = UrlFetchApp.fetch(url, {
+    method: 'post', contentType: 'application/json', payload: JSON.stringify(body),
+    headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, muteHttpExceptions: true
+  });
+  var data = JSON.parse(res.getContentText() || '{}');
+  if (res.getResponseCode() !== 200) throw new Error('Search Console: ' + ((data.error && data.error.message) || res.getResponseCode()));
+  return data.rows || [];
+}
+
+// CacheService holds 100KB per key, so large results are split across keys.
+function cachePutBig_(key, obj, seconds) {
+  try {
+    var s = JSON.stringify(obj), size = 90000, parts = {}, n = Math.ceil(s.length / size);
+    if (n > 50) return;
+    for (var i = 0; i < n; i++) parts[key + ':' + i] = s.slice(i * size, (i + 1) * size);
+    parts[key] = String(n);
+    CacheService.getScriptCache().putAll(parts, seconds);
+  } catch (err) {}
+}
+
+function cacheGetBig_(key) {
+  try {
+    var c = CacheService.getScriptCache(), n = Number(c.get(key));
+    if (!n) return null;
+    var keys = [];
+    for (var i = 0; i < n; i++) keys.push(key + ':' + i);
+    var got = c.getAll(keys), s = '';
+    for (var j = 0; j < n; j++) { if (got[keys[j]] == null) return null; s += got[keys[j]]; }
+    return JSON.parse(s);
+  } catch (err) { return null; }
+}
+
+// Run once from the editor after adding the Search Console permission, to approve it and test.
+function testGscQueries() {
+  var c = clients_()[0];
+  var r = gscQueriesFor_(c.domain);
+  Logger.log(r.error || (r.range.label + ': ' + r.totals.queries + ' queries, ' + r.totals.clicks + ' clicks from ' + r.site));
+}
+
+// Which widgets the search queries dashboard shows for a client (null = all of them).
+function gscLayout_(domain) {
+  try { var v = PropertiesService.getScriptProperties().getProperty('GSC_LAYOUT_' + domain); return v ? JSON.parse(v) : null; }
+  catch (err) { return null; }
+}
+
+/* ==========================================================================
+   SEARCH CONSOLE HEALTH (the "Search Console health" report widget)
+
+   Search Console's API has no "Page indexing" or "Enhancements" report, but
+   its URL Inspection API checks one page at a time: indexed or not and why,
+   robots and fetch problems, canonicals, and every rich result Google found
+   (Breadcrumbs, FAQ, Review snippets…) with each issue marked ERROR or
+   WARNING. The Sitemaps API adds errors and warnings per sitemap.
+
+   startGscHealth_(domain?) queues each client's sitemap pages (up to
+   GH_MAX_ pages, homepage and shallow pages first) and its sitemaps;
+   continueGscHealth works through the queue a few hundred pages per run
+   (Google allows 2,000 inspections a day per site) until it is done.
+   It runs on the monthly job and from "Check now" on the widget.
+
+   GET action=gscHealth, domain, key|t
+   { pages: [{url, verdict, coverage, indexing, robots, fetch, gcanon, ucanon, crawl, rich: [{type, items, issues: [[message, severity]]}], link}],
+     sitemaps: [{path, type, submitted, indexed, errors, warnings, read, pending}], checked, queued, total }
+   ========================================================================== */
+
+const GH_TAB_ = 'GSC Health', GH_Q_TAB_ = 'GSC Health Queue', GH_SM_TAB_ = 'GSC Sitemaps';
+const GH_HEAD_ = ['Domain', 'Checked', 'URL', 'Verdict', 'Coverage', 'Indexing state', 'Robots', 'Page fetch', 'Google canonical', 'User canonical', 'Last crawl', 'Rich results', 'Inspection link'];
+const GH_SM_HEAD_ = ['Domain', 'Checked', 'Sitemap', 'Type', 'Submitted', 'Indexed', 'Errors', 'Warnings', 'Last read', 'Pending'];
+const GH_MAX_ = 200;
+
+function ghTab_(name, head) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sh = ss.getSheetByName(name);
+  if (!sh) { sh = ss.insertSheet(name); sh.getRange(1, 1, 1, head.length).setValues([head]).setFontWeight('bold'); sh.setFrozenRows(1); }
+  return sh;
+}
+function ghRows_(name, head) {
+  const sh = ghTab_(name, head);
+  return sh.getLastRow() < 2 ? [] : sh.getRange(2, 1, sh.getLastRow() - 1, head.length).getValues();
+}
+/* Rewrites a tab without one domain's rows (and optionally with new rows added). */
+function ghReplace_(name, head, domain, add) {
+  const sh = ghTab_(name, head);
+  const keep = ghRows_(name, head).filter(function (r) { return r[0] !== domain; }).concat(add || []);
+  if (sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, head.length).clearContent();
+  if (keep.length) sh.getRange(2, 1, keep.length, head.length).setValues(keep);
+}
+function ghApi_(method, url, body) {
+  const r = UrlFetchApp.fetch(url, { method: method, contentType: 'application/json', payload: body ? JSON.stringify(body) : undefined,
+    headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, muteHttpExceptions: true });
+  const code = r.getResponseCode(), data = JSON.parse(r.getContentText() || '{}');
+  if (code !== 200) { const e = new Error((data.error && data.error.message) || ('HTTP ' + code)); e.code = code; throw e; }
+  return data;
+}
+
+/* Pages to check: the sitemap's pages, homepage and shallow pages first. */
+function ghUrls_(domain) {
+  const sm = sitemapFor_(domain);
+  const m = /^(https?:\/\/[^\/]+)/i.exec(sm.from || '');
+  const base = m ? m[1] : 'https://' + domain;
+  const paths = (sm.paths || []).slice().sort(function (a, b) { return (a.split('/').length - b.split('/').length) || a.length - b.length; });
+  if (paths.indexOf('/') < 0) paths.unshift('/');
+  return paths.slice(0, GH_MAX_).map(function (p) { return base + p; });
+}
+
+function startGscHealth_(onlyDomain) {
+  const list = clients_().filter(function (c) { return !onlyDomain || c.domain === onlyDomain; });
+  const now = new Date(), done = [];
+  var queued = 0;
+  list.forEach(function (c) {
+    var site = '';
+    try { site = gscSiteFor_(c.domain); } catch (e) { site = ''; }
+    if (!site) return;
+    var sms = [];
+    try {
+      sms = (ghApi_('get', 'https://www.googleapis.com/webmasters/v3/sites/' + encodeURIComponent(site) + '/sitemaps').sitemap || []).map(function (x) {
+        const ct = x.contents || [];
+        return [c.domain, now, x.path, (x.isSitemapsIndex ? 'Index' : (ct[0] && ct[0].type) || 'Sitemap'), ct.reduce(function (t, y) { return t + (Number(y.submitted) || 0); }, 0),
+          ct.reduce(function (t, y) { return t + (Number(y.indexed) || 0); }, 0), Number(x.errors) || 0, Number(x.warnings) || 0, x.lastDownloaded || '', x.isPending ? 'yes' : ''];
+      });
+    } catch (e) { sms = []; }
+    ghReplace_(GH_SM_TAB_, GH_SM_HEAD_, c.domain, sms);
+    const urls = ghUrls_(c.domain);
+    ghReplace_(GH_Q_TAB_, ['Domain', 'URL', 'Site', 'Queued'], c.domain, urls.map(function (u) { return [c.domain, u, site, now]; }));
+    queued += urls.length; done.push(c.domain + ' (' + urls.length + ')');
+  });
+  if (queued) { ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === 'continueGscHealth') ScriptApp.deleteTrigger(t); }); ScriptApp.newTrigger('continueGscHealth').timeBased().after(60 * 1000).create(); }
+  return queued + ' pages queued for inspection: ' + done.join(', ');
+}
+
+/* Inspects queued pages 10 at a time (each check takes Google several seconds) and saves after
+   every batch, until the run's time is nearly up; the rest go on in the next run. */
+function processGscHealth_() {
+  const qsh = ghTab_(GH_Q_TAB_, ['Domain', 'URL', 'Site', 'Queued']);
+  var q = qsh.getLastRow() < 2 ? [] : qsh.getRange(2, 1, qsh.getLastRow() - 1, 4).getValues();
+  if (!q.length) return 'Nothing queued';
+  const started = Date.now(), token = ScriptApp.getOAuthToken();
+  var quota = false, done = 0;
+  while (q.length && !quota && Date.now() - started < 3.5 * 60 * 1000) {
+    const batch = q.slice(0, 10), rows = [], ok = {};
+    const res = UrlFetchApp.fetchAll(batch.map(function (r) {
+      return { url: 'https://searchconsole.googleapis.com/v1/urlInspection/index:inspect', method: 'post', contentType: 'application/json',
+        headers: { Authorization: 'Bearer ' + token }, muteHttpExceptions: true,
+        payload: JSON.stringify({ inspectionUrl: r[1], siteUrl: r[2], languageCode: 'en-US' }) };
+    }));
+    res.forEach(function (resp, i) {
+      const d = batch[i][0], url = batch[i][1], code = resp.getResponseCode();
+      var data = {}; try { data = JSON.parse(resp.getContentText() || '{}'); } catch (e) {}
+      if (code === 429 || (code !== 200 && /quota/i.test((data.error && data.error.message) || ''))) { quota = true; return; }
+      ok[i] = true;
+      if (code !== 200) { rows.push([d, new Date(), url, 'ERROR', 'Could not inspect: ' + String((data.error && data.error.message) || ('HTTP ' + code)).slice(0, 200), '', '', '', '', '', '', '[]', '']); return; }
+      const r = data.inspectionResult || {}, ix = r.indexStatusResult || {}, rr = r.richResultsResult || {};
+      const rich = (rr.detectedItems || []).map(function (it) {
+        const issues = [];
+        (it.items || []).forEach(function (x) { (x.issues || []).forEach(function (s) { issues.push([s.issueMessage, s.severity]); }); });
+        return { type: it.richResultType, items: (it.items || []).length, issues: issues };
+      });
+      rows.push([d, new Date(), url, ix.verdict || '', ix.coverageState || '', ix.indexingState || '', ix.robotsTxtState || '', ix.pageFetchState || '',
+        ix.googleCanonical || '', ix.userCanonical || '', ix.lastCrawlTime || '', JSON.stringify(rich).slice(0, 40000), r.inspectionResultLink || '']);
+    });
+    /* Results replace each page's previous row. */
+    if (rows.length) {
+      const sh = ghTab_(GH_TAB_, GH_HEAD_), fresh = {};
+      rows.forEach(function (r) { fresh[r[0] + '|' + r[2]] = r; });
+      const keep = ghRows_(GH_TAB_, GH_HEAD_).filter(function (r) { return !fresh[r[0] + '|' + r[2]]; }).concat(rows);
+      if (sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, GH_HEAD_.length).clearContent();
+      sh.getRange(2, 1, keep.length, GH_HEAD_.length).setValues(keep);
+    }
+    /* Drop what was done from the queue. */
+    q = batch.filter(function (r, i) { return !ok[i]; }).concat(q.slice(10));
+    done += Object.keys(ok).length;
+    if (qsh.getLastRow() > 1) qsh.getRange(2, 1, qsh.getLastRow() - 1, 4).clearContent();
+    if (q.length) qsh.getRange(2, 1, q.length, 4).setValues(q);
+    SpreadsheetApp.flush();
+  }
+  if (q.length) ScriptApp.newTrigger('continueGscHealth').timeBased().after((quota ? 60 : 1) * 60 * 1000).create();
+  return done + ' pages inspected' + (q.length ? ', ' + q.length + ' left' + (quota ? ' (daily limit reached, continuing in an hour)' : ', continuing in a minute') : ', all done');
+}
+function continueGscHealth() { guarded_('continueGscHealth', 'GSC health (continued)', processGscHealth_); }
+
+function gscHealthFor_(domain) {
+  const pages = ghRows_(GH_TAB_, GH_HEAD_).filter(function (r) { return r[0] === domain; }).map(function (r) {
+    var rich = []; try { rich = JSON.parse(r[11] || '[]'); } catch (e) {}
+    return { url: r[2], verdict: r[3], coverage: r[4], indexing: r[5], robots: r[6], fetch: r[7], gcanon: r[8], ucanon: r[9], crawl: String(r[10] || ''), rich: rich, link: r[12],
+      at: r[1] instanceof Date ? r[1].toISOString() : String(r[1]) };
+  });
+  const sitemaps = ghRows_(GH_SM_TAB_, GH_SM_HEAD_).filter(function (r) { return r[0] === domain; }).map(function (r) {
+    return { path: r[2], type: r[3], submitted: Number(r[4]) || 0, indexed: Number(r[5]) || 0, errors: Number(r[6]) || 0, warnings: Number(r[7]) || 0, read: String(r[8] || ''), pending: r[9] === 'yes' };
+  });
+  const queued = ghRows_(GH_Q_TAB_, ['Domain', 'URL', 'Site', 'Queued']).filter(function (r) { return r[0] === domain; }).length;
+  const checked = pages.reduce(function (m, p) { return p.at > m ? p.at : m; }, '');
+  return { domain: domain, pages: pages, sitemaps: sitemaps, queued: queued, checked: checked, total: pages.length + queued };
+}
+//////// FILE: Easyleads.gs ////////
+/* ==========================================================================
+   EASYLEADS FORM SUBMISSIONS (the "Easyleads form submissions" widget)
+
+   Easyleads forms are GoHighLevel forms, often embedded on a Concrete or
+   WordPress site in a frame the site script can't see. Their submissions are
+   read straight from GoHighLevel's API with a Private Integration Token for
+   the client's sub-account, so old, new and future submissions all land on
+   the "Form Submissions" tab with origin 'easyleads'.
+
+   Connect a client: AI Tracker menu > Connect Easyleads for a client
+     (domain on the Clients tab, the sub-account's Location ID, and a Private
+      Integration Token with "View Forms" and "View Custom Fields" scopes).
+   The first pull brings in every past submission; syncEasyleads then runs
+   every hour and adds anything new. Each client's token is kept in Script
+   Properties (EL_<domain>), never on a sheet.
+   ========================================================================== */
+
+const EL_API_ = 'https://services.leadconnectorhq.com';
+const EL_VERSION_ = '2021-07-28';
+const EL_SINCE_ = '2016-01-01';
+
+function elConf_(domain) {
+  const v = PropertiesService.getScriptProperties().getProperty('EL_' + domain);
+  if (!v) return null;
+  try { const o = JSON.parse(v); return o && o.loc && o.tok ? o : null; } catch (e) { return null; }
+}
+function elConnected_(domain) { return !!elConf_(domain); }
+function elDomains_() {
+  const p = PropertiesService.getScriptProperties().getProperties();
+  return Object.keys(p).filter(function (k) { return /^EL_[a-z0-9.-]+\.[a-z]{2,}$/i.test(k); })
+    .map(function (k) { return k.slice(3); }).filter(elConnected_);
+}
+
+/* One GoHighLevel API call, with a short wait and retry when it says slow down. */
+function elGet_(c, path, q) {
+  const qs = Object.keys(q || {}).map(function (k) { return k + '=' + encodeURIComponent(q[k]); }).join('&');
+  for (var attempt = 0; attempt < 4; attempt++) {
+    const res = UrlFetchApp.fetch(EL_API_ + path + (qs ? '?' + qs : ''), {
+      headers: { Authorization: 'Bearer ' + c.tok, Version: EL_VERSION_, Accept: 'application/json' }, muteHttpExceptions: true
+    });
+    const code = res.getResponseCode();
+    var data = {};
+    try { data = JSON.parse(res.getContentText() || '{}'); } catch (e) {}
+    if (code === 429 || code >= 500) { Utilities.sleep(1500 * (attempt + 1)); continue; }
+    if (code === 401 || code === 403) throw new Error('GoHighLevel refused the token (' + code + '). Check it is for this sub-account and has the View Forms scope.');
+    if (code !== 200) throw new Error('GoHighLevel ' + code + ': ' + (data.message || data.error || 'no details'));
+    return data;
+  }
+  throw new Error('GoHighLevel kept asking to slow down; try again in a few minutes.');
+}
+
+/* Form names by id, and custom field labels by id and key (best effort: only used for nicer labels). */
+function elFormNames_(c) {
+  const out = {};
+  try {
+    for (var skip = 0; skip < 2000; skip += 50) {
+      const d = elGet_(c, '/forms/', { locationId: c.loc, limit: 50, skip: skip });
+      (d.forms || []).forEach(function (f) { out[f.id] = f.name; });
+      if ((d.forms || []).length < 50) break;
+    }
+  } catch (e) {}
+  return out;
+}
+function elFieldLabels_(c) {
+  const out = {};
+  try {
+    const d = elGet_(c, '/locations/' + encodeURIComponent(c.loc) + '/customFields', {});
+    (d.customFields || []).forEach(function (f) {
+      if (f.id) out[f.id] = f.name;
+      if (f.fieldKey) out[String(f.fieldKey).replace(/^contact\./, '')] = f.name;
+    });
+  } catch (e) {}
+  return out;
+}
+function elLabel_(k) {
+  const s = String(k).replace(/^contact\./, '').replace(/[_-]+/g, ' ').trim();
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : k;
+}
+function elPath_(u) {
+  const m = /^https?:\/\/[^\/?#]+([^?#]*)/i.exec(String(u || ''));
+  return m ? (m[1] || '/') : '';
+}
+function elParams_(u) {
+  const out = {}, m = /\?([^#]*)/.exec(String(u || ''));
+  if (m) m[1].split('&').forEach(function (p) { const i = p.indexOf('='); if (i > 0) { try { out[decodeURIComponent(p.slice(0, i))] = decodeURIComponent(p.slice(i + 1).replace(/\+/g, ' ')); } catch (e) {} } });
+  return out;
+}
+/* GoHighLevel's own source labels, when the submission carries no UTM tags, ad click or referrer. */
+const EL_CHANNELS_ = [
+  [/paid\s*search|adwords|google\s*ads|ppc|cpc/i, 'Paid Search'], [/paid\s*social|facebook\s*ads|meta\s*ads|instagram\s*ads/i, 'Paid Social'],
+  [/organic\s*search|seo|^google$|^bing$/i, 'Organic Search'], [/social/i, 'Organic Social'], [/e-?mail/i, 'Email'],
+  [/referr/i, 'Referral'], [/direct/i, 'Direct']
+];
+
+/* One submission as a Form Submissions row. */
+function elRow_(domain, s, forms, labels) {
+  const o = s.others || {}, ev = (o.eventData && typeof o.eventData === 'object') ? o.eventData : {};
+  const f = {};
+  if (s.name) f['Name'] = s.name;
+  if (s.email) f['Email'] = s.email;
+  Object.keys(o).forEach(function (k) {
+    if (/^(eventData|fieldsOriSequance|formId|location_?id|signatureHash|ip|timezone|sessionId|submissionId|sessionFingerprint|disqualified|spam)$/i.test(k) || /^__.*__$/.test(k)) return;
+    var v = o[k];
+    if (v == null || v === '') return;
+    if (Array.isArray(v)) v = v.map(function (x) { return x && typeof x === 'object' ? (x.meta && x.meta.originalname) || x.name || x.url || '' : x; }).filter(String).join(', ');
+    else if (typeof v === 'object') v = Object.keys(v).map(function (x) { const y = v[x]; return y && typeof y === 'object' ? (y.meta && y.meta.originalname) || y.name || y.url || '' : y; }).filter(String).join(', ');
+    const label = labels[k] || elLabel_(k);
+    if (/^(name|full name)$/i.test(label) && f['Name']) return;
+    if (/^e-?mail$/i.test(label) && f['Email']) return;
+    f[label] = String(v);
+  });
+  const pageUrl = ev.parentUrl || (ev.page && ev.page.url) || ev.url || ev.pageUrl || '';
+  const up = Object.assign({}, elParams_(pageUrl), ev.url_params && typeof ev.url_params === 'object' ? ev.url_params : {});
+  const src = {
+    us: up.utm_source || '', um: up.utm_medium || '', uc: up.utm_campaign || '',
+    gclid: up.gclid ? 1 : 0, msclkid: up.msclkid ? 1 : 0, fbclid: up.fbclid ? 1 : 0,
+    ref: /^https?:/i.test(ev.referrer || '') && fsHost_(ev.referrer) !== fsHost_(pageUrl) ? String(ev.referrer).split('?')[0] : '',
+    land: elPath_(pageUrl)
+  };
+  if (!src.us && !src.ref && !src.gclid && !src.fbclid && !src.msclkid) {
+    const lab = String(ev.source || ev.medium || '');
+    for (var i = 0; i < EL_CHANNELS_.length; i++) if (EL_CHANNELS_[i][0].test(lab)) { src.ch = EL_CHANNELS_[i][1]; break; }
+  }
+  const page = elPath_(pageUrl) || (ev.page && ev.page.title) || '';
+  return fsRow_(domain, new Date(s.createdAt), String(forms[s.formId] || 'Easyleads form').slice(0, 120), String(page).slice(0, 300),
+    fsClean_(f), src, 'easyleads', 'ghl:' + s.id);
+}
+
+/* Pulls a client's submissions (all of them the first time, the last few days after that) and adds new ones. */
+function elSync_(domain, full) {
+  const c = elConf_(domain);
+  if (!c) return domain + ': not connected';
+  const props = PropertiesService.getScriptProperties(), lk = 'ELS_' + domain, tz = Session.getScriptTimeZone();
+  const last = Number(props.getProperty(lk) || 0);
+  const fmt = function (d) { return Utilities.formatDate(d, tz, 'yyyy-MM-dd'); };
+  const end = new Date(Date.now() + 864e5);
+  var start = full || !last ? new Date(EL_SINCE_ + 'T12:00:00Z') : new Date(last - 3 * 864e5);
+  const forms = elFormNames_(c), labels = elFieldLabels_(c), subs = [];
+  /* A year at a time, so very old accounts don't hit a date-range limit. */
+  while (start < end) {
+    const stop = new Date(Math.min(end.getTime(), start.getTime() + 365 * 864e5));
+    for (var page = 1; page <= 500; page++) {
+      const d = elGet_(c, '/forms/submissions', { locationId: c.loc, page: page, limit: 100, startAt: fmt(start), endAt: fmt(stop) });
+      const s = d.submissions || [];
+      Array.prototype.push.apply(subs, s);
+      if (s.length < 100 || !(d.meta && d.meta.nextPage)) break;
+    }
+    start = new Date(stop.getTime() + 864e5);
+  }
+  const lock = LockService.getScriptLock();
+  lock.waitLock(25000);
+  var added = 0;
+  try {
+    const have = {};
+    fsValues_().forEach(function (r) { have[r[16]] = 1; });
+    const add = [];
+    subs.forEach(function (s) {
+      if (!s || !s.id || !s.createdAt) return;
+      const row = elRow_(domain, s, forms, labels);
+      if (have[row[16]] || isNaN(row[1])) return;
+      have[row[16]] = 1;
+      add.push(row);
+    });
+    if (add.length) {
+      const sh = fsSheet_();
+      sh.getRange(sh.getLastRow() + 1, 1, add.length, FS_HEAD_.length).setValues(add);
+    }
+    added = add.length;
+  } finally { lock.releaseLock(); }
+  props.setProperty(lk, String(Date.now()));
+  return domain + ': ' + subs.length + ' found, ' + added + ' new';
+}
+
+/* Hourly: every connected client. */
+function syncEasyleads() {
+  const done = [], failed = [];
+  elDomains_().forEach(function (d) {
+    if (Date.now() - START_MS > MAX_RUN_MS) return;
+    try { done.push(elSync_(d, false)); } catch (e) { failed.push(d + ': ' + e.message); }
+  });
+  if (failed.length) log_('Easyleads sync', 'ERROR', failed.join('; '));
+  return done.join('; ') || 'No Easyleads clients connected';
+}
+function elEnsureTrigger_() {
+  if (!ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === 'syncEasyleads'; }))
+    ScriptApp.newTrigger('syncEasyleads').timeBased().everyHours(1).create();
+}
+
+/* Menu: AI Tracker > Connect Easyleads for a client. The token is typed by the person, straight into Script Properties. */
+function connectEasyleads() {
+  const ui = SpreadsheetApp.getUi();
+  const a = ui.prompt('Connect Easyleads (1 of 3)', 'Client website, as on the Clients tab (for example windowmasters.ca):', ui.ButtonSet.OK_CANCEL);
+  if (a.getSelectedButton() !== ui.Button.OK) return;
+  const domain = normDomain_(a.getResponseText());
+  if (!clients_().some(function (c) { return c.domain === domain; })) { ui.alert(domain + ' is not on the Clients tab yet. Add it there first.'); return; }
+  const b = ui.prompt('Connect Easyleads (2 of 3)', 'GoHighLevel Location ID for this sub-account\n(Settings > Business Profile > Location ID):', ui.ButtonSet.OK_CANCEL);
+  if (b.getSelectedButton() !== ui.Button.OK) return;
+  const t = ui.prompt('Connect Easyleads (3 of 3)', 'Private Integration Token for this sub-account\n(Settings > Private Integrations > Create new; scopes: View Forms, View Custom Fields):', ui.ButtonSet.OK_CANCEL);
+  if (t.getSelectedButton() !== ui.Button.OK) return;
+  const loc = b.getResponseText().trim(), tok = t.getResponseText().trim();
+  if (!loc || !tok) { ui.alert('Both the Location ID and the token are needed.'); return; }
+  PropertiesService.getScriptProperties().setProperty('EL_' + domain, JSON.stringify({ loc: loc, tok: tok }));
+  elEnsureTrigger_();
+  try {
+    const r = elSync_(domain, true);
+    log_('Easyleads connect', 'OK', r);
+    ui.alert('Connected. ' + r + '. New submissions are added every hour.');
+  } catch (e) {
+    log_('Easyleads connect', 'ERROR', domain + ': ' + e.message);
+    ui.alert('Saved, but the first pull failed: ' + e.message);
+  }
+}
+/* Menu: pull every connected client again now (adds anything missing, never duplicates). */
+function resyncEasyleads() {
+  const out = elDomains_().map(function (d) { try { return elSync_(d, true); } catch (e) { return d + ': ' + e.message; } });
+  log_('Easyleads resync', 'OK', out.join('; ') || 'No Easyleads clients connected');
+  SpreadsheetApp.getActiveSpreadsheet().toast(out.join('\n') || 'No Easyleads clients connected', 'Easyleads', 10);
+}
