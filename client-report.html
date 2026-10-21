@@ -74,6 +74,8 @@ html,body{margin:0;background:#FDFDFD;color:#555;font-family:"Geist","Helvetica 
       if (o.cfg.off && !Array.isArray(o.cfg.off)) delete o.cfg.off;
       return o;
     }); }catch(e){}
+    /* A Form inbox set to show contact details on this link: its secret goes with the forms request (the tracker checks it). */
+    const fxCs = (items.find(i => i.type === 'forms_inbox' && i.cfg && i.cfg.contacts && /^[a-f0-9]{32}$/.test(String(i.cfg.cs || ''))) || {cfg: {}}).cfg.cs || '';
     let snap = null;
     try{ if (view.snap) snap = JSON.parse(view.snap); }catch(e){}
     document.title = view.title || 'Report';
@@ -101,7 +103,7 @@ html,body{margin:0;background:#FDFDFD;color:#555;font-family:"Geist","Helvetica 
     if (brand.accent) document.documentElement.style.setProperty('--brand', brand.accent);
 
     let period = periods.indexOf(view.period) > -1 ? view.period : periods[0];
-    const live = {feed: null, g4: {}, gsc: {}, pages: {}, pg: {}, pathway: {}, pw: {}, forms: {}, easyleads: {}, gsch: {}};
+    const live = {feed: null, g4: {}, gsc: {}, pages: {}, pg: {}, pathway: {}, pw: {}, forms: {}, easyleads: {}, formsc: {}, gsch: {}};
     /* Stored copy for the period the report was published with; live numbers (read-only token) for everything else. */
     const ctxFor = () => {
       const ctx = {domain: view.domain, clientName: view.clientName || ''};
@@ -126,7 +128,7 @@ html,body{margin:0;background:#FDFDFD;color:#555;font-family:"Geist","Helvetica 
           return stored ? Promise.resolve(stored) : p;
         }
         if (!live[name]) return Promise.reject(new Error('Not available.'));
-        const k = name === 'g4' || name === 'forms' || name === 'easyleads' ? R.prevSince + '|' + R.end : name === 'pages' ? R.prevSince + '|' + R.since + '|' + R.end : R.since + '|' + R.end;
+        const k = name === 'g4' || name === 'forms' || name === 'formsc' || name === 'easyleads' ? R.prevSince + '|' + R.end : name === 'pages' ? R.prevSince + '|' + R.since + '|' + R.end : R.since + '|' + R.end;
         const stored = fromSnap(name);
         if (live[name][k]) return live[name][k];
         if (!canLive) return stored ? Promise.resolve(stored) : Promise.reject(new Error('Not available.'));
@@ -136,6 +138,8 @@ html,body{margin:0;background:#FDFDFD;color:#555;font-family:"Geist","Helvetica 
           ? {action: 'gscHealth', domain: view.domain, t: view.token, start: R.since, end: R.end}
           : name === 'forms'
           ? {action: 'forms', domain: view.domain, t: view.token, start: R.prevSince, end: R.end}
+          : name === 'formsc'
+          ? Object.assign({action: 'forms', domain: view.domain, t: view.token, start: R.prevSince, end: R.end}, fxCs ? {cs: fxCs} : {})
           : name === 'easyleads'
           ? {action: 'forms', src: 'easyleads', domain: view.domain, t: view.token, start: R.prevSince, end: R.end}
           : name === 'pages'
@@ -178,6 +182,7 @@ html,body{margin:0;background:#FDFDFD;color:#555;font-family:"Geist","Helvetica 
       if (needs.has('gsc')){ ctx.get('gsc'); waits.push(live.gsc[ctx.R.since + '|' + ctx.R.end]); }
       if (needs.has('forms')){ ctx.get('forms'); waits.push(live.forms[ctx.R.prevSince + '|' + ctx.R.end]); }
       if (needs.has('easyleads')){ ctx.get('easyleads'); waits.push(live.easyleads[ctx.R.prevSince + '|' + ctx.R.end]); }
+      if (needs.has('formsc')){ ctx.get('formsc'); waits.push(live.formsc[ctx.R.prevSince + '|' + ctx.R.end]); }
       if (needs.has('pages')){ ctx.get('pages'); waits.push(live.pages[ctx.R.prevSince + '|' + ctx.R.since + '|' + ctx.R.end]); }
       if (snap && waits.length) Promise.allSettled(waits.filter(Boolean)).then(() => { snap = Object.assign({}, snap, {period: '__live'}); draw(); });
     }

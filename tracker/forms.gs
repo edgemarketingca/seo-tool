@@ -14,12 +14,14 @@
 
    Everything lands on the "Form Submissions" tab, one row per submission.
 
-   GET action=forms, domain, key|t, start, end[, src=site|easyleads|all]
+   GET action=forms, domain, key|t, start, end[, src=site|easyleads|all][, cs]
    { rows: [{t, form, page, channel, sm, campaign, land, origin,
              (team key only:) name, email, phone, company, message, fields, ref, id}],
      first }   first = the oldest submission on file for the client
-   Names, emails, phones and messages are only returned with the team key,
-   never to a client report token.
+   Names, emails, phones and messages are only returned with the team key, or to a
+   client report link whose Form inbox was set to show them (cs: that link's secret,
+   see formsShare_); never to a plain client report token. facets: the answers that
+   say nothing about who sent the form (province, city, service…), for everyone.
    ========================================================================== */
 
 const FS_TAB_ = 'Form Submissions';
@@ -175,13 +177,61 @@ function formsFor_(domain, start, end, admin, src) {
     const day = Utilities.formatDate(d, tz, 'yyyy-MM-dd');
     if (!out.first || day < out.first) out.first = day;
     if (day < s || day > e) return;
-    const o = { t: Utilities.formatDate(d, tz, "yyyy-MM-dd'T'HH:mm"), form: r[2], page: r[3], channel: r[10], sm: r[11], campaign: r[12], land: r[13], origin: r[15] };
+    var fields = {};
+    try { fields = JSON.parse(r[9] || '{}') || {}; } catch (err) { fields = {}; }
+    const o = { t: Utilities.formatDate(d, tz, "yyyy-MM-dd'T'HH:mm"), form: r[2], page: r[3], channel: r[10], sm: r[11], campaign: r[12], land: r[13], origin: r[15], facets: fsFacets_(fields) };
     if (admin) {
       o.name = r[4]; o.email = r[5]; o.phone = r[6]; o.company = r[7]; o.message = r[8]; o.ref = r[14]; o.id = r[16];
-      try { o.fields = JSON.parse(r[9] || '{}'); } catch (err) { o.fields = {}; }
+      o.fields = fields;
     }
     out.rows.push(o);
   });
   out.rows.sort(function (a, b) { return a.t < b.t ? 1 : a.t > b.t ? -1 : 0; });
   return out;
+}
+
+/* Answers that say nothing about who sent a form (province, city, service, product…).
+   Client reports get these with every submission, so they can filter and search by them. */
+const FS_FACET_ = /province|provincia|state|region|city|town|ciudad|country|location|office|branch|service|product|interest|industry|department|hear about|how did you hear|budget|timeline|category|topic|reason/i;
+const FS_PRIVATE_ = /name|e-?mail|correo|phone|tel[eé]fono|mobile|cell|company|empresa|address|direcci|postal|zip|message|comment|question|details/i;
+function fsFacets_(f) {
+  const o = {};
+  Object.keys(f || {}).forEach(function (k) {
+    if (!FS_FACET_.test(k) || FS_PRIVATE_.test(k)) return;
+    const v = String(f[k] == null ? '' : f[k]).trim();
+    if (v && v.length <= 80) o[String(k).slice(0, 80)] = v;
+  });
+  return o;
+}
+
+/* FORM INBOX OPT-IN: a client report link that may see who sent each form.
+   The team ticks "Show names and contact details" on that report's Form inbox; the
+   SEO tool makes a random secret for the link and registers it here (POST formsShare,
+   team key). The link then asks for forms with cs=<secret>. Only a SHA-256 of each
+   secret is kept, per client, in the FORMS_SHARE script property. Unticking removes it. */
+function fsHash_(s) {
+  return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(s)).map(function (b) { return ('0' + (b & 255).toString(16)).slice(-2); }).join('');
+}
+function fsShares_() {
+  try { return JSON.parse(PropertiesService.getScriptProperties().getProperty('FORMS_SHARE') || '{}') || {}; } catch (e) { return {}; }
+}
+/* POST {action:'formsShare', key, domain, secret (32 hex), on} */
+function formsShare_(domain, secret, on) {
+  if (!domain || !/^[a-f0-9]{32}$/.test(String(secret || ''))) return { error: 'bad request' };
+  if (!clients_().some(function (c) { return c.domain === domain; })) return { error: 'unknown site' };
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const all = fsShares_(), h = fsHash_(secret);
+    const list = (all[domain] || []).filter(function (x) { return x !== h; });
+    if (on) list.push(h);
+    if (list.length) all[domain] = list.slice(-50); else delete all[domain];
+    PropertiesService.getScriptProperties().setProperty('FORMS_SHARE', JSON.stringify(all));
+    log_('Form inbox sharing', 'OK', domain + ': contact details ' + (on ? 'on' : 'off') + ' for one report link (' + list.length + ' link(s) on)');
+    return { ok: true, on: !!on };
+  } finally { lock.releaseLock(); }
+}
+function formsShareOk_(domain, secret) {
+  if (!/^[a-f0-9]{32}$/.test(String(secret || ''))) return false;
+  return (fsShares_()[domain] || []).indexOf(fsHash_(secret)) > -1;
 }

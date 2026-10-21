@@ -623,6 +623,80 @@ button.rp-lead{cursor:pointer;} button.rp-lead:hover{border-color:#b8c2cc;}
 .rp-fs-msg{display:block;max-width:340px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--a-ink2,#4b5560);}
 .rp-fs-ch{display:inline-flex;align-items:center;gap:6px;}
 .rp-fs-ch::before{content:'';width:8px;height:8px;border-radius:50%;background:var(--c);}
+.rp-fx-top{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:16px;}
+.rp-fx-search{flex:1 1 320px;display:flex;align-items:center;gap:8px;border:1px solid var(--a-line);border-radius:12px;padding:0 12px;background:var(--a-card);color:var(--a-ink3);transition:border-color .15s,box-shadow .15s;cursor:text;}
+.rp-fx-search:focus-within{border-color:var(--a-deep,#2a78d6);box-shadow:0 0 0 3px rgba(42,120,214,.14);}
+.rp-fx-search input{flex:1;border:0;outline:0;background:transparent;font:500 14px var(--ui,Inter,sans-serif);color:var(--a-ink);padding:11px 0;min-width:0;}
+.rp-fx-search kbd{font:600 11px var(--ui,Inter,sans-serif);color:var(--a-ink3);border:1px solid var(--a-line);border-bottom-width:2px;border-radius:5px;padding:0 6px;}
+.rp-fx-search:focus-within kbd{display:none;}
+.rp-fx-tools{display:flex;gap:8px;align-items:center;}
+.rp-fx-tools select{font:500 12.5px var(--ui,Inter,sans-serif);border:1px solid var(--a-line);border-radius:9px;padding:8px 10px;background:var(--a-card);color:var(--a-ink);}
+.rp-fx-dims{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}
+.rp-fx-dim{position:relative;}
+.rp-fx-dim > button{display:inline-flex;align-items:center;gap:6px;max-width:260px;font:500 12.5px var(--ui,Inter,sans-serif);border:1px solid var(--a-line);border-radius:999px;padding:6px 12px;background:var(--a-card);color:var(--a-ink2);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:background .15s,border-color .15s,color .15s;}
+.rp-fx-dim > button:hover{background:var(--a-wash,#f4f6f8);}
+.rp-fx-dim > button.on{background:var(--a-ink,#1b222a);border-color:var(--a-ink,#1b222a);color:#fff;}
+.rp-fx-dim > button b{font-weight:600;overflow:hidden;text-overflow:ellipsis;}
+.rp-fx-dim > button svg{flex:none;opacity:.7;}
+.rp-fx-pop{position:absolute;z-index:60;top:calc(100% + 6px);left:0;width:290px;max-height:340px;display:flex;flex-direction:column;background:var(--a-card,#fff);border:1px solid var(--a-line);border-radius:12px;box-shadow:0 18px 40px -16px rgba(20,28,36,.38);padding:8px;animation:rpIn .16s ease both;}
+.rp-fx-pop input{border:1px solid var(--a-line);border-radius:8px;padding:7px 9px;font:500 12.5px var(--ui,Inter,sans-serif);margin-bottom:6px;background:var(--a-card);color:var(--a-ink);outline:0;}
+.rp-fx-opts{overflow:auto;}
+.rp-fx-opt{display:grid;grid-template-columns:1fr auto;gap:3px 8px;width:100%;text-align:left;border:0;background:none;border-radius:8px;padding:7px 8px;cursor:pointer;font:500 12.5px var(--ui,Inter,sans-serif);color:var(--a-ink);}
+.rp-fx-opt:hover,.rp-fx-opt.on{background:var(--a-wash,#f4f6f8);}
+.rp-fx-opt em{font-style:normal;color:var(--a-ink3);font-variant-numeric:tabular-nums;}
+.rp-fx-opt i{grid-column:1 / -1;height:3px;border-radius:2px;background:var(--a-line2,#eef1f4);overflow:hidden;}
+.rp-fx-opt i::after{content:'';display:block;height:100%;width:var(--p);background:var(--c,#2a78d6);border-radius:2px;}
+.rp-fx-chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:10px;min-height:26px;font-size:12.5px;color:var(--a-ink3);}
+.rp-fx-chip{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:4px 6px 4px 10px;background:var(--a-wash,#eef3f8);color:var(--a-ink);font:500 12px var(--ui,Inter,sans-serif);border:0;cursor:pointer;}
+.rp-fx-chip span{color:var(--a-ink3);}
+.rp-fx-chip b{display:inline-grid;place-items:center;width:16px;height:16px;border-radius:50%;background:rgba(127,127,127,.18);font-size:11px;line-height:1;}
+.rp-fx-chip:hover b{background:rgba(127,127,127,.32);}
+.rp-fx-clear{border:0;background:none;color:var(--a-deep,#2a78d6);font:600 12px var(--ui,Inter,sans-serif);cursor:pointer;padding:4px;}
+.rp-fx-count{margin-left:auto;font-variant-numeric:tabular-nums;}
+.rp-fx-split{display:flex;gap:20px;align-items:flex-start;margin-top:8px;flex-wrap:wrap;}
+.rp-fx-side{flex:0 1 250px;min-width:220px;display:flex;flex-direction:column;gap:18px;overflow:auto;}
+.rp-fx-side > div{flex:none;}
+.rp-fx-list{flex:1 1 440px;min-width:0;display:flex;flex-direction:column;gap:8px;overflow:auto;padding:2px 4px 2px 2px;}
+.rp-fx-bars{display:flex;flex-direction:column;gap:2px;}
+.rp-fx-bars button{display:grid;grid-template-columns:1fr auto;gap:4px 8px;width:100%;border:0;background:none;padding:6px 8px;border-radius:8px;cursor:pointer;text-align:left;font:500 12.5px var(--ui,Inter,sans-serif);color:var(--a-ink);}
+.rp-fx-bars button > span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.rp-fx-bars button:hover,.rp-fx-bars button.on{background:var(--a-wash,#f4f6f8);}
+.rp-fx-bars button.on{box-shadow:inset 0 0 0 1px var(--a-line);}
+.rp-fx-bars em{font-style:normal;color:var(--a-ink3);font-variant-numeric:tabular-nums;}
+.rp-fx-bars i{grid-column:1 / -1;height:6px;border-radius:3px;background:var(--a-line2,#eef1f4);overflow:hidden;}
+.rp-fx-bars i::after{content:'';display:block;height:100%;width:var(--p);background:var(--c);border-radius:3px;transition:width .3s;}
+.rp-fx-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--c);margin-right:7px;vertical-align:1px;}
+.rp-fx-card{display:flex;gap:12px;width:100%;text-align:left;border:1px solid var(--a-line);border-radius:14px;padding:12px 14px;background:var(--a-card);cursor:pointer;color:inherit;font:inherit;flex:none;transition:border-color .15s,box-shadow .15s,transform .15s;}
+.rp-fx-card:hover{border-color:var(--a-ink3,#c3ccd3);box-shadow:0 8px 22px -14px rgba(20,28,36,.38);transform:translateY(-1px);}
+.rp-fx-card:focus-visible{outline:2px solid var(--a-deep,#2a78d6);outline-offset:1px;}
+.rp-fx-av{flex:none;width:38px;height:38px;border-radius:50%;display:grid;place-items:center;font:600 13px var(--ui,Inter,sans-serif);color:#fff;background:var(--c);letter-spacing:.02em;}
+.rp-fx-av.lg{width:52px;height:52px;font-size:17px;}
+.rp-fx-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;}
+.rp-fx-l1{display:flex;align-items:baseline;gap:8px;min-width:0;}
+.rp-fx-l1 b{font:600 14px var(--ui,Inter,sans-serif);color:var(--a-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.rp-fx-l1 span{color:var(--a-ink3);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.rp-fx-l1 time{margin-left:auto;flex:none;color:var(--a-ink3);font-size:12px;font-variant-numeric:tabular-nums;}
+.rp-fx-l2{color:var(--a-ink2);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.rp-fx-msg{color:var(--a-ink2);font-size:13px;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.rp-fx-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;}
+.rp-fx-tags > span{display:inline-flex;align-items:center;gap:5px;font:500 11.5px var(--ui,Inter,sans-serif);color:var(--a-ink2);background:var(--a-wash,#f2f5f8);border-radius:6px;padding:2px 7px;max-width:100%;}
+.rp-fx-tags > span > i{flex:none;width:7px;height:7px;border-radius:50%;background:var(--c);}
+.rp-fx-hit{background:#ffe27a;color:#1b222a;border-radius:3px;padding:0 1px;}
+.rp-fx-more{align-self:center;margin:6px 0 2px;}
+.rp-fx-empty{padding:40px 16px;text-align:center;color:var(--a-ink3);border:1px dashed var(--a-line);border-radius:14px;font-size:13px;}
+.rp-fx-empty b{display:block;color:var(--a-ink);font-size:14.5px;margin-bottom:4px;}
+.rp-fx-share{display:flex;gap:10px;align-items:flex-start;margin-top:16px;padding:12px 14px;border-radius:12px;background:var(--a-wash,#f4f6f8);font-size:12.5px;line-height:1.5;color:var(--a-ink2);cursor:pointer;}
+.rp-fx-share input{margin-top:3px;}
+.rp-fx-share b{color:var(--a-ink);}
+.rp-fx-dhead{display:flex;gap:14px;align-items:center;margin-bottom:12px;}
+.rp-fx-dname{font:600 18px var(--display,Poppins,Inter,sans-serif);color:var(--a-ink);overflow-wrap:anywhere;}
+.rp-fx-acts{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
+.rp-fx-acts .aiv-btn{display:inline-flex;align-items:center;gap:6px;text-decoration:none;}
+.rp-fx-others{display:flex;flex-direction:column;gap:8px;margin-top:8px;}
+.rp-fx-others div{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:8px 10px;border:1px solid var(--a-line);border-radius:10px;font-size:12.5px;}
+.rp-fx-others span{color:var(--a-ink3);}
+.rp-fx-others em{grid-column:1 / -1;font-style:normal;color:var(--a-ink2);}
+@media (max-width:760px){.rp-fx-side{flex-basis:100%;}.rp-fx-l1 time{display:none;}.rp-fx-search{flex-basis:100%;}}
 .rp-pw-scroll{overflow:auto;padding:8px 16px 16px;max-height:600px;cursor:grab;}
 .rp-pw-scroll.drag{cursor:grabbing;user-select:none;}
 .rp-pw-scroll.drag *{cursor:grabbing !important;}
@@ -2326,6 +2400,265 @@ W.easyleads_forms = {g: 'conv', t: 'Easyleads form submissions', d: 'Every Easyl
     }
     W.forms.render(h, ctx, w, {forms: F, el: true});
   }};
+/* ---------- Form inbox (website forms: WordPress, Concrete) ----------
+One searchable inbox of every website form submission: find anyone by name, email,
+company, province or city; filter by form, page, channel and any short answer the
+forms ask (province, city, service…); open one for everything they sent.
+Data: 'formsc' (the forms payload). The team report gets every detail. A client's
+link gets names and contact details only when this widget was set to show them
+(cfg.contacts, with the link's own secret cfg.cs registered on the tracker);
+otherwise only the answers that say nothing about who sent it (facets). */
+const FX_FACET = /province|provincia|state|region|city|town|ciudad|country|location|office|branch|service|product|interest|industry|department|hear about|how did you hear|budget|timeline|category|topic|reason/i;
+const FX_PRIVATE = /name|e-?mail|correo|phone|tel[eé]fono|mobile|cell|company|empresa|address|direcci|postal|zip|message|comment|question|details/i;
+const FX_PROV = {AB: 'Alberta', BC: 'British Columbia', MB: 'Manitoba', NB: 'New Brunswick', NL: 'Newfoundland and Labrador', NS: 'Nova Scotia', NT: 'Northwest Territories',
+NU: 'Nunavut', ON: 'Ontario', PE: 'Prince Edward Island', QC: 'Quebec', SK: 'Saskatchewan', YT: 'Yukon'};
+const fxAttr = s => String(s).replace(/["\\]/g, '\\$&');
+const fxSecretOk = s => /^[a-f0-9]{32}$/.test(String(s || ''));
+/* Provinces and cities merge across forms (and languages) into one filter each. */
+const fxKey = k => { const s = String(k).replace(/[*:?\s]+$/, '').trim(); return /prov|state/i.test(s) ? 'Province' : /city|town|ciudad/i.test(s) ? 'City' : s.charAt(0).toUpperCase() + s.slice(1); };
+const fxVal = (k, v) => {
+v = String(v == null ? '' : v).replace(/\s+/g, ' ').trim();
+if (!v) return '';
+if (k === 'Province' && FX_PROV[v.toUpperCase()]) return FX_PROV[v.toUpperCase()];
+if (v.length > 3 && (v === v.toLowerCase() || v === v.toUpperCase())) v = v.toLowerCase().replace(/(^|[\s-])(\S)/g, (m, a, b) => a + b.toUpperCase());
+return v;
+};
+/* The non-personal answers of one submission: {Province: 'Alberta', City: 'Red Deer', …}. */
+const fxFacetsOf = r => {
+const src = r.facets || r.fields || {}, o = {};
+Object.keys(src).forEach(k => { if (!FX_FACET.test(k) || FX_PRIVATE.test(k)) return; const key = fxKey(k), v = fxVal(key, src[k]); if (v && v.length <= 80 && !o[key]) o[key] = v; });
+return o;
+};
+const fxInitials = s => { const p = String(s || '').replace(/[^\p{L}\p{N} ]/gu, ' ').trim().split(/\s+/).filter(Boolean);
+return ((p[0] || '?').charAt(0) + (p.length > 1 ? p[p.length - 1].charAt(0) : '')).toUpperCase(); };
+const FX_AV = ['#2a78d6', '#0f7a58', '#c96a00', '#6250d6', '#c2417a', '#0b8fa3', '#8a5a00', '#3d6b2f'];
+const fxColor = s => { let n = 0; String(s || '').toLowerCase().split('').forEach(c => { n = (n * 31 + c.charCodeAt(0)) | 0; }); return FX_AV[Math.abs(n) % FX_AV.length]; };
+/* Every search word highlighted in a piece of text (the result is escaped). */
+const fxHl = (s, terms) => {
+s = String(s == null ? '' : s);
+if (!terms.length || !s) return esc(s);
+const re = new RegExp('(' + terms.map(t => t.replace(/[.*+?^$(){}|[\]\\]/g, '\\$&')).join('|') + ')', 'gi');
+return s.split(re).map((p, i) => i % 2 ? '<mark class="rp-fx-hit">' + esc(p) + '</mark>' : esc(p)).join('');
+};
+const fxAgo = t => {
+const d = new Date(String(t || '')); if (isNaN(d)) return '';
+const days = Math.floor((Date.now() - d) / 864e5);
+return days < 1 ? 'today' : days < 2 ? 'yesterday' : days < 7 ? days + ' days ago' : days < 60 ? Math.round(days / 7) + ' wk ago' : days < 730 ? Math.round(days / 30.4) + ' mo ago' : Math.round(days / 365) + ' yr ago';
+};
+/* The rows on screen as a spreadsheet file (Excel-safe: a cell can't start a formula). */
+function fxCsv(rows, facets, det){
+const cols = [['Sent', r => String(r.t || '').replace('T', ' ')], ['Form', r => r.form], ['Page', r => r.page]]
+.concat(det ? [['Name', r => r.name], ['Email', r => r.email], ['Phone', r => r.phone], ['Company', r => r.company]] : [])
+.concat(facets.map(k => [k, r => r._f[k]]))
+.concat(det ? [['Message', r => r.message]] : []).concat([['Channel', r => r.channel], ['Source / medium', r => r.sm]]);
+const q = v => { v = String(v == null ? '' : v); if (/^[=+\-@]/.test(v)) v = "'" + v; return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+return '﻿' + [cols.map(c => q(c[0])).join(',')].concat(rows.map(r => cols.map(c => q(c[1](r))).join(','))).join('\r\n');
+}
+/* One submission, everything they sent, and anything else the same person sent. */
+function fxOpen(ctx, r, all, terms){
+const who = r.name || r.email || r.form, col = fxColor(r.email || r.name || r.form);
+const mail = String(r.email || '').toLowerCase();
+const others = mail ? all.filter(x => x !== r && String(x.email || '').toLowerCase() === mail).sort((a, b) => a.t < b.t ? 1 : -1) : [];
+U.openDrawer(who + ' · ' + fsWhen(r), col, body => {
+const f = r.fields && Object.keys(r.fields).length ? r.fields : r._f;
+const act = [];
+if (r.email) act.push('<a class="aiv-btn" href="mailto:' + esc(r.email) + '">' + glyph('chat', 14) + 'Email</a>');
+if (r.phone) act.push('<a class="aiv-btn" href="tel:' + esc(String(r.phone).replace(/[^\d+]/g, '')) + '">Call ' + esc(r.phone) + '</a>');
+if (r.email) act.push('<button class="aiv-btn" type="button" data-copy="' + esc(r.email) + '">Copy email</button>');
+const src = r.channel === 'Not tracked yet' && (r.origin === 'import' || r.origin === 'easyleads')
+? '<p class="aiv-cap">Sent before source tracking was added, so where this visitor came from isn’t known.</p>'
+: '<table class="aiv-table"><tbody>' + [['Channel', esc(r.channel || '—')], ['Source / medium', esc(r.sm || '—')], ['Campaign', esc(r.campaign || '—')],
+['First page they landed on', r.land ? '<span class="aiv-page">' + esc(r.land) + '</span>' : '—']].map(x => '<tr><td style="width:38%;color:var(--a-ink3)">' + x[0] + '</td><td>' + x[1] + '</td></tr>').join('') + '</tbody></table>';
+const where = Object.keys(r._f).map(k => r._f[k]).slice(0, 2).join(', ');
+body.innerHTML = '<div class="rp-fx-dhead"><span class="rp-fx-av lg" style="--c:' + col + '">' + esc(fxInitials(r.name || r.email || r.form)) + '</span><div style="min-width:0">' +
+'<div class="rp-fx-dname">' + esc(who) + '</div><div class="aiv-cap">' + esc([r.company, where].filter(Boolean).join(' · ') || r.form) + '</div></div></div>' +
+(act.length ? '<div class="rp-fx-acts">' + act.join('') + '</div>' : '') +
+statsRow([['Form', esc(r.form)], ['Sent', esc(fsWhen(r))], ['Page', r.page ? esc(r.page) : '—'], ['Channel', esc(r.channel || '—')]]) +
+'<div class="aiv-card"><h3>What they sent</h3><table class="aiv-table" style="margin-top:8px"><tbody>' +
+(f && Object.keys(f).length ? Object.keys(f).map(k => '<tr><td style="width:38%;color:var(--a-ink3);vertical-align:top">' + esc(k) + '</td><td style="white-space:pre-wrap">' +
+(/e-?mail/i.test(k) && /@/.test(f[k]) ? '<a href="mailto:' + esc(f[k]) + '">' + fxHl(f[k], terms) + '</a>' : fxHl(f[k], terms)) + '</td></tr>').join('')
+: '<tr><td>No answers were kept.</td></tr>') + '</tbody></table></div>' +
+(others.length ? '<div class="aiv-card"><h3>Also sent by ' + esc(r.name || r.email) + ' (' + fmt(others.length) + ')</h3><div class="rp-fx-others">' +
+others.slice(0, 12).map(x => '<div><b>' + esc(x.form) + '</b><span>' + esc(fsWhen(x)) + '</span>' + (x.message ? '<em>' + esc(String(x.message).slice(0, 160)) + '</em>' : '') + '</div>').join('') + '</div></div>' : '') +
+'<div class="aiv-card"><h3>Where they came from</h3><div style="margin-top:8px">' + src + '</div></div>';
+body.querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', () => {
+const done = () => { b.textContent = 'Copied'; setTimeout(() => { b.textContent = 'Copy email'; }, 1600); };
+try{ navigator.clipboard.writeText(b.dataset.copy).then(done, () => {}); }catch(e){}
+}));
+});
+}
+W.forms_inbox = {g: 'conv', t: 'Form inbox', d: 'Every website form submission (WordPress and Concrete sites) in one searchable inbox: find anyone by name, email, company, province or city, filter by form and page, and open what they sent.', size: 'xl', needs: ['formsc'],
+render(h, ctx, w, D){
+const F = D.formsc || {}, M = formsModel(ctx, F), det = !!M.details;
+const cf = w.cfg = w.cfg || {};
+M.rows.forEach(r => {
+if (r._f) return;
+r._f = fxFacetsOf(r);
+r._q = [r.name, r.email, r.phone, r.company, r.message, r.page, r.form, r.channel].concat(Object.values(r.fields || {}), Object.values(r.facets || {}), Object.values(r._f))
+.filter(Boolean).join(' \u0001 ').toLowerCase();
+});
+const cur = M.cur;
+/* Short answers worth filtering by: on enough submissions, with not too many different values. Province first, then city. */
+const fv = {};
+cur.forEach(r => Object.keys(r._f).forEach(k => { const o = fv[k] = fv[k] || {}; o[r._f[k]] = (o[r._f[k]] || 0) + 1; }));
+const cover = k => Object.values(fv[k]).reduce((t, n) => t + n, 0);
+const rank = k => k === 'Province' ? 0 : k === 'City' ? 1 : 2;
+const facets = Object.keys(fv).filter(k => cover(k) >= Math.max(2, cur.length * 0.15) && Object.keys(fv[k]).length <= 120)
+.sort((a, b) => rank(a) - rank(b) || cover(b) - cover(a)).slice(0, 4);
+const DIMS = [['form', 'Form']].concat(facets.map(k => ['f:' + k, k]), [['page', 'Page'], ['channel', 'Channel']]);
+const valOf = (r, d) => d === 'form' ? r.form || '—' : d === 'page' ? r.page || '—' : d === 'channel' ? r.channel || '—' : r._f[d.slice(2)] || '';
+const formCol = k => FS_FORM[Math.max(0, M.forms.indexOf(k)) % FS_FORM.length];
+const dimCol = (d, v) => d === 'form' ? formCol(v) : d === 'channel' ? fsChColor(v) : '#0f7a58';
+const sel = {};
+let q = '', sort = 'new', shown = 30, open = '';
+
+/* Headline numbers. */
+const people = det ? new Set(cur.map(r => String(r.email || r.name || '').toLowerCase()).filter(Boolean)).size : 0;
+const top0 = facets[0] ? Object.keys(fv[facets[0]]).sort((a, b) => fv[facets[0]][b] - fv[facets[0]][a])[0] : '';
+const latest = cur.slice().sort((a, b) => a.t < b.t ? 1 : -1)[0];
+const tiles = [kpiTile('Submissions', fmt(cur.length), esc(ctx.R.label || ''), {d: delta(cur.length, M.prev.length, M.hasPrev), icon: glyph('table', 18, '#0f7a58')}),
+det ? kpiTile('People', fmt(people), people && people < cur.length ? fmt(cur.length - people) + ' sent more than once' : 'different senders', {icon: glyph('users', 18, '#2a78d6')})
+: kpiTile('Forms', fmt(M.count(cur, 'form').length), 'sent at least once', {icon: glyph('page', 18, '#2a78d6')}),
+top0 ? kpiTile('Top ' + facets[0].toLowerCase(), esc(top0), pctS(fv[facets[0]][top0], cur.length) + ' of submissions', {icon: glyph('pin', 18, '#c96a00'), click: 'fx||f:' + facets[0] + '||' + top0})
+: kpiTile('Top form', esc((M.count(cur, 'form')[0] || {k: '—'}).k), 'most used', {icon: glyph('page', 18, '#c96a00')}),
+kpiTile('Latest', latest ? esc(fxAgo(latest.t)) : '—', latest ? esc(fsWhen(latest)) : 'none in this period', {icon: glyph('cal', 18, '#6250d6')})];
+
+const share = ctx.saveItem && ctx.internal && !ctx.drill && ctx.formsShare;
+h.innerHTML = '<div class="rp-fx">' +
+'<div class="rp-kpis">' + tiles.join('') + '</div>' +
+'<div class="rp-fx-top"><label class="rp-fx-search">' + glyph('search', 16) +
+'<input type="search" data-q placeholder="' + (det ? 'Search names, emails, companies, provinces, messages…' : 'Search forms, pages, provinces, cities…') + '" aria-label="Search submissions" autocomplete="off"><kbd title="Press / to search">/</kbd></label>' +
+'<div class="rp-fx-tools"><select data-sort aria-label="Sort"><option value="new">Newest first</option><option value="old">Oldest first</option>' + (det ? '<option value="name">Name A–Z</option>' : '') + '<option value="form">By form</option></select>' +
+'<button class="aiv-btn" type="button" data-csv title="Download the submissions shown as a spreadsheet (CSV)">Export</button></div></div>' +
+'<div class="rp-fx-dims">' + DIMS.map(d => '<div class="rp-fx-dim" data-dim="' + esc(d[0]) + '"><button type="button" aria-haspopup="listbox" aria-expanded="false"></button></div>').join('') + '</div>' +
+'<div class="rp-fx-chips" data-chips></div>' +
+'<div class="rp-fx-split"><div class="rp-fx-side" data-side></div><div class="rp-fx-list" data-list role="list" style="max-height:' + (w && w.h ? Math.max(320, w.h - 360) : 720) + 'px"></div></div>' +
+(share ? '<label class="rp-fx-share"><input type="checkbox" data-share' + (cf.contacts && fxSecretOk(cf.cs) ? ' checked' : '') + '><span><b>Show names and contact details on the client’s link.</b> Off by default. When on, anyone with this report’s link can see who sent each form (names, emails, phones, messages) and search them. Takes effect on the link the next time the report is updated; turning it off stops it right away.</span></label>' : '') +
+'<p class="aiv-foot">Website forms (WordPress and Concrete), ' + esc(ctx.R.text || '') + '. ' + (M.first ? 'On file since ' + esc(prettyDate(M.first)) + '. ' : '') +
+(M.liveSince ? 'Where each visitor came from is recorded from ' + esc(prettyDate(M.liveSince)) + ' on; older submissions were imported and show “Not tracked yet”. ' : '') +
+(ctx.drill ? 'Names and contact details are for the team; a client’s link shows them only if this widget is set to on the client report.' : det ? 'Contact details are shared on this report by EDGE Marketing.' : 'Names and contact details aren’t shown on this report.') + '</p></div>';
+
+const qEl = h.querySelector('[data-q]'), sortEl = h.querySelector('[data-sort]'), listEl = h.querySelector('[data-list]');
+const terms = () => q.toLowerCase().split(/\s+/).map(t => t.trim()).filter(t => t.length > 0);
+const match = (r, skip) => {
+for (const d in sel){ if (d !== skip && sel[d] && valOf(r, d) !== sel[d]) return false; }
+const t = terms();
+return !t.length || t.every(x => r._q.indexOf(x) > -1);
+};
+const countFor = d => { const m = {}; cur.forEach(r => { if (!match(r, d)) return; const v = valOf(r, d); if (v) m[v] = (m[v] || 0) + 1; });
+return Object.keys(m).map(k => ({k, n: m[k]})).sort((a, b) => b.n - a.n || (a.k < b.k ? -1 : 1)); };
+const bars = (d, title, n) => {
+const c = countFor(d).slice(0, n), max = Math.max(1, ...c.map(x => x.n));
+return c.length ? '<div><h4 class="rp-fs-h">' + esc(title) + '</h4><div class="rp-fx-bars">' + c.map(x => '<button type="button" data-bar="' + esc(d) + '" data-v="' + esc(x.k) + '"' + (sel[d] === x.k ? ' class="on"' : '') + '>' +
+'<span>' + (d === 'form' || d === 'channel' ? '<span class="rp-fx-dot" style="--c:' + dimCol(d, x.k) + '"></span>' : '') + esc(x.k) + '</span><em>' + fmt(x.n) + '</em><i style="--p:' + Math.round(x.n / max * 100) + '%;--c:' + dimCol(d, x.k) + '"></i></button>').join('') + '</div></div>' : '';
+};
+const card = (r, i, t) => {
+const nm = det ? (r.name || r.email || 'No name given') : r.form;
+const col = fxColor(det ? (r.email || r.name || r.form) : r.form);
+const where = facets.map(k => r._f[k]).filter(Boolean).join(' · ');
+const l2 = det ? [r.email, r.phone].filter(Boolean).map(v => fxHl(v, t)).join(' · ') : (r.page ? '<span class="aiv-page">' + fxHl(r.page, t) + '</span>' : '');
+return '<button type="button" class="rp-fx-card" role="listitem" data-i="' + i + '"><span class="rp-fx-av" style="--c:' + col + '">' + esc(fxInitials(det ? (r.name || r.email) : r.form)) + '</span>' +
+'<span class="rp-fx-main"><span class="rp-fx-l1"><b>' + fxHl(nm, t) + '</b>' + (det && r.company ? '<span>' + fxHl(r.company, t) + '</span>' : '') + '<time title="' + esc(fsWhen(r)) + '">' + esc(fsWhen(r)) + '</time></span>' +
+(l2 ? '<span class="rp-fx-l2">' + l2 + '</span>' : '') +
+(det && r.message ? '<span class="rp-fx-msg">' + fxHl(r.message, t) + '</span>' : '') +
+'<span class="rp-fx-tags">' + (det ? '<span><i style="--c:' + formCol(r.form) + '"></i>' + fxHl(r.form, t) + '</span>' : '') +
+(where ? '<span>' + glyph('pin', 12) + fxHl(where, t) + '</span>' : '') +
+(r.channel && r.channel !== 'Not tracked yet' ? '<span><i style="--c:' + fsChColor(r.channel) + '"></i>' + esc(r.channel) + '</span>' : '') + '</span></span></button>';
+};
+let view = [];
+const draw = () => {
+const t = terms();
+view = cur.filter(r => match(r));
+const nm = r => String(r.name || r.email || '~').toLowerCase();
+view.sort(sort === 'old' ? (a, b) => a.t < b.t ? -1 : 1 : sort === 'name' ? (a, b) => nm(a) < nm(b) ? -1 : nm(a) > nm(b) ? 1 : 0
+: sort === 'form' ? (a, b) => a.form < b.form ? -1 : a.form > b.form ? 1 : a.t < b.t ? 1 : -1 : (a, b) => a.t < b.t ? 1 : -1);
+/* Filter buttons show what's picked. */
+DIMS.forEach(d => { const b = h.querySelector('.rp-fx-dim[data-dim="' + fxAttr(d[0]) + '"] > button');
+b.className = sel[d[0]] ? 'on' : '';
+b.innerHTML = esc(d[1]) + (sel[d[0]] ? ': <b>' + esc(sel[d[0]]) + '</b>' : '') + '<svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M1 3l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>'; });
+const on = Object.keys(sel).filter(d => sel[d]);
+h.querySelector('[data-chips]').innerHTML = on.map(d => '<button type="button" class="rp-fx-chip" data-unset="' + esc(d) + '"><span>' + esc((DIMS.find(x => x[0] === d) || [0, d])[1]) + '</span>' + esc(sel[d]) + '<b aria-label="Remove">×</b></button>').join('') +
+(q.trim() ? '<button type="button" class="rp-fx-chip" data-unset="__q"><span>Search</span>“' + esc(q.trim()) + '”<b aria-label="Remove">×</b></button>' : '') +
+(on.length + (q.trim() ? 1 : 0) > 1 ? '<button type="button" class="rp-fx-clear" data-clear>Clear all</button>' : '') +
+'<span class="rp-fx-count">' + (view.length === cur.length ? fmt(cur.length) + ' submission' + (cur.length === 1 ? '' : 's') : fmt(view.length) + ' of ' + fmt(cur.length)) + '</span>';
+h.querySelector('[data-side]').innerHTML = (facets[0] ? bars('f:' + facets[0], 'Where they’re from' + (facets[0] === 'Province' ? '' : ': ' + facets[0]), 8) : '') +
+bars('form', 'Forms', 6) + (facets[1] ? bars('f:' + facets[1], facets[1], 6) : bars('page', 'Pages', 6));
+listEl.innerHTML = view.length ? view.slice(0, shown).map((r, i) => card(r, i, t)).join('') +
+(view.length > shown ? '<button type="button" class="aiv-btn rp-fx-more" data-more>Show ' + fmt(Math.min(30, view.length - shown)) + ' more · ' + fmt(view.length - shown) + ' left</button>' : '')
+: '<div class="rp-fx-empty"><b>' + (cur.length ? 'Nothing matches' : 'No form submissions in this period') + '</b>' +
+(cur.length ? 'Try another word, or clear a filter.' : M.first ? 'The first one on file is from ' + esc(prettyDate(M.first)) + '. Pick a longer period to see it.' : 'They’ll show here as soon as someone sends a form.') + '</div>';
+};
+/* A filter's menu: its values with counts (given the other filters), searchable when long. */
+const closePop = () => { const p = h.querySelector('.rp-fx-pop'); if (p) p.remove(); h.querySelectorAll('.rp-fx-dim > button').forEach(b => b.setAttribute('aria-expanded', 'false')); open = ''; };
+const openPop = d => {
+closePop(); open = d;
+const host = h.querySelector('.rp-fx-dim[data-dim="' + fxAttr(d) + '"]'), c = countFor(d), max = Math.max(1, ...c.map(x => x.n));
+const pop = document.createElement('div'); pop.className = 'rp-fx-pop'; pop.setAttribute('role', 'listbox');
+const opts = f => c.filter(x => !f || x.k.toLowerCase().indexOf(f) > -1).slice(0, 200).map(x => '<button type="button" class="rp-fx-opt' + (sel[d] === x.k ? ' on' : '') + '" role="option" data-v="' + esc(x.k) + '">' +
+'<span>' + esc(x.k) + '</span><em>' + fmt(x.n) + '</em><i style="--p:' + Math.round(x.n / max * 100) + '%;--c:' + dimCol(d, x.k) + '"></i></button>').join('') || '<div class="aiv-cap" style="padding:8px">No values.</div>';
+pop.innerHTML = (c.length > 8 ? '<input type="search" placeholder="Find…" aria-label="Find a value">' : '') + (sel[d] ? '<button type="button" class="rp-fx-opt" data-v="">Any ' + esc((DIMS.find(x => x[0] === d) || [0, ''])[1].toLowerCase()) + '</button>' : '') + '<div class="rp-fx-opts">' + opts('') + '</div>';
+host.appendChild(pop); host.querySelector('button').setAttribute('aria-expanded', 'true');
+const f = pop.querySelector('input'); if (f){ f.focus(); f.addEventListener('input', () => { pop.querySelector('.rp-fx-opts').innerHTML = opts(f.value.trim().toLowerCase()); }); }
+pop.addEventListener('click', e => { const o = e.target.closest('[data-v]'); if (!o) return; sel[d] = o.dataset.v; shown = 30; closePop(); draw(); });
+};
+const root = h.querySelector('.rp-fx');
+root.querySelectorAll('.rp-fx-dim > button').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); const d = b.parentNode.dataset.dim; if (open === d) closePop(); else openPop(d); }));
+/* Page-wide listeners (menu closing, the / key) are dropped when the widget redraws or leaves the page. */
+if (h._fxOff) h._fxOff();
+const outside = e => { if (!root.isConnected) return h._fxOff && h._fxOff(); if (open && !e.target.closest('.rp-fx-pop')) closePop(); };
+const slash = e => { if (!root.isConnected) return h._fxOff && h._fxOff();
+if (e.key !== '/' || /^(INPUT|TEXTAREA|SELECT)$/.test((document.activeElement || {}).tagName || '') || (document.activeElement || {}).isContentEditable) return;
+const r = root.getBoundingClientRect(); if (r.bottom < 0 || r.top > innerHeight) return;
+e.preventDefault(); qEl.focus(); };
+document.addEventListener('click', outside);
+document.addEventListener('keydown', slash);
+h._fxOff = () => { document.removeEventListener('click', outside); document.removeEventListener('keydown', slash); h._fxOff = null; };
+let tmr = 0;
+qEl.addEventListener('input', () => { clearTimeout(tmr); tmr = setTimeout(() => { q = qEl.value; shown = 30; draw(); }, 120); });
+sortEl.addEventListener('change', () => { sort = sortEl.value; draw(); });
+root.addEventListener('click', e => {
+const t = e.target;
+const set = (d, v) => { sel[d] = sel[d] === v ? '' : v; shown = 30; draw(); };
+const bar = t.closest('[data-bar]'); if (bar) return set(bar.dataset.bar, bar.dataset.v);
+const un = t.closest('[data-unset]'); if (un){ if (un.dataset.unset === '__q'){ q = ''; qEl.value = ''; } else sel[un.dataset.unset] = ''; shown = 30; return draw(); }
+if (t.closest('[data-clear]')){ Object.keys(sel).forEach(k => { sel[k] = ''; }); q = ''; qEl.value = ''; shown = 30; return draw(); }
+if (t.closest('[data-more]')){ shown += 30; return draw(); }
+const k = t.closest('.rp-kpi[data-k]'); if (k && k.dataset.k.indexOf('fx||') === 0){ const p = k.dataset.k.split('||'); return set(p[1], p.slice(2).join('||')); }
+const c = t.closest('.rp-fx-card'); if (c && view[Number(c.dataset.i)]) return fxOpen(ctx, view[Number(c.dataset.i)], M.rows, terms());
+});
+/* Keyboard: / to search, arrows between submissions, Escape closes a menu. */
+root.addEventListener('keydown', e => {
+if (e.key === 'Escape' && open){ closePop(); return; }
+const c = e.target.closest && e.target.closest('.rp-fx-card');
+if (c && (e.key === 'ArrowDown' || e.key === 'ArrowUp')){ e.preventDefault(); const n = e.key === 'ArrowDown' ? c.nextElementSibling : c.previousElementSibling; if (n && n.classList.contains('rp-fx-card')) n.focus(); }
+if (e.key === 'ArrowDown' && e.target === qEl){ e.preventDefault(); const f = listEl.querySelector('.rp-fx-card'); if (f) f.focus(); }
+});
+h.querySelector('[data-csv]').addEventListener('click', () => {
+const blob = new Blob([fxCsv(view, facets, det)], {type: 'text/csv;charset=utf-8'}), a = document.createElement('a');
+a.href = URL.createObjectURL(blob); a.download = (ctx.domain || 'forms') + '-form-submissions-' + ctx.R.since + '-to-' + ctx.R.end + '.csv';
+document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+});
+const sh = h.querySelector('[data-share]');
+if (sh) sh.addEventListener('change', () => {
+const on = sh.checked;
+if (on && !confirm('Show names, emails, phones and messages to anyone with this client report’s link?')){ sh.checked = false; return; }
+const cs = on ? Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b => ('0' + b.toString(16)).slice(-2)).join('') : cf.cs;
+sh.disabled = true;
+const done = () => { sh.disabled = false; };
+if (!on && !fxSecretOk(cs)){ cf.contacts = false; delete cf.cs; ctx.saveItem(w); return done(); }
+ctx.formsShare(cs, on).then(() => {
+if (on){ cf.contacts = true; cf.cs = cs; } else { cf.contacts = false; delete cf.cs; }
+ctx.saveItem(w); done();
+}, err => { sh.checked = !on; done(); alert('Couldn’t change this on the tracker: ' + (err && err.message || err)); });
+});
+draw();
+/* On a fixed-height widget the list (and the side bars) take whatever height is left, so the whole inbox fits. */
+if (w && w.h) requestAnimationFrame(() => {
+const box = h.matches('[data-body]') ? h : (h.closest('[data-body]') || h), split = root.querySelector('.rp-fx-split');
+const room = box.clientHeight - (root.offsetHeight - split.offsetHeight) - 10;
+if (room > 220) [listEl, root.querySelector('[data-side]')].forEach(el => { el.style.maxHeight = room + 'px'; });
+});
+}};
 W.forms_kpi = {g: 'conv', t: 'Leads', d: 'Website form submissions in the period, with the change and a sparkline.', size: 's', needs: ['forms'],
   render(h, ctx, w, D){
     const M = formsModel(ctx, D.forms), B = buckets(ctx.R), v = B.zero();
@@ -2435,7 +2768,7 @@ const DEF_H = {headline: 250, conv_kpi: 230, traffic_kpis: 240, gsc_kpis: 240, k
   insight_summary: 330, insight_wins: 400, goal_tracker: 250, insight_scorecard: 380, insight_compare: 430, insight_forecast: 220, insight_weekday: 300, ga4_engagement: 420,
   ga4_mix_shift: 380, ga4_conv_rate: 330, ga4_lead_sources: 380, ga4_opportunity_pages: 440, ga4_rising_pages: 400, ga4_engaging_pages: 400, ga4_unvisited: 420,
   gsc_ctr_curve: 330, gsc_brand: 330, gsc_questions: 440, gsc_query_length: 330, gsc_zero_click: 440, gsc_page_two: 440, forms_kpi: 210, forms_latest: 440, forms_rate: 380,
-  forms_heatmap: 330, gsc_health: 780, kw_wins: 330, kw_close: 380, kw_pages: 420, gbp_glance: 380, ai_share: 210};
+  forms_heatmap: 330, gsc_health: 780, kw_wins: 330, kw_close: 380, kw_pages: 420, gbp_glance: 380, ai_share: 210, forms_inbox: 1040};
 const defH = it => it.type === 'embed' ? Math.max(200, Math.min(2400, Number((it.cfg || {}).height) || 600)) + 70 : (DEF_H[it.type] || 360);
 
 /* ---------- what each widget looks like: source marks, icon, accent ---------- */
@@ -3175,7 +3508,7 @@ const catTabsOf = k => {
   if (d.g === 'content'){ t.add('content'); return t; }
   if (n.some(x => x === 'g4' || x === 'pages' || x === 'pathway')) t.add('ga4');
   if (n.indexOf('gsc') > -1) t.add('gsc');
-  if (n.indexOf('forms') > -1 || n.indexOf('easyleads') > -1) t.add('forms');
+  if (n.indexOf('forms') > -1 || n.indexOf('formsc') > -1 || n.indexOf('easyleads') > -1) t.add('forms');
   if (n.indexOf('feed') > -1 || ['ai', 'gai', 'bing', 'llm'].indexOf(d.g) > -1) t.add('ai');
   if (n.indexOf('kw') > -1 || n.indexOf('gbp') > -1) t.add('rank');
   return t;
@@ -3616,7 +3949,9 @@ function ctxFor(c){
       return dc.el[k] || (dc.el[k] = AIV.apiGet(s.url, {action: 'forms', src: 'easyleads', domain, key: s.key, start: R.prevSince, end: R.end})
         .then(r => { if (r && r.error) throw new Error(r.error); return r; }).catch(e => { delete dc.el[k]; throw e; }));
     }
-    return Promise.reject(new Error('Unknown data source ' + name));
+    /* Form inbox: the same forms payload (the team key sees every detail). */
+if (name === 'formsc') return ctx.get('forms');
+return Promise.reject(new Error('Unknown data source ' + name));
   };
   /* Pathways for one traffic type (all, organic, paid, direct, referral, other). */
   ctx.loadPathway = ch => {
@@ -3631,7 +3966,10 @@ function ctxFor(c){
     const R = ctx.R, k = R.since + '|' + R.end + '|' + path;
     return dc.pg[k] || (dc.pg[k] = AIV.apiGet(s.url, {action: 'pages', domain, key: s.key, start: R.prevSince, split: R.since, end: R.end, path}).catch(e => { delete dc.pg[k]; throw e; }));
   };
-  /* Search Console health: queue this client's pages for inspection now. */
+  /* Form inbox: let one client report link see who sent each website form (registers or removes that link's secret on the tracker). */
+ctx.formsShare = (secret, on) => (!s.url || !s.key || domain.indexOf('.') < 0) ? Promise.reject(new Error('The tracker isn’t connected.'))
+: fetch(s.url, {method: 'POST', body: JSON.stringify({key: s.key, action: 'formsShare', domain, secret, on: !!on})}).then(r => r.json()).then(r => { if (r && r.error) throw new Error(r.error); return r; });
+/* Search Console health: queue this client's pages for inspection now. */
   ctx.gscHealthNow = () => (!s.url || !s.key || domain.indexOf('.') < 0) ? Promise.reject(new Error('The tracker isn’t connected.'))
     : fetch(s.url, {method: 'POST', body: JSON.stringify({key: s.key, action: 'gscHealthNow', domain})}).then(r => r.json()).then(r => { dc.gsch = null; return r; });
   ctx.loadJourneys = (since, end) => AIV.apiGet(s.url, {action: 'journeys', domain, key: s.key, start: since, end});
@@ -4027,7 +4365,13 @@ async function buildDoc(c, over){
     rows: (g.rows || []).map(r => ({t: r.t, form: r.form, page: r.page, channel: r.channel, sm: r.sm, campaign: r.campaign, land: r.land, origin: r.origin}))}; }
   if (need.has('easyleads')){ const g = await get('easyleads'); if (g && !g.error) snap.easyleads = {first: g.first, details: false, connected: g.connected,
     rows: (g.rows || []).map(r => ({t: r.t, form: r.form, page: r.page, channel: r.channel, sm: r.sm, campaign: r.campaign, land: r.land, origin: r.origin}))}; }
-  if (need.has('pages')){ const g = await get('pages'); if (g && !g.error) snap.pages = Object.assign({}, g, {pages: (g.pages || []).slice(0, 400), sitemap: (g.sitemap || []).slice(0, 2000)}); }
+  /* Form inbox: who sent each form only when a Form inbox on this report was set to show contact details; otherwise the safe copy plus the non-personal answers (province, city, service…). */
+if (need.has('formsc')){ const g = await get('formsc'); if (g && !g.error){
+const full = items.some(it => it.type === 'forms_inbox' && it.cfg && it.cfg.contacts && fxSecretOk(it.cfg.cs));
+snap.formsc = {first: g.first, details: full, rows: (g.rows || []).map(r => full ? {t: r.t, form: r.form, page: r.page, channel: r.channel, sm: r.sm, campaign: r.campaign, land: r.land, origin: r.origin,
+name: r.name, email: r.email, phone: r.phone, company: r.company, message: r.message, fields: r.fields}
+: {t: r.t, form: r.form, page: r.page, channel: r.channel, sm: r.sm, campaign: r.campaign, land: r.land, origin: r.origin, facets: r.facets || fxFacetsOf(r)})}; } }
+if (need.has('pages')){ const g = await get('pages'); if (g && !g.error) snap.pages = Object.assign({}, g, {pages: (g.pages || []).slice(0, 400), sitemap: (g.sitemap || []).slice(0, 2000)}); }
   if (need.has('kw')) doc.kw = JSON.stringify(kwRows(c));
   if (need.has('gbp')) doc.gbp = JSON.stringify(gbpSummary(gbpsFor(c)));
   /* Firestore keeps up to 1 MB per document: the data copy gets what the rest leaves. */
@@ -4037,7 +4381,8 @@ async function buildDoc(c, over){
   if (str.length > room && snap.gsc){ snap.gsc = trimGsc(snap.gsc, 100); str = JSON.stringify(snap); }
   if (str.length > room && snap.pathway){ snap.pathway = Object.assign({}, snap.pathway, {moves: snap.pathway.moves.slice(0, 800), steps: snap.pathway.steps.slice(0, 1500), views: snap.pathway.views.slice(0, 600)}); str = JSON.stringify(snap); }
   if (str.length > room && snap.pages){ snap.pages.pages = snap.pages.pages.slice(0, 100); snap.pages.sitemap = []; str = JSON.stringify(snap); }
-  if (str.length <= room) doc.snap = str;
+  if (str.length > room && snap.formsc){ snap.formsc = Object.assign({}, snap.formsc, {rows: snap.formsc.rows.map(r => Object.assign({}, r, {fields: undefined, message: r.message ? String(r.message).slice(0, 240) : r.message}))}); str = JSON.stringify(snap); }
+if (str.length <= room) doc.snap = str;
   return doc;
 }
 async function publish(c){
