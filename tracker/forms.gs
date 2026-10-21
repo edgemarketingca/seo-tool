@@ -75,13 +75,20 @@ function fsChannel_(s) {
   if (ref) return 'Referral';
   return 'Direct';
 }
+/* Sheets reads text that starts with = + - or @ as a formula: a phone like "+1 403…" became #ERROR!.
+   A leading apostrophe keeps it as text (the apostrophe itself isn't stored). Phones are always kept as text,
+   so dashes, spaces and leading zeros survive. */
+function fsText_(v) {
+  v = String(v == null ? '' : v);
+  return /^[=+\-@]/.test(v) ? "'" + v : v;
+}
 function fsRow_(domain, when, form, page, f, s, origin, id) {
   const n = fsNorm_(f), known = !!(s.us || s.ref || s.gclid || s.land), later = origin === 'import' || origin === 'easyleads';
   /* s.ch: a channel the source system already worked out (GoHighLevel's own source label). */
   const channel = s.ch && !s.us && !s.ref && !s.gclid ? s.ch : later && !known ? 'Not tracked yet' : fsChannel_(s);
   const sm = s.us ? s.us + ' / ' + (s.um || '(none)') : s.gclid ? 'google / cpc' : s.ref ? fsHost_(s.ref) + ' / referral' : s.ch ? s.ch : later && !known ? '' : '(direct) / (none)';
-  return [domain, when, form, page, n.name, n.email, n.phone, n.company, n.message, JSON.stringify(f).slice(0, 45000),
-    channel, sm, String(s.uc || '').slice(0, 200), String(s.land || '').slice(0, 300), String(s.ref || '').slice(0, 300), origin,
+  return [domain, when, fsText_(form), fsText_(page), fsText_(n.name), fsText_(n.email), n.phone ? "'" + n.phone : '', fsText_(n.company), fsText_(n.message), JSON.stringify(f).slice(0, 45000),
+    channel, fsText_(sm), fsText_(String(s.uc || '').slice(0, 200)), fsText_(String(s.land || '').slice(0, 300)), fsText_(String(s.ref || '').slice(0, 300)), origin,
     origin + ':' + domain + ':' + String(id || Utilities.getUuid()).slice(0, 80)];
 }
 function fsClean_(fields) {
