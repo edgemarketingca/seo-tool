@@ -1137,8 +1137,10 @@ const FS_FORM = ['#2a78d6', '#0f7a58', '#eda100', '#6250d6', '#e87ba4', '#0b8fa3
 const fsChColor = c => FS_CH[c] || '#9aa5b1';
 const fsDay = r => String(r.t || '').slice(0, 10);
 const fsWhen = r => prettyDate(fsDay(r)) + (String(r.t || '').length > 10 ? ' · ' + String(r.t).slice(11, 16) : '');
+/* Forms are live, unlike GA4 and Search Console, so a period that ends yesterday runs to today for every form widget. */
+const fsR = R => R && R.end === addDays(today(), -1) ? Object.assign({}, R, {end: today()}) : R;
 function formsModel(ctx, F){
-  const rows = (F && Array.isArray(F.rows) ? F.rows : []).filter(r => r && r.t), R = ctx.R;
+  const rows = (F && Array.isArray(F.rows) ? F.rows : []).filter(r => r && r.t), R = fsR(ctx.R);
   const cur = rows.filter(r => fsDay(r) >= R.since && fsDay(r) <= R.end), prev = rows.filter(r => fsDay(r) >= R.prevSince && fsDay(r) <= R.prevEnd);
   const count = (list, key) => { const m = {}; list.forEach(r => { const k = r[key] || '—'; m[k] = (m[k] || 0) + 1; }); return Object.keys(m).map(k => ({k, n: m[k]})).sort((a, b) => b.n - a.n); };
   const forms = count(rows, 'form').map(x => x.k);
@@ -1167,8 +1169,8 @@ W.forms = {g: 'conv', t: 'Form submissions', d: 'Every website form submission: 
     const M = formsModel(ctx, D.forms), EL = !!D.el;
     /* Forms are few a day, so long periods are grouped by month. */
     const monthly = ctx.R.days > 120;
-    const B = monthly ? (() => { const labels = []; for (let d = ctx.R.since.slice(0, 8) + '01'; d <= ctx.R.end; d = isoDay(new Date(Date.UTC(+d.slice(0, 4), +d.slice(5, 7), 1)))) labels.push(d);
-      const idx = {}; labels.forEach((d, i) => { idx[d.slice(0, 7)] = i; }); return {labels, slot: d => idx[String(d).slice(0, 7)], zero: () => labels.map(() => 0)}; })() : buckets(ctx.R);
+    const B = monthly ? (() => { const labels = []; for (let d = ctx.R.since.slice(0, 8) + '01'; d <= fsR(ctx.R).end; d = isoDay(new Date(Date.UTC(+d.slice(0, 4), +d.slice(5, 7), 1)))) labels.push(d);
+      const idx = {}; labels.forEach((d, i) => { idx[d.slice(0, 7)] = i; }); return {labels, slot: d => idx[String(d).slice(0, 7)], zero: () => labels.map(() => 0)}; })() : buckets(fsR(ctx.R));
     const cf = w.cfg = w.cfg || {};
     let fForm = '', fCh = '', q = '';
     const tot = M.cur.length;
@@ -2707,7 +2709,7 @@ if (room > 220) [listEl, root.querySelector('[data-side]')].forEach(el => { el.s
 }};
 W.forms_kpi = {g: 'conv', t: 'Leads', d: 'Website form submissions in the period, with the change and a sparkline.', size: 's', needs: ['forms'],
   render(h, ctx, w, D){
-    const M = formsModel(ctx, D.forms), B = buckets(ctx.R), v = B.zero();
+    const M = formsModel(ctx, D.forms), B = buckets(fsR(ctx.R)), v = B.zero();
     M.cur.forEach(r => { const i = B.slot(fsDay(r)); if (i != null) v[i]++; });
     const top = M.count(M.cur, 'form')[0];
     h.innerHTML = bigNum(fmt(M.cur.length), delta(M.cur.length, M.prev.length, M.hasPrev), top ? 'Most: ' + esc(top.k) + ' (' + fmt(top.n) + ')' : 'None in this period') + '<div style="margin-top:8px">' + U.sparkline(v, '#0f7a58') + '</div>';
@@ -4350,15 +4352,15 @@ function ctxFor(c){
     if (name === 'gsch') return dc.gsch || (dc.gsch = AIV.apiGet(s.url, {action: 'gscHealth', domain, key: s.key, start: R.since, end: R.end})
       .then(r => { if (r && r.error) throw new Error(r.error); return r; }).catch(e => { dc.gsch = null; throw e; }));
     if (name === 'forms'){
-      const k = R.prevSince + '|' + R.end;
+      const k = R.prevSince + '|' + fsR(R).end;
       dc.forms = dc.forms || {};
-      return dc.forms[k] || (dc.forms[k] = AIV.apiGet(s.url, {action: 'forms', domain, key: s.key, start: R.prevSince, end: R.end})
+      return dc.forms[k] || (dc.forms[k] = AIV.apiGet(s.url, {action: 'forms', domain, key: s.key, start: R.prevSince, end: fsR(R).end})
         .then(r => { if (r && r.error) throw new Error(r.error); return r; }).catch(e => { delete dc.forms[k]; throw e; }));
     }
     if (name === 'easyleads'){
-      const k = R.prevSince + '|' + R.end;
+      const k = R.prevSince + '|' + fsR(R).end;
       dc.el = dc.el || {};
-      return dc.el[k] || (dc.el[k] = AIV.apiGet(s.url, {action: 'forms', src: 'easyleads', domain, key: s.key, start: R.prevSince, end: R.end})
+      return dc.el[k] || (dc.el[k] = AIV.apiGet(s.url, {action: 'forms', src: 'easyleads', domain, key: s.key, start: R.prevSince, end: fsR(R).end})
         .then(r => { if (r && r.error) throw new Error(r.error); return r; }).catch(e => { delete dc.el[k]; throw e; }));
     }
     /* Client personas: every form on file, website and Easyleads, all time (the period doesn't narrow it). */
