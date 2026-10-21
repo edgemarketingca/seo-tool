@@ -1178,11 +1178,11 @@ W.forms = {g: 'conv', t: 'Form submissions', d: 'Every website form submission: 
         return kpiTile(k, fmt(n), 'form', {d: delta(n, p, M.hasPrev), click: 'f:' + k}); }));
     h.innerHTML = '<div class="rp-kpis">' + tiles.join('') + '</div>' +
       '<div data-ch style="margin-top:14px"></div>' +
-      '<div class="aiv-grid2" style="margin-top:14px"><div><h4 class="rp-fs-h">By channel</h4><div data-bych></div></div><div><h4 class="rp-fs-h">Pages the forms were sent from</h4><div data-bypg></div></div></div>' +
+      '<div style="margin-top:14px"><h4 class="rp-fs-h">Pages the forms were sent from</h4><div data-bypg></div></div>' +
       '<div style="margin-top:14px"><div class="aiv-filters rp-fs-bar"><h4 class="rp-fs-h" style="margin:0;flex:1">' + (M.details ? 'Every submission' : 'Submissions') + '</h4>' +
       (M.details ? '<input type="search" data-q placeholder="Find a name, email, company…" aria-label="Find a submission">' : '') +
       '<select data-ff aria-label="Form"><option value="">All forms</option>' + M.forms.map(k => '<option value="' + esc(k) + '">' + esc(k) + '</option>').join('') + '</select>' +
-      '<select data-fc aria-label="Channel"><option value="">All channels</option>' + byCh.map(x => '<option value="' + esc(x.k) + '">' + esc(x.k) + '</option>').join('') + '</select></div><div data-list></div></div>' +
+      '</div><div data-list></div></div>' +
       '<p class="aiv-foot">' + (EL ? 'Easyleads (GoHighLevel) forms' : 'Website forms') + ', ' + esc(ctx.R.text || '') + '. ' + (M.first ? 'On file since ' + esc(prettyDate(M.first)) + '. ' : '') +
       (EL ? 'Read from GoHighLevel every hour: past submissions included. Channel and landing page come from what GoHighLevel recorded with each one.' : M.liveSince ? 'Channel and landing page are recorded for submissions from ' + esc(prettyDate(M.liveSince)) + ' on.' : 'Older submissions were imported from the website; channel and landing page are recorded from now on.') +
       (M.details && ctx.drill ? ' Names, emails, phones and messages show on the team report only, unless the client report lets the client click into them.' : '') + '</p>';
@@ -1190,8 +1190,6 @@ W.forms = {g: 'conv', t: 'Form submissions', d: 'Every website form submission: 
     const series = [{name: 'All submissions', color: '#0f7a58', values: B.zero(), area: true}].concat(M.forms.slice(0, 4).map((k, i) => ({name: k, color: FS_FORM[i % FS_FORM.length], values: B.zero()})));
     M.cur.forEach(r => { const i = B.slot(fsDay(r)); if (i == null) return; series[0].values[i]++; const j = M.forms.indexOf(r.form); if (j > -1 && j < 4) series[j + 1].values[i]++; });
     chart(h.querySelector('[data-ch]'), {labels: B.labels, weekly: monthly || ctx.R.weekly, height: 210, series, empty: 'No form submissions in this period.'}, ctx, w);
-    const tc = byCh.slice(0, 7).map((x, i) => ({k: x.k, n: x.n, label: x.k, color: sc(ctx, fsChColor(x.k), i)}));
-    h.querySelector('[data-bych]').innerHTML = tc.length ? '<div class="rp-donutrow">' + donut(tc.map(x => ({key: x.k, label: x.label, n: x.n, color: x.color})), {sub: 'submissions'}) + legendRows(tc, tc.reduce((t, x) => t + x.n, 0), {click: true}) + '</div>' : '<div class="rp-err">No channel data in this period.</div>';
     const pg = {}; M.cur.forEach(r => { const k = r.page || '—'; const o = pg[k] = pg[k] || {k, n: 0, land: {}}; o.n++; if (r.land) o.land[r.land] = (o.land[r.land] || 0) + 1; });
     const pgs = Object.values(pg).sort((a, b) => b.n - a.n), maxP = Math.max(1, ...pgs.map(x => x.n));
     table(h.querySelector('[data-bypg]'), pgs, [
@@ -1206,15 +1204,12 @@ W.forms = {g: 'conv', t: 'Form submissions', d: 'Every website form submission: 
       if (M.details) cols.push({key: 'name', label: 'Name', fmt: r => esc(r.name || '—') + (r.company ? '<div class="rp-fs-sub">' + esc(r.company) + '</div>' : '')},
         {key: 'email', label: 'Contact', fmt: r => esc(r.email || '') + (r.phone ? '<div class="rp-fs-sub">' + esc(r.phone) + '</div>' : '')},
         {key: 'message', label: 'Message', fmt: r => '<span class="rp-fs-msg">' + esc(String(r.message || '').slice(0, 140)) + '</span>'});
-      cols.push({key: 'channel', label: 'Channel', fmt: r => !r.channel || r.channel === 'Not tracked yet' ? '' : '<span class="rp-fs-ch" style="--c:' + fsChColor(r.channel) + '">' + esc(r.channel || '—') + '</span>' + (r.sm && r.channel !== 'Direct' ? '<div class="rp-fs-sub">' + esc(r.sm) + '</div>' : '')});
       if (!M.details) cols.push({key: 'page', label: 'Page', fmt: r => '<span class="aiv-page">' + esc(r.page || '—') + '</span>'});
       table(h.querySelector('[data-list]'), rows, cols, {sort: 't', empty: 'No submissions match.', maxH: chH(w, 460, 0) > 460 ? 640 : 460, onRow: M.details ? r => fsOpen(ctx, r, M) : null});
     };
     sF.addEventListener('change', () => { fForm = sF.value; list(); });
-    sC.addEventListener('change', () => { fCh = sC.value; list(); });
     if (sQ) sQ.addEventListener('input', () => { q = sQ.value; list(); });
     onClick(h, '[data-k]', el => { const k = el.dataset.k; if (k.indexOf('f:') === 0){ fForm = fForm === k.slice(2) ? '' : k.slice(2); sF.value = fForm; list(); } });
-    onClick(h, '[data-l]', el => { fCh = fCh === el.dataset.l ? '' : el.dataset.l; sC.value = fCh; list(); });
     list();
 fxShareBox(h, ctx, w);
   }};
