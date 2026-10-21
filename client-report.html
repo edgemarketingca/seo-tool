@@ -74,8 +74,8 @@ html,body{margin:0;background:#FDFDFD;color:#555;font-family:"Geist","Helvetica 
       if (o.cfg.off && !Array.isArray(o.cfg.off)) delete o.cfg.off;
       return o;
     }); }catch(e){}
-    /* A Form inbox set to show contact details on this link: its secret goes with the forms request (the tracker checks it). */
-    const fxCs = (items.find(i => i.type === 'forms_inbox' && i.cfg && i.cfg.contacts && /^[a-f0-9]{32}$/.test(String(i.cfg.cs || ''))) || {cfg: {}}).cfg.cs || '';
+    /* Form widgets set to let the client click into submissions on this link: the secret goes with every forms request (the tracker checks it). */
+    const fxCs = (items.find(i => /^(forms|easyleads_forms|forms_[a-z_]+)$/.test(i.type) && i.cfg && i.cfg.contacts && /^[a-f0-9]{32}$/.test(String(i.cfg.cs || ''))) || {cfg: {}}).cfg.cs || '';
     let snap = null;
     try{ if (view.snap) snap = JSON.parse(view.snap); }catch(e){}
     document.title = view.title || 'Report';
@@ -137,11 +137,11 @@ html,body{margin:0;background:#FDFDFD;color:#555;font-family:"Geist","Helvetica 
           : name === 'gsch'
           ? {action: 'gscHealth', domain: view.domain, t: view.token, start: R.since, end: R.end}
           : name === 'forms'
-          ? {action: 'forms', domain: view.domain, t: view.token, start: R.prevSince, end: R.end}
+          ? Object.assign({action: 'forms', domain: view.domain, t: view.token, start: R.prevSince, end: R.end}, fxCs ? {cs: fxCs} : {})
           : name === 'formsc'
           ? Object.assign({action: 'forms', domain: view.domain, t: view.token, start: R.prevSince, end: R.end}, fxCs ? {cs: fxCs} : {})
           : name === 'easyleads'
-          ? {action: 'forms', src: 'easyleads', domain: view.domain, t: view.token, start: R.prevSince, end: R.end}
+          ? Object.assign({action: 'forms', src: 'easyleads', domain: view.domain, t: view.token, start: R.prevSince, end: R.end}, fxCs ? {cs: fxCs} : {})
           : name === 'pages'
           ? {action: 'pages', domain: view.domain, t: view.token, start: R.prevSince, split: R.since, end: R.end}
           : {action: 'gscQueries', domain: view.domain, t: view.token, start: R.since, end: R.end})

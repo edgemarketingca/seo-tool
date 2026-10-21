@@ -626,14 +626,14 @@ button.rp-lead{cursor:pointer;} button.rp-lead:hover{border-color:#b8c2cc;}
 .rp-fx-top{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:16px;}
 .rp-fx-search{flex:1 1 320px;display:flex;align-items:center;gap:8px;border:1px solid var(--a-line);border-radius:12px;padding:0 12px;background:var(--a-card);color:var(--a-ink3);transition:border-color .15s,box-shadow .15s;cursor:text;}
 .rp-fx-search:focus-within{border-color:var(--a-deep,#2a78d6);box-shadow:0 0 0 3px rgba(42,120,214,.14);}
-.rp-fx-search input{flex:1;border:0;outline:0;background:transparent;font:500 14px var(--ui,Inter,sans-serif);color:var(--a-ink);padding:11px 0;min-width:0;}
+.rp-fx-search input{flex:1;border:0;outline:0;background:transparent;font:500 15px var(--ui,Inter,sans-serif);color:var(--a-ink);padding:11px 0;min-width:0;}
 .rp-fx-search kbd{font:600 11px var(--ui,Inter,sans-serif);color:var(--a-ink3);border:1px solid var(--a-line);border-bottom-width:2px;border-radius:5px;padding:0 6px;}
 .rp-fx-search:focus-within kbd{display:none;}
 .rp-fx-tools{display:flex;gap:8px;align-items:center;}
 .rp-fx-tools select{font:500 12.5px var(--ui,Inter,sans-serif);border:1px solid var(--a-line);border-radius:9px;padding:8px 10px;background:var(--a-card);color:var(--a-ink);}
 .rp-fx-dims{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}
 .rp-fx-dim{position:relative;}
-.rp-fx-dim > button{display:inline-flex;align-items:center;gap:6px;max-width:260px;font:500 12.5px var(--ui,Inter,sans-serif);border:1px solid var(--a-line);border-radius:999px;padding:6px 12px;background:var(--a-card);color:var(--a-ink2);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:background .15s,border-color .15s,color .15s;}
+.rp-fx-dim > button{display:inline-flex;align-items:center;gap:6px;max-width:280px;font:500 13.5px var(--ui,Inter,sans-serif);border:1px solid var(--a-line);border-radius:999px;padding:7px 14px;background:var(--a-card);color:var(--a-ink2);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:background .15s,border-color .15s,color .15s;}
 .rp-fx-dim > button:hover{background:var(--a-wash,#f4f6f8);}
 .rp-fx-dim > button.on{background:var(--a-ink,#1b222a);border-color:var(--a-ink,#1b222a);color:#fff;}
 .rp-fx-dim > button b{font-weight:600;overflow:hidden;text-overflow:ellipsis;}
@@ -658,7 +658,7 @@ button.rp-lead{cursor:pointer;} button.rp-lead:hover{border-color:#b8c2cc;}
 .rp-fx-side > div{flex:none;}
 .rp-fx-list{flex:1 1 440px;min-width:0;display:flex;flex-direction:column;gap:8px;overflow:auto;padding:2px 4px 2px 2px;}
 .rp-fx-bars{display:flex;flex-direction:column;gap:2px;}
-.rp-fx-bars button{display:grid;grid-template-columns:1fr auto;gap:4px 8px;width:100%;border:0;background:none;padding:6px 8px;border-radius:8px;cursor:pointer;text-align:left;font:500 12.5px var(--ui,Inter,sans-serif);color:var(--a-ink);}
+.rp-fx-bars button{display:grid;grid-template-columns:1fr auto;gap:4px 8px;width:100%;border:0;background:none;padding:7px 8px;border-radius:8px;cursor:pointer;text-align:left;font:500 13.5px var(--ui,Inter,sans-serif);color:var(--a-ink);}
 .rp-fx-bars button > span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .rp-fx-bars button:hover,.rp-fx-bars button.on{background:var(--a-wash,#f4f6f8);}
 .rp-fx-bars button.on{box-shadow:inset 0 0 0 1px var(--a-line);}
@@ -666,20 +666,20 @@ button.rp-lead{cursor:pointer;} button.rp-lead:hover{border-color:#b8c2cc;}
 .rp-fx-bars i{grid-column:1 / -1;height:6px;border-radius:3px;background:var(--a-line2,#eef1f4);overflow:hidden;}
 .rp-fx-bars i::after{content:'';display:block;height:100%;width:var(--p);background:var(--c);border-radius:3px;transition:width .3s;}
 .rp-fx-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--c);margin-right:7px;vertical-align:1px;}
-.rp-fx-card{display:flex;gap:12px;width:100%;text-align:left;border:1px solid var(--a-line);border-radius:14px;padding:12px 14px;background:var(--a-card);cursor:pointer;color:inherit;font:inherit;flex:none;transition:border-color .15s,box-shadow .15s,transform .15s;}
+.rp-fx-card{display:flex;gap:14px;width:100%;text-align:left;border:1px solid var(--a-line);border-radius:14px;padding:15px 18px;background:var(--a-card);cursor:pointer;color:inherit;font:inherit;flex:none;transition:border-color .15s,box-shadow .15s,transform .15s;}
 .rp-fx-card:hover{border-color:var(--a-ink3,#c3ccd3);box-shadow:0 8px 22px -14px rgba(20,28,36,.38);transform:translateY(-1px);}
 .rp-fx-card:focus-visible{outline:2px solid var(--a-deep,#2a78d6);outline-offset:1px;}
-.rp-fx-av{flex:none;width:38px;height:38px;border-radius:50%;display:grid;place-items:center;font:600 13px var(--ui,Inter,sans-serif);color:#fff;background:var(--c);letter-spacing:.02em;}
+.rp-fx-av{flex:none;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font:600 14.5px var(--ui,Inter,sans-serif);color:#fff;background:var(--c);letter-spacing:.02em;}
 .rp-fx-av.lg{width:52px;height:52px;font-size:17px;}
 .rp-fx-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;}
 .rp-fx-l1{display:flex;align-items:baseline;gap:8px;min-width:0;}
-.rp-fx-l1 b{font:600 14px var(--ui,Inter,sans-serif);color:var(--a-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.rp-fx-l1 span{color:var(--a-ink3);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.rp-fx-l1 b{font:600 15.5px var(--ui,Inter,sans-serif);color:var(--a-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.rp-fx-l1 span{color:var(--a-ink3);font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .rp-fx-l1 time{margin-left:auto;flex:none;color:var(--a-ink3);font-size:12px;font-variant-numeric:tabular-nums;}
-.rp-fx-l2{color:var(--a-ink2);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.rp-fx-msg{color:var(--a-ink2);font-size:13px;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.rp-fx-l2{color:var(--a-ink2);font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.rp-fx-msg{color:var(--a-ink2);font-size:14px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
 .rp-fx-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;}
-.rp-fx-tags > span{display:inline-flex;align-items:center;gap:5px;font:500 11.5px var(--ui,Inter,sans-serif);color:var(--a-ink2);background:var(--a-wash,#f2f5f8);border-radius:6px;padding:2px 7px;max-width:100%;}
+.rp-fx-tags > span{display:inline-flex;align-items:center;gap:5px;font:500 12.5px var(--ui,Inter,sans-serif);color:var(--a-ink2);background:var(--a-wash,#f2f5f8);border-radius:6px;padding:2px 7px;max-width:100%;}
 .rp-fx-tags > span > i{flex:none;width:7px;height:7px;border-radius:50%;background:var(--c);}
 .rp-fx-hit{background:#ffe27a;color:#1b222a;border-radius:3px;padding:0 1px;}
 .rp-fx-more{align-self:center;margin:6px 0 2px;}
@@ -1149,7 +1149,7 @@ W.forms = {g: 'conv', t: 'Form submissions', d: 'Every website form submission: 
       '<select data-fc aria-label="Channel"><option value="">All channels</option>' + byCh.map(x => '<option value="' + esc(x.k) + '">' + esc(x.k) + '</option>').join('') + '</select></div><div data-list></div></div>' +
       '<p class="aiv-foot">' + (EL ? 'Easyleads (GoHighLevel) forms' : 'Website forms') + ', ' + esc(ctx.R.text || '') + '. ' + (M.first ? 'On file since ' + esc(prettyDate(M.first)) + '. ' : '') +
       (EL ? 'Read from GoHighLevel every hour: past submissions included. Channel and landing page come from what GoHighLevel recorded with each one; “Not tracked yet” means it recorded none.' : M.liveSince ? 'Channel and landing page are recorded for submissions from ' + esc(prettyDate(M.liveSince)) + ' on; older ones were imported from the website and show “Not tracked yet”.' : 'Older submissions were imported from the website; channel and landing page are recorded from now on.') +
-      (M.details ? ' Names, emails, phones and messages show on the team report only.' : '') + '</p>';
+      (M.details && ctx.drill ? ' Names, emails, phones and messages show on the team report only, unless the client report lets the client click into them.' : '') + '</p>';
     /* Over time, by form. */
     const series = [{name: 'All submissions', color: '#0f7a58', values: B.zero(), area: true}].concat(M.forms.slice(0, 4).map((k, i) => ({name: k, color: FS_FORM[i % FS_FORM.length], values: B.zero()})));
     M.cur.forEach(r => { const i = B.slot(fsDay(r)); if (i == null) return; series[0].values[i]++; const j = M.forms.indexOf(r.form); if (j > -1 && j < 4) series[j + 1].values[i]++; });
@@ -1172,7 +1172,7 @@ W.forms = {g: 'conv', t: 'Form submissions', d: 'Every website form submission: 
         {key: 'message', label: 'Message', fmt: r => '<span class="rp-fs-msg">' + esc(String(r.message || '').slice(0, 140)) + '</span>'});
       cols.push({key: 'channel', label: 'Channel', fmt: r => '<span class="rp-fs-ch" style="--c:' + fsChColor(r.channel) + '">' + esc(r.channel || '—') + '</span>' + (r.sm && r.channel !== 'Direct' ? '<div class="rp-fs-sub">' + esc(r.sm) + '</div>' : '')});
       if (!M.details) cols.push({key: 'page', label: 'Page', fmt: r => '<span class="aiv-page">' + esc(r.page || '—') + '</span>'});
-      table(h.querySelector('[data-list]'), rows, cols, {sort: 't', empty: 'No submissions match.', maxH: chH(w, 460, 0) > 460 ? 640 : 460, onRow: M.details && ctx.drill !== false ? r => fsOpen(ctx, r, M) : null});
+      table(h.querySelector('[data-list]'), rows, cols, {sort: 't', empty: 'No submissions match.', maxH: chH(w, 460, 0) > 460 ? 640 : 460, onRow: M.details ? r => fsOpen(ctx, r, M) : null});
     };
     sF.addEventListener('change', () => { fForm = sF.value; list(); });
     sC.addEventListener('change', () => { fCh = sC.value; list(); });
@@ -1180,6 +1180,7 @@ W.forms = {g: 'conv', t: 'Form submissions', d: 'Every website form submission: 
     onClick(h, '[data-k]', el => { const k = el.dataset.k; if (k.indexOf('f:') === 0){ fForm = fForm === k.slice(2) ? '' : k.slice(2); sF.value = fForm; list(); } });
     onClick(h, '[data-l]', el => { fCh = fCh === el.dataset.l ? '' : el.dataset.l; sC.value = fCh; list(); });
     list();
+fxShareBox(h, ctx, w);
   }};
 
 /* ---------- Traffic ---------- */
@@ -2414,6 +2415,34 @@ const FX_PROV = {AB: 'Alberta', BC: 'British Columbia', MB: 'Manitoba', NB: 'New
 NU: 'Nunavut', ON: 'Ontario', PE: 'Prince Edward Island', QC: 'Quebec', SK: 'Saskatchewan', YT: 'Yukon'};
 const fxAttr = s => String(s).replace(/["\\]/g, '\\$&');
 const fxSecretOk = s => /^[a-f0-9]{32}$/.test(String(s || ''));
+/* Every widget that lists form submissions (website and Easyleads). */
+const FX_TYPES = /^(forms|easyleads_forms|forms_[a-z_]+)$/;
+/* Form widgets never get smaller than this on a report, older reports included: [height px, columns]. */
+const FX_MIN = {forms: [1150, 12], easyleads_forms: [1150, 12], forms_inbox: [1180, 12], forms_latest: [600, 6], forms_kpi: [240, 3], forms_rate: [420, 4], forms_heatmap: [400, 6]};
+/* The link secret when this report's form widgets let the client click into submissions. */
+const fxSharedCs = items => { const it = (items || []).find(i => FX_TYPES.test(i.type) && i.cfg && i.cfg.contacts && fxSecretOk(i.cfg.cs)); return it ? it.cfg.cs : ''; };
+/* The client report's one setting for all its form widgets: let the client click into submissions on their link
+   (names, emails, phones, messages), the way the team report does. Off by default. */
+function fxShareBox(host, ctx, w){
+if (!(ctx.saveItem && ctx.internal && !ctx.drill && ctx.formsShare)) return;
+const items = ctx.items || [w];
+const box = document.createElement('label'); box.className = 'rp-fx-share';
+box.innerHTML = '<input type="checkbox"' + (fxSharedCs(items) ? ' checked' : '') + '><span><b>Let the client click into form submissions on their link.</b> Off by default. When on, every form widget on this report’s link opens like it does on the team report: names, emails, phones and messages, searchable. Anyone with the link can see them. Applies to the link the next time the report is updated; turning it off stops it right away.</span>';
+host.appendChild(box);
+const sh = box.querySelector('input');
+sh.addEventListener('change', () => {
+const on = sh.checked, forms = items.filter(i => FX_TYPES.test(i.type));
+if (on && !confirm('Let anyone with this client report’s link see who sent each form (names, emails, phones, messages)?')){ sh.checked = false; return; }
+const old = Array.from(new Set(forms.map(i => i.cfg && i.cfg.cs).filter(fxSecretOk)));
+const cs = on ? (fxSharedCs(items) || Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b => ('0' + b.toString(16)).slice(-2)).join('')) : '';
+sh.disabled = true;
+Promise.all(on ? [ctx.formsShare(cs, true)] : old.map(s => ctx.formsShare(s, false))).then(() => {
+forms.forEach(i => { i.cfg = i.cfg || {}; if (on){ i.cfg.contacts = true; i.cfg.cs = cs; } else { i.cfg.contacts = false; delete i.cfg.cs; } });
+ctx.saveItem(w); sh.disabled = false;
+document.querySelectorAll('.rp-fx-share input').forEach(x => { x.checked = on; });
+}, err => { sh.checked = !on; sh.disabled = false; alert('Couldn’t change this on the tracker: ' + (err && err.message || err)); });
+});
+}
 /* Provinces and cities merge across forms (and languages) into one filter each. */
 const fxKey = k => { const s = String(k).replace(/[*:?\s]+$/, '').trim(); return /prov|state/i.test(s) ? 'Province' : /city|town|ciudad/i.test(s) ? 'City' : s.charAt(0).toUpperCase() + s.slice(1); };
 const fxVal = (k, v) => {
@@ -2523,7 +2552,6 @@ top0 ? kpiTile('Top ' + facets[0].toLowerCase(), esc(top0), pctS(fv[facets[0]][t
 : kpiTile('Top form', esc((M.count(cur, 'form')[0] || {k: '—'}).k), 'most used', {icon: glyph('page', 18, '#c96a00')}),
 kpiTile('Latest', latest ? esc(fxAgo(latest.t)) : '—', latest ? esc(fsWhen(latest)) : 'none in this period', {icon: glyph('cal', 18, '#6250d6')})];
 
-const share = ctx.saveItem && ctx.internal && !ctx.drill && ctx.formsShare;
 h.innerHTML = '<div class="rp-fx">' +
 '<div class="rp-kpis">' + tiles.join('') + '</div>' +
 '<div class="rp-fx-top"><label class="rp-fx-search">' + glyph('search', 16) +
@@ -2532,11 +2560,10 @@ h.innerHTML = '<div class="rp-fx">' +
 '<button class="aiv-btn" type="button" data-csv title="Download the submissions shown as a spreadsheet (CSV)">Export</button></div></div>' +
 '<div class="rp-fx-dims">' + DIMS.map(d => '<div class="rp-fx-dim" data-dim="' + esc(d[0]) + '"><button type="button" aria-haspopup="listbox" aria-expanded="false"></button></div>').join('') + '</div>' +
 '<div class="rp-fx-chips" data-chips></div>' +
-'<div class="rp-fx-split"><div class="rp-fx-side" data-side></div><div class="rp-fx-list" data-list role="list" style="max-height:' + (w && w.h ? Math.max(320, w.h - 360) : 720) + 'px"></div></div>' +
-(share ? '<label class="rp-fx-share"><input type="checkbox" data-share' + (cf.contacts && fxSecretOk(cf.cs) ? ' checked' : '') + '><span><b>Show names and contact details on the client’s link.</b> Off by default. When on, anyone with this report’s link can see who sent each form (names, emails, phones, messages) and search them. Takes effect on the link the next time the report is updated; turning it off stops it right away.</span></label>' : '') +
+'<div class="rp-fx-split"><div class="rp-fx-side" data-side></div><div class="rp-fx-list" data-list role="list" style="max-height:' + (w && w.h ? Math.max(320, w.h - 360) : 900) + 'px"></div></div>' +
 '<p class="aiv-foot">Website forms (WordPress and Concrete), ' + esc(ctx.R.text || '') + '. ' + (M.first ? 'On file since ' + esc(prettyDate(M.first)) + '. ' : '') +
 (M.liveSince ? 'Where each visitor came from is recorded from ' + esc(prettyDate(M.liveSince)) + ' on; older submissions were imported and show “Not tracked yet”. ' : '') +
-(ctx.drill ? 'Names and contact details are for the team; a client’s link shows them only if this widget is set to on the client report.' : det ? 'Contact details are shared on this report by EDGE Marketing.' : 'Names and contact details aren’t shown on this report.') + '</p></div>';
+(ctx.drill ? 'Names and contact details are for the team; a client’s link shows them only when “Let the client click into form submissions” is on in the client report.' : det ? 'Contact details are shared on this report by EDGE Marketing.' : 'Names and contact details aren’t shown on this report.') + '</p></div>';
 
 const qEl = h.querySelector('[data-q]'), sortEl = h.querySelector('[data-sort]'), listEl = h.querySelector('[data-list]');
 const terms = () => q.toLowerCase().split(/\s+/).map(t => t.trim()).filter(t => t.length > 0);
@@ -2638,20 +2665,8 @@ const blob = new Blob([fxCsv(view, facets, det)], {type: 'text/csv;charset=utf-8
 a.href = URL.createObjectURL(blob); a.download = (ctx.domain || 'forms') + '-form-submissions-' + ctx.R.since + '-to-' + ctx.R.end + '.csv';
 document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
 });
-const sh = h.querySelector('[data-share]');
-if (sh) sh.addEventListener('change', () => {
-const on = sh.checked;
-if (on && !confirm('Show names, emails, phones and messages to anyone with this client report’s link?')){ sh.checked = false; return; }
-const cs = on ? Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b => ('0' + b.toString(16)).slice(-2)).join('') : cf.cs;
-sh.disabled = true;
-const done = () => { sh.disabled = false; };
-if (!on && !fxSecretOk(cs)){ cf.contacts = false; delete cf.cs; ctx.saveItem(w); return done(); }
-ctx.formsShare(cs, on).then(() => {
-if (on){ cf.contacts = true; cf.cs = cs; } else { cf.contacts = false; delete cf.cs; }
-ctx.saveItem(w); done();
-}, err => { sh.checked = !on; done(); alert('Couldn’t change this on the tracker: ' + (err && err.message || err)); });
-});
 draw();
+fxShareBox(root, ctx, w);
 /* On a fixed-height widget the list (and the side bars) take whatever height is left, so the whole inbox fits. */
 if (w && w.h) requestAnimationFrame(() => {
 const box = h.matches('[data-body]') ? h : (h.closest('[data-body]') || h), split = root.querySelector('.rp-fx-split');
@@ -2669,12 +2684,13 @@ W.forms_kpi = {g: 'conv', t: 'Leads', d: 'Website form submissions in the period
   }};
 W.forms_latest = {g: 'conv', t: 'Latest leads', d: 'The most recent form submissions as cards. On the team report, click one for everything they sent.', size: 'l', needs: ['forms'],
   render(h, ctx, w, D){
-    const M = formsModel(ctx, D.forms), rows = M.rows.slice().sort((a, b) => a.t < b.t ? 1 : -1).slice(0, 6);
+    const M = formsModel(ctx, D.forms), rows = M.rows.slice().sort((a, b) => a.t < b.t ? 1 : -1).slice(0, 9);
     if (!rows.length){ h.innerHTML = '<div class="rp-err">No form submissions yet.</div>'; return; }
     h.innerHTML = '<div class="rp-leads">' + rows.map((r, i) => '<' + (M.details ? 'button type="button"' : 'div') + ' class="rp-lead" data-i="' + i + '"><i style="background:' + FS_FORM[Math.max(0, M.forms.indexOf(r.form)) % FS_FORM.length] + '"></i><div><b>' +
       esc(M.details ? (r.name || r.email || r.form) : r.form) + '</b><small>' + esc(fsWhen(r)) + (M.details && r.name ? ' · ' + esc(r.form) : '') + '</small>' +
       (M.details && r.message ? '<p>' + esc(String(r.message).slice(0, 110)) + '</p>' : '') + '<span class="rp-fs-ch" style="--c:' + fsChColor(r.channel) + '">' + esc(r.channel || '—') + '</span></div></' + (M.details ? 'button' : 'div') + '>').join('') + '</div>';
     if (M.details) onClick(h, '[data-i]', el => fsOpen(ctx, rows[Number(el.dataset.i)], M));
+fxShareBox(h, ctx, w);
   }};
 W.forms_rate = {g: 'conv', lvl: 'tech', t: 'Lead rate', d: 'Form submissions per 100 website visits, overall and by channel.', size: 'm', needs: ['forms', 'g4'],
   render(h, ctx, w, D){
@@ -2767,8 +2783,8 @@ const DEF_H = {headline: 250, conv_kpi: 230, traffic_kpis: 240, gsc_kpis: 240, k
   kw_movers: 380, text: 170, section: 84, ga4_pages: 660, ga4_pathways: 780, forms: 1150,
   insight_summary: 330, insight_wins: 400, goal_tracker: 250, insight_scorecard: 380, insight_compare: 430, insight_forecast: 220, insight_weekday: 300, ga4_engagement: 420,
   ga4_mix_shift: 380, ga4_conv_rate: 330, ga4_lead_sources: 380, ga4_opportunity_pages: 440, ga4_rising_pages: 400, ga4_engaging_pages: 400, ga4_unvisited: 420,
-  gsc_ctr_curve: 330, gsc_brand: 330, gsc_questions: 440, gsc_query_length: 330, gsc_zero_click: 440, gsc_page_two: 440, forms_kpi: 210, forms_latest: 440, forms_rate: 380,
-  forms_heatmap: 330, gsc_health: 780, kw_wins: 330, kw_close: 380, kw_pages: 420, gbp_glance: 380, ai_share: 210, forms_inbox: 1040};
+  gsc_ctr_curve: 330, gsc_brand: 330, gsc_questions: 440, gsc_query_length: 330, gsc_zero_click: 440, gsc_page_two: 440, forms_kpi: 240, forms_latest: 600, forms_rate: 420,
+  forms_heatmap: 400, gsc_health: 780, kw_wins: 330, kw_close: 380, kw_pages: 420, gbp_glance: 380, ai_share: 210, forms_inbox: 1180, easyleads_forms: 1150};
 const defH = it => it.type === 'embed' ? Math.max(200, Math.min(2400, Number((it.cfg || {}).height) || 600)) + 70 : (DEF_H[it.type] || 360);
 
 /* ---------- what each widget looks like: source marks, icon, accent ---------- */
@@ -2867,6 +2883,7 @@ const hasPos = it => it.x != null && it.y != null && isFinite(Number(it.x)) && i
 function normPos(it){
   it.cols = Math.max(1, Math.min(12, Math.round(Number(it.cols) || SIZE_COLS[it.size] || 6)));
   it.h = Math.max(60, Math.min(4000, Math.round(Number(it.h) || defH(it))));
+  if (FX_MIN[it.type]){ it.h = Math.max(it.h, FX_MIN[it.type][0]); it.cols = Math.max(it.cols, FX_MIN[it.type][1]); }
   if (hasPos(it)){ it.x = Math.max(0, Math.min(12 - it.cols, Math.round(Number(it.x)))); it.y = Math.max(0, Math.round(Number(it.y))); }
 }
 /* Widgets without a place yet go after the placed ones, left to right, row by row. */
@@ -2919,6 +2936,7 @@ function renderBoard(root, o){
   let free = aa || !!o.free;
   let editing = !!o.startEditing;
   const items = o.items;
+  ctx.items = items;
   const brand = o.brand || {};
   const shown = PERIODS.filter(p => !o.periods || o.periods.indexOf(p[0]) > -1);
   const lbl = k => (PERIODS.find(x => x[0] === String(k)) || [0, ''])[1];
@@ -4365,9 +4383,13 @@ async function buildDoc(c, over){
     rows: (g.rows || []).map(r => ({t: r.t, form: r.form, page: r.page, channel: r.channel, sm: r.sm, campaign: r.campaign, land: r.land, origin: r.origin}))}; }
   if (need.has('easyleads')){ const g = await get('easyleads'); if (g && !g.error) snap.easyleads = {first: g.first, details: false, connected: g.connected,
     rows: (g.rows || []).map(r => ({t: r.t, form: r.form, page: r.page, channel: r.channel, sm: r.sm, campaign: r.campaign, land: r.land, origin: r.origin}))}; }
-  /* Form inbox: who sent each form only when a Form inbox on this report was set to show contact details; otherwise the safe copy plus the non-personal answers (province, city, service…). */
+  /* When the client report lets the client click into form submissions, its stored copy keeps who sent each form too; otherwise the safe copy (plus, for the Form inbox, the non-personal answers: province, city, service…). */
+const fxFull = !!fxSharedCs(items);
+const fxPerson = r => ({t: r.t, form: r.form, page: r.page, channel: r.channel, sm: r.sm, campaign: r.campaign, land: r.land, origin: r.origin, name: r.name, email: r.email, phone: r.phone, company: r.company, message: r.message, fields: r.fields});
+if (fxFull && snap.forms){ const g = await get('forms'); if (g && !g.error) snap.forms = {first: g.first, details: true, rows: (g.rows || []).map(fxPerson)}; }
+if (fxFull && snap.easyleads){ const g = await get('easyleads'); if (g && !g.error) snap.easyleads = Object.assign({}, snap.easyleads, {details: true, rows: (g.rows || []).map(fxPerson)}); }
 if (need.has('formsc')){ const g = await get('formsc'); if (g && !g.error){
-const full = items.some(it => it.type === 'forms_inbox' && it.cfg && it.cfg.contacts && fxSecretOk(it.cfg.cs));
+const full = fxFull;
 snap.formsc = {first: g.first, details: full, rows: (g.rows || []).map(r => full ? {t: r.t, form: r.form, page: r.page, channel: r.channel, sm: r.sm, campaign: r.campaign, land: r.land, origin: r.origin,
 name: r.name, email: r.email, phone: r.phone, company: r.company, message: r.message, fields: r.fields}
 : {t: r.t, form: r.form, page: r.page, channel: r.channel, sm: r.sm, campaign: r.campaign, land: r.land, origin: r.origin, facets: r.facets || fxFacetsOf(r)})}; } }
@@ -4381,7 +4403,7 @@ if (need.has('pages')){ const g = await get('pages'); if (g && !g.error) snap.pa
   if (str.length > room && snap.gsc){ snap.gsc = trimGsc(snap.gsc, 100); str = JSON.stringify(snap); }
   if (str.length > room && snap.pathway){ snap.pathway = Object.assign({}, snap.pathway, {moves: snap.pathway.moves.slice(0, 800), steps: snap.pathway.steps.slice(0, 1500), views: snap.pathway.views.slice(0, 600)}); str = JSON.stringify(snap); }
   if (str.length > room && snap.pages){ snap.pages.pages = snap.pages.pages.slice(0, 100); snap.pages.sitemap = []; str = JSON.stringify(snap); }
-  if (str.length > room && snap.formsc){ snap.formsc = Object.assign({}, snap.formsc, {rows: snap.formsc.rows.map(r => Object.assign({}, r, {fields: undefined, message: r.message ? String(r.message).slice(0, 240) : r.message}))}); str = JSON.stringify(snap); }
+  ['formsc', 'forms', 'easyleads'].forEach(k => { if (str.length > room && snap[k] && snap[k].details){ snap[k] = Object.assign({}, snap[k], {rows: snap[k].rows.map(r => Object.assign({}, r, {fields: undefined, message: r.message ? String(r.message).slice(0, 240) : r.message}))}); str = JSON.stringify(snap); } });
 if (str.length <= room) doc.snap = str;
   return doc;
 }
