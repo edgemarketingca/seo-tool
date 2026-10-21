@@ -697,6 +697,42 @@ button.rp-lead{cursor:pointer;} button.rp-lead:hover{border-color:#b8c2cc;}
 .rp-fx-others span{color:var(--a-ink3);}
 .rp-fx-others em{grid-column:1 / -1;font-style:normal;color:var(--a-ink2);}
 @media (max-width:760px){.rp-fx-side{flex-basis:100%;}.rp-fx-l1 time{display:none;}.rp-fx-search{flex-basis:100%;}}
+.rp-ps-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:14px 0 12px;}
+.rp-ps-tabs{display:flex;gap:6px;flex-wrap:wrap;width:100%;}
+.rp-ps-tab{border:1px solid var(--a-line);background:var(--a-card,#fff);border-radius:999px;padding:5px 12px;font:500 12.5px var(--ui,Inter,sans-serif);color:var(--a-ink2);cursor:pointer;display:inline-flex;gap:6px;align-items:center;}
+.rp-ps-tab i{width:8px;height:8px;border-radius:50%;background:var(--c);}
+.rp-ps-tab b{font-weight:600;color:var(--a-ink3);font-variant-numeric:tabular-nums;}
+.rp-ps-tab.on{border-color:var(--c);color:var(--a-ink);box-shadow:inset 0 0 0 1px var(--c);}
+.rp-ps-bar .rp-fx-search{flex:1;min-width:220px;}
+.rp-ps-chk{display:inline-flex;gap:6px;align-items:center;font-size:12.5px;color:var(--a-ink2);cursor:pointer;}
+.rp-ps-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:10px;overflow:auto;align-content:start;padding:2px;}
+.rp-ps-grid .rp-fx-more,.rp-ps-grid .rp-fx-empty{grid-column:1 / -1;}
+.rp-ps-meta{display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:12.5px;color:var(--a-ink3);margin-top:3px;}
+.rp-ps-pill{display:inline-flex;align-items:center;gap:5px;font:600 11.5px var(--ui,Inter,sans-serif);color:var(--c);background:color-mix(in srgb,var(--c) 12%,transparent);border-radius:999px;padding:2px 8px;white-space:nowrap;}
+.rp-ps-pill::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--c);}
+.rp-ps-sts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:4px 0 14px;}
+.rp-ps-st{text-align:left;border:1px solid var(--a-line);border-radius:12px;padding:9px 12px;background:var(--a-card,#fff);cursor:pointer;font:inherit;color:inherit;}
+.rp-ps-st b{display:flex;align-items:center;gap:7px;font-size:13.5px;}
+.rp-ps-st b::before{content:'';width:9px;height:9px;border-radius:50%;background:var(--c);}
+.rp-ps-st small{display:block;color:var(--a-ink3);font-size:11.5px;margin-top:2px;}
+.rp-ps-st.on{border-color:var(--c);box-shadow:inset 0 0 0 1px var(--c);background:color-mix(in srgb,var(--c) 7%,var(--a-card,#fff));}
+.rp-ps-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px;margin-top:8px;}
+.rp-ps-form label{display:flex;flex-direction:column;gap:4px;font-size:11.5px;color:var(--a-ink3);}
+.rp-ps-form .full{grid-column:1 / -1;}
+.rp-ps-form input,.rp-ps-form textarea,.rp-ps-form select{font:inherit;font-size:13px;color:var(--a-ink);border:1px solid var(--a-line);border-radius:8px;padding:7px 9px;background:var(--a-card,#fff);min-width:0;}
+.rp-ps-form textarea{min-height:80px;resize:vertical;}
+.rp-ps-subs{display:flex;flex-direction:column;gap:8px;margin-top:8px;}
+.rp-ps-sub{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:9px 11px;border:1px solid var(--a-line);border-radius:10px;font-size:12.5px;}
+.rp-ps-sub > span{color:var(--a-ink3);}
+.rp-ps-sub em{font-style:normal;color:var(--a-ink2);overflow-wrap:anywhere;}
+.rp-ps-sa{display:flex;gap:4px;align-items:flex-end;justify-content:flex-end;}
+.rp-ps-mini{border:0;background:none;color:var(--a-deep,#2a78d6);font:500 12px var(--ui,Inter,sans-serif);cursor:pointer;padding:2px 4px;}
+.rp-ps-mini:hover{text-decoration:underline;}
+.rp-ps-kv{display:grid;grid-template-columns:34% 1fr;gap:7px 10px;margin:8px 0 0;font-size:13px;}
+.rp-ps-kv dt{color:var(--a-ink3);} .rp-ps-kv dd{margin:0;min-width:0;overflow-wrap:anywhere;}
+.rp-ps-saved{color:#0f7a58;font:500 12px var(--ui,Inter,sans-serif);margin-left:8px;opacity:0;transition:opacity .2s;}
+.rp-ps-saved.on{opacity:1;}
+@media (max-width:760px){.rp-ps-form,.rp-ps-sts{grid-template-columns:1fr;}.rp-ps-grid{grid-template-columns:1fr;}}
 .rp-pw-scroll{overflow:auto;padding:8px 16px 16px;max-height:600px;cursor:grab;}
 .rp-pw-scroll.drag{cursor:grabbing;user-select:none;}
 .rp-pw-scroll.drag *{cursor:grabbing !important;}
@@ -2776,6 +2812,378 @@ W.section = {g: 'content', t: 'Section header', d: 'A bold heading bar that star
   },
   form: w => '<label>Heading</label><input data-c="heading" value="' + esc((w.cfg || {}).heading || '') + '"><label>Description (optional, one line)</label><input data-c="body" value="' + esc((w.cfg || {}).body || '') + '">'};
 
+/* ---------- Client personas (the people behind the form submissions) ----------
+   One card per person: every website and Easyleads form they ever sent, linked
+   to them by email, then phone, then full name; their stats (forms sent, first
+   and last contact, channels, pages, location); and a status the team sets:
+   Future client (a lead), Current client, Past client or Not a fit. People can
+   be added by hand too (a referral, a phone call): their forms link to them as
+   soon as they send one. Two people that are really one can be merged, and a
+   form that isn't theirs can be unlinked. Team only (internal): never sent to
+   a client report.
+   Data: 'people' (every form on file, website and Easyleads, all time).
+   Saved on the client record: c.personas = {v: 1, p: {key: record}}, a record
+   being {aka: [identity keys], st, note, tags, value, start, end, name, email,
+   phone, company, manual, rows: [linked row keys], unrows: [unlinked row keys], at}. */
+const PS = {
+  lead: {l: 'Future client', s: 'Lead or prospect, not a client yet', c: '#2a78d6'},
+  current: {l: 'Current client', s: 'Working with them now', c: '#0f7a58'},
+  past: {l: 'Past client', s: 'Worked with them before', c: '#c96a00'},
+  lost: {l: 'Not a fit', s: 'Spam, wrong service or never answered', c: '#8795a1'}
+};
+const PS_KEYS = ['lead', 'current', 'past', 'lost'];
+const psN = {
+  email: s => { s = String(s || '').trim().toLowerCase(); return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(s) ? s : ''; },
+  phone: s => { const d = String(s || '').replace(/\D/g, ''); return d.length >= 7 ? d.slice(-10) : ''; },
+  name: s => String(s || '').normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim()
+};
+const psPick = (r, re, bad) => { const f = r.fields || {}; for (const k of Object.keys(f)){ if (re.test(k) && !(bad && bad.test(k)) && f[k]) return String(f[k]).trim(); } return ''; };
+/* Who sent a row: the named columns first, the form's own fields after. */
+const psWho = r => r._w || (r._w = {
+  name: String(r.name || [psPick(r, /first/i), psPick(r, /last|surname|apellido/i, /first/i)].filter(Boolean).join(' ') || psPick(r, /name|nombre/i, /company|business|empresa|user|file/i)).trim(),
+  email: String(r.email || psPick(r, /e-?mail|correo/i)).trim(),
+  phone: String(r.phone || psPick(r, /phone|tel|mobile|cell/i)).trim(),
+  company: String(r.company || psPick(r, /company|business|empresa|organi[sz]ation/i)).trim()
+});
+const psRowKey = r => r.id ? (r._src || 'web') + ':' + r.id : (r._src || 'web') + '|' + r.t + '|' + (r.form || '') + '|' + (psN.email(psWho(r).email) || psN.phone(psWho(r).phone) || psN.name(psWho(r).name));
+const psHash = s => { let a = 5381, b = 52711; for (let i = 0; i < s.length; i++){ const ch = s.charCodeAt(i); a = ((a * 33) ^ ch) | 0; b = ((b * 31) ^ ch) | 0; } return 'k' + (a >>> 0).toString(36) + (b >>> 0).toString(36); };
+const psDays = (a, b) => (a && b) ? Math.round((Date.parse(b) - Date.parse(a)) / 864e5) : null;
+/* The client record's personas, and a way to write them back (state syncs like everything else). */
+function peopleStore(c){
+  return {
+    get: () => { const s = c.personas && typeof c.personas === 'object' ? c.personas : {v: 1, p: {}}; if (!s.p || typeof s.p !== 'object') s.p = {}; return s; },
+    put: st => { c.personas = st; try{ if (typeof save === 'function') save(); }catch(e){ console.warn(e); } }
+  };
+}
+/* Every row grouped into people. */
+function peopleModel(ctx, F){
+  const store = ctx.people ? ctx.people.get() : {v: 1, p: {}}, P = store.p, R = ctx.R;
+  const rows = (F && Array.isArray(F.rows) ? F.rows : []).filter(r => r && r.t);
+  const par = {};
+  const add = k => { if (!(k in par)) par[k] = k; };
+  const find = k => { add(k); let r = k; while (par[r] !== r) r = par[r]; while (par[k] !== r){ const n = par[k]; par[k] = r; k = n; } return r; };
+  const join = (a, b) => { const x = find(a), y = find(b); if (x !== y) par[y] = x; };
+  const un = {};
+  Object.keys(P).forEach(k => { const rec = P[k] || {}; (rec.unrows || []).forEach(rk => { un[rk] = 1; }); });
+  Object.keys(P).forEach(k => { const rec = P[k] || {}; add('@' + k); (rec.aka || []).forEach(a => join('@' + k, a)); (rec.rows || []).forEach(rk => { if (!un[rk]) join('@' + k, 'x:' + rk); }); });
+  rows.forEach(r => {
+    const w = psWho(r);
+    r._k = r._k || psRowKey(r);
+    r._f = r._f || fxFacetsOf(r);
+    r._n = psN.name(w.name);
+    r._un = !!un[r._k];
+    const x = 'x:' + r._k; add(x);
+    if (r._un) return;
+    const e = psN.email(w.email), p = psN.phone(w.phone);
+    if (e) join(x, 'e:' + e);
+    if (p) join(x, 'p:' + p);
+    if (!e && !p && r._n) join(x, 'n:' + r._n);
+  });
+  const G = {};
+  const grp = g => G[g] || (G[g] = {rows: [], keys: new Set(), recs: new Set()});
+  rows.forEach(r => grp(find('x:' + r._k)).rows.push(r));
+  Object.keys(par).forEach(k => {
+    const g = find(k);
+    if (k[0] === '@') grp(g).recs.add(k.slice(1));
+    else if (G[g] && k[1] === ':' && 'epn'.indexOf(k[0]) > -1) G[g].keys.add(k);
+  });
+  /* Name-only forms join the one person with that full name; so do a person's
+     first forms when they were added by hand with just a name. */
+  const strong = g => G[g].recs.size || Array.from(G[g].keys).some(k => k[0] !== 'n');
+  const names = g => { const s = new Set(G[g].rows.filter(r => !r._un).map(r => r._n).filter(Boolean)); G[g].recs.forEach(k => { const n = psN.name((P[k] || {}).name); if (n) s.add(n); }); return s; };
+  const merge = (from, into) => { G[into].rows.push(...G[from].rows); G[from].keys.forEach(k => G[into].keys.add(k)); G[from].recs.forEach(k => G[into].recs.add(k)); delete G[from]; };
+  const byName = {};
+  Object.keys(G).forEach(g => { if (strong(g)) names(g).forEach(n => { if (n.indexOf(' ') > 0) (byName[n] = byName[n] || new Set()).add(g); }); });
+  Object.keys(G).forEach(g => {
+    if (!G[g] || strong(g) || !G[g].rows.length || G[g].rows[0]._un) return;
+    const hit = byName[G[g].rows[0]._n];
+    if (hit && hit.size === 1){ const t = Array.from(hit)[0]; if (G[t] && t !== g) merge(g, t); }
+  });
+  const handOnly = {};
+  Object.keys(G).forEach(g => { const x = G[g]; if (x.rows.length || x.recs.size !== 1) return; if (Array.from(x.keys).some(k => k[0] !== 'n')) return; const n = psN.name((P[Array.from(x.recs)[0]] || {}).name); if (n && n.indexOf(' ') > 0) (handOnly[n] = handOnly[n] || []).push(g); });
+  Object.keys(G).forEach(g => {
+    if (!G[g] || G[g].recs.size || !G[g].rows.length) return;
+    const t = Array.from(names(g)).map(n => handOnly[n]).find(l => l && l.length === 1);
+    if (t && G[t[0]]){ merge(t[0], g); }
+  });
+  const formsAll = M_count(rows, 'form');
+  const list = Object.keys(G).map(g => {
+    const x = G[g], recKey = Array.from(x.recs).sort()[0] || '', r0 = recKey ? (P[recKey] || {}) : {};
+    const rs = x.rows.slice().sort((a, b) => a.t < b.t ? 1 : -1);
+    const last = f => { for (const r of rs){ const v = psWho(r)[f]; if (v) return v; } return ''; };
+    const keys = Array.from(x.keys);
+    const idk = keys.find(k => k[0] === 'e') || keys.find(k => k[0] === 'p') || keys.find(k => k[0] === 'n') || ('x:' + (rs[0] ? rs[0]._k : g));
+    const key = recKey || psHash(idk);
+    const formN = {}, chN = {}, pgN = {}, loc = {};
+    let inP = 0;
+    rs.forEach(r => {
+      const f = r.form || '—'; formN[f] = (formN[f] || 0) + 1;
+      const c = r.channel || '—'; chN[c] = (chN[c] || 0) + 1;
+      if (r.page) pgN[r.page] = (pgN[r.page] || 0) + 1;
+      Object.keys(r._f || {}).forEach(k => { if (!loc[k]) loc[k] = r._f[k]; });
+      const d = fsDay(r); if (d >= R.since && d <= R.end) inP++;
+    });
+    const top = o => Object.keys(o).sort((a, b) => o[b] - o[a]);
+    const p = {key, rec: recKey ? r0 : null, keys, rows: rs,
+      email: r0.email || last('email'), phone: r0.phone || last('phone'), company: r0.company || last('company'),
+      st: PS[r0.st] ? r0.st : 'lead', tags: Array.isArray(r0.tags) ? r0.tags : [], note: r0.note || '', value: Number(r0.value) || 0,
+      start: r0.start || '', end: r0.end || '', manual: !!r0.manual,
+      n: rs.length, inP, first: rs.length ? fsDay(rs[rs.length - 1]) : (r0.added || ''), last: rs.length ? fsDay(rs[0]) : '',
+      lastT: rs.length ? rs[0].t : (r0.at ? new Date(r0.at).toISOString().slice(0, 16) : ''),
+      forms: top(formN), formN, chans: top(chN), chN, pages: top(pgN), pgN, loc,
+      src: Array.from(new Set(rs.map(r => r._src === 'el' ? 'Easyleads' : 'Website')))};
+    const bestName = () => { const m = {}; rs.forEach((r, i) => { const v = psWho(r).name; if (v){ m[v] = m[v] || {n: 0, i}; m[v].n++; } }); return Object.keys(m).sort((x, y) => m[y].n - m[x].n || m[x].i - m[y].i)[0] || ''; };
+    p.name = r0.name || bestName() || p.email || p.phone || (rs[0] ? 'Unnamed · ' + (rs[0].form || 'form') : 'Unnamed');
+    p._q = [p.name, p.email, p.phone, p.company, p.note, PS[p.st].l].concat(p.tags, p.forms, Object.values(loc), rs.map(r => r.message || ''), rs.map(r => Object.values(r.fields || {}).join(' ')))
+      .filter(Boolean).join(' \u0001 ').toLowerCase();
+    return p;
+  });
+  return {list, store, forms: formsAll};
+}
+const M_count = (rows, key) => { const m = {}; rows.forEach(r => { const k = r[key] || '—'; m[k] = (m[k] || 0) + 1; }); return Object.keys(m).sort((a, b) => m[b] - m[a]); };
+/* Writes one person's record (status, notes, details), keeping every way to recognise them. */
+function psSave(ctx, M, p, patch){
+  const st = M.store, P = st.p;
+  const rec = Object.assign({}, P[p.key] || {}, patch, {at: Date.now()});
+  rec.aka = Array.from(new Set((rec.aka || []).concat(p.keys)));
+  if (!rec.st) rec.st = p.st;
+  P[p.key] = rec;
+  ctx.people.put(st);
+}
+function psMerge(ctx, M, from, into){
+  const P = M.store.p, a = P[from.key] || {}, b = Object.assign({}, P[into.key] || {});
+  const moved = new Set(from.rows.map(r => r._k));
+  b.aka = Array.from(new Set((b.aka || []).concat(into.keys, from.keys, a.aka || [])));
+  b.rows = Array.from(new Set((b.rows || []).concat(a.rows || [], Array.from(moved))));
+  Object.keys(P).forEach(k => { if (P[k] && P[k].unrows) P[k].unrows = P[k].unrows.filter(x => !moved.has(x)); });
+  b.unrows = (b.unrows || []).filter(x => !moved.has(x));
+  b.st = b.st || into.st || a.st;
+  ['value', 'start', 'end', 'name', 'email', 'phone', 'company'].forEach(k => { if (!b[k] && a[k]) b[k] = a[k]; });
+  b.tags = Array.from(new Set((b.tags || []).concat(a.tags || [])));
+  if (a.note) b.note = b.note ? b.note + '\n\n' + a.note : a.note;
+  b.at = Date.now();
+  delete P[from.key];
+  P[into.key] = b;
+  ctx.people.put(M.store);
+}
+function psUnlink(ctx, M, p, r){
+  const P = M.store.p;
+  Object.keys(P).forEach(k => { if (P[k] && P[k].rows) P[k].rows = P[k].rows.filter(x => x !== r._k); });
+  const rec = Object.assign({}, P[p.key] || {}), un = new Set(rec.unrows || []); un.add(r._k);
+  rec.unrows = Array.from(un);
+  /* The keys only this form carried stop pointing at this person. */
+  const w = psWho(r), mine = ['e:' + psN.email(w.email), 'p:' + psN.phone(w.phone), 'n:' + psN.name(w.name)];
+  const still = new Set(); p.rows.forEach(x => { if (x === r) return; const v = psWho(x); still.add('e:' + psN.email(v.email)); still.add('p:' + psN.phone(v.phone)); still.add('n:' + psN.name(v.name)); });
+  rec.aka = (rec.aka || p.keys).filter(k => mine.indexOf(k) < 0 || still.has(k));
+  rec.st = rec.st || p.st; rec.at = Date.now();
+  P[p.key] = rec;
+  ctx.people.put(M.store);
+}
+function psCsv(list){
+  const cols = [['Name', p => p.name], ['Status', p => PS[p.st].l], ['Email', p => p.email], ['Phone', p => p.phone], ['Company', p => p.company],
+    ['City', p => p.loc.City], ['Province', p => p.loc.Province], ['Forms sent', p => p.n], ['First contact', p => p.first], ['Last contact', p => p.last],
+    ['Client since', p => p.start], ['Client until', p => p.end], ['Value', p => p.value || ''], ['Tags', p => p.tags.join(', ')],
+    ['Forms', p => p.forms.join(', ')], ['Top channel', p => p.chans[0]], ['Source', p => p.src.join(', ')], ['Notes', p => p.note]];
+  const q = v => { v = String(v == null ? '' : v); if (/^[=+\-@]/.test(v)) v = "'" + v; return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+  return '﻿' + [cols.map(c => q(c[0])).join(',')].concat(list.map(p => cols.map(c => q(c[1](p))).join(','))).join('\r\n');
+}
+const psDownload = (name, text) => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], {type: 'text/csv;charset=utf-8'})); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 800); };
+/* One person: status, details, notes, stats and every form they sent. */
+function psOpen(ctx, M0, p0, again){
+  let M = M0, p = p0;
+  const formCol = k => FS_FORM[Math.max(0, M.forms.indexOf(k)) % FS_FORM.length];
+  U.openDrawer(p.name, fxColor(p.email || p.name), body => {
+    const refresh = () => {
+      M = again();
+      const np = M.list.find(x => x.key === p.key) || M.list.find(x => x.keys.some(k => p.keys.indexOf(k) > -1));
+      if (np) p = np;
+      draw();
+    };
+    const draw = () => {
+      const today = isoDay(new Date());
+      const acts = [];
+      if (p.email) acts.push('<a class="aiv-btn" href="mailto:' + esc(p.email) + '">' + glyph('chat', 14) + 'Email</a>');
+      if (p.phone) acts.push('<a class="aiv-btn" href="tel:' + esc(String(p.phone).replace(/[^\d+]/g, '')) + '">Call ' + esc(p.phone) + '</a>');
+      if (p.email) acts.push('<button class="aiv-btn" type="button" data-copy="' + esc(p.email) + '">Copy email</button>');
+      const toClient = p.start && p.first ? psDays(p.first, p.start) : null;
+      const asClient = p.start ? psDays(p.start, p.end || today) : null;
+      const where = [p.company, p.loc.City, p.loc.Province].filter(Boolean).join(' · ');
+      const others = M.list.filter(x => x.key !== p.key).sort((a, b) => a.name.localeCompare(b.name));
+      const kv = (rows) => '<dl class="rp-ps-kv">' + rows.filter(x => x[1]).map(x => '<dt>' + esc(x[0]) + '</dt><dd>' + x[1] + '</dd>').join('') + '</dl>';
+      const cnt = o => k => esc(k) + (o[k] > 1 ? ' <span style="color:var(--a-ink3)">×' + fmt(o[k]) + '</span>' : '');
+      body.innerHTML = '<div class="rp-fx-dhead"><span class="rp-fx-av lg" style="--c:' + fxColor(p.email || p.name) + '">' + esc(fxInitials(p.name)) + '</span><div style="min-width:0">' +
+        '<div class="rp-fx-dname">' + esc(p.name) + '</div><div class="aiv-cap">' + esc(where || p.email || p.phone || '') + ' <span class="rp-ps-pill" style="--c:' + PS[p.st].c + '">' + esc(PS[p.st].l) + '</span></div></div></div>' +
+        (acts.length ? '<div class="rp-fx-acts">' + acts.join('') + '</div>' : '') +
+        '<div class="rp-ps-sts" role="radiogroup" aria-label="Status">' + PS_KEYS.map(k => '<button type="button" role="radio" aria-checked="' + (p.st === k) + '" class="rp-ps-st' + (p.st === k ? ' on' : '') + '" data-st="' + k + '" style="--c:' + PS[k].c + '"><b>' + esc(PS[k].l) + '</b><small>' + esc(PS[k].s) + '</small></button>').join('') + '</div>' +
+        statsRow([['Forms sent', fmt(p.n)], ['First contact', p.first ? esc(prettyDate(p.first)) : '—'], ['Last contact', p.lastT && p.n ? esc(fxAgo(p.lastT)) : '—'],
+          [p.st === 'current' ? 'Client for' : p.st === 'past' ? 'Was a client for' : 'Became a client', p.st === 'current' || p.st === 'past' ? (asClient != null ? fmt(asClient) + ' days' : '—') : (toClient != null ? fmt(toClient) + ' days after first contact' : '—')]]) +
+        '<div class="aiv-card"><h3>Client details <span class="rp-ps-saved" data-saved>Saved</span></h3><div class="rp-ps-form">' +
+          '<label>Client since<input type="date" data-f="start" value="' + esc(p.start) + '"></label>' +
+          '<label>Client until<input type="date" data-f="end" value="' + esc(p.end) + '"></label>' +
+          '<label>Value ($)<input type="number" min="0" step="1" data-f="value" value="' + (p.value || '') + '" placeholder="Contract or lifetime value"></label>' +
+          '<label>Tags<input data-f="tags" value="' + esc(p.tags.join(', ')) + '" placeholder="Comma-separated: roofing, referral"></label>' +
+          '<label class="full">Notes<textarea data-f="note" placeholder="What they need, calls, quotes, follow-ups…">' + esc(p.note) + '</textarea></label></div></div>' +
+        '<div class="aiv-card"><h3>Who they are</h3><div class="rp-ps-form">' +
+          '<label>Name<input data-f="name" value="' + esc((p.rec && p.rec.name) || '') + '" placeholder="' + esc(p.name) + '"></label>' +
+          '<label>Company<input data-f="company" value="' + esc((p.rec && p.rec.company) || '') + '" placeholder="' + esc(p.company || '') + '"></label>' +
+          '<label>Email<input type="email" data-f="email" value="' + esc((p.rec && p.rec.email) || '') + '" placeholder="' + esc(p.email || '') + '"></label>' +
+          '<label>Phone<input type="tel" data-f="phone" value="' + esc((p.rec && p.rec.phone) || '') + '" placeholder="' + esc(p.phone || '') + '"></label></div>' +
+          '<p class="aiv-cap" style="margin-top:6px">Blank fields use what they wrote on their latest form. A new email or phone here also links their future forms.</p></div>' +
+        '<div class="aiv-card"><h3>How they found the business</h3>' + kv([
+          ['Channels', p.chans.filter(c => c !== '—').map(cnt(p.chN)).join(', ')],
+          ['Forms', p.forms.map(f => '<i class="rp-fx-dot" style="--c:' + formCol(f) + '"></i>' + cnt(p.formN)(f)).join('<br>')],
+          ['Pages', p.pages.slice(0, 5).map(x => '<span class="aiv-page">' + esc(x) + '</span>').join('<br>')],
+          ['Location', [p.loc.City, p.loc.Province].filter(Boolean).map(esc).join(', ')],
+          ['Other answers', Object.keys(p.loc).filter(k => k !== 'City' && k !== 'Province').map(k => esc(k) + ': ' + esc(p.loc[k])).join('<br>')],
+          ['Sent through', esc(p.src.join(' and '))]]) + (p.n ? '' : '<p class="aiv-cap" style="margin-top:6px">No forms yet. Added by hand; their forms link here when they send one.</p>') + '</div>' +
+        (p.n ? '<div class="aiv-card"><h3>Forms they sent (' + fmt(p.n) + ')</h3><div class="rp-ps-subs">' + p.rows.map((r, i) =>
+          '<div class="rp-ps-sub"><b><i class="rp-fx-dot" style="--c:' + formCol(r.form) + '"></i>' + esc(r.form || 'Form') + '</b><span>' + esc(fsWhen(r)) + '</span>' +
+          '<em>' + esc([r.channel && r.channel !== 'Not tracked yet' ? r.channel : '', r.page].filter(Boolean).join(' · ')) + (r.message ? '<br>' + esc(String(r.message).slice(0, 200)) : '') + '</em>' +
+          '<span class="rp-ps-sa"><button type="button" class="rp-ps-mini" data-open="' + i + '">Open</button>' + (p.n > 1 ? '<button type="button" class="rp-ps-mini" data-unlink="' + i + '" title="This form was sent by someone else: give it its own card">Not them</button>' : '') + '</span></div>').join('') + '</div></div>' : '') +
+        (others.length ? '<div class="aiv-card"><h3>Same person as someone else?</h3><div class="rp-ps-form"><label class="full">Merge this card into<select data-merge><option value="">Pick a person…</option>' +
+          others.map(x => '<option value="' + esc(x.key) + '">' + esc(x.name + (x.email ? ' · ' + x.email : x.phone ? ' · ' + x.phone : '') + ' (' + x.n + ')') + '</option>').join('') + '</select></label></div>' +
+          '<p class="aiv-cap" style="margin-top:6px">Their forms, notes and tags move over; the other card’s status wins when it has one.</p><button type="button" class="aiv-btn" data-domerge style="margin-top:8px" disabled>Merge</button></div>' : '') +
+        (p.rec ? '<p style="margin-top:14px"><button type="button" class="rp-ps-mini" data-forget>' + (p.manual && !p.n ? 'Delete this person' : 'Clear status, notes and details') + '</button></p>' : '');
+      const flash = () => { const s = body.querySelector('[data-saved]'); if (!s) return; s.classList.add('on'); clearTimeout(s._t); s._t = setTimeout(() => s.classList.remove('on'), 1400); };
+      body.querySelectorAll('[data-st]').forEach(b => b.addEventListener('click', () => {
+        const st = b.dataset.st, patch = {st};
+        if (st === 'current' && !p.start) patch.start = today;
+        if (st === 'current') patch.end = '';
+        if (st === 'past' && !p.end) patch.end = today;
+        psSave(ctx, M, p, patch); refresh();
+      }));
+      body.querySelectorAll('[data-f]').forEach(el => el.addEventListener('change', () => {
+        const f = el.dataset.f; let v = el.value;
+        if (f === 'value') v = Math.max(0, Math.round(Number(v) || 0));
+        if (f === 'tags') v = Array.from(new Set(String(v).split(',').map(x => x.trim()).filter(Boolean)));
+        const patch = {}; patch[f] = v;
+        if (f === 'email' || f === 'phone'){ const k = f === 'email' ? (psN.email(v) ? 'e:' + psN.email(v) : '') : (psN.phone(v) ? 'p:' + psN.phone(v) : ''); if (k) patch.aka = Array.from(new Set(((p.rec && p.rec.aka) || []).concat(k))); }
+        psSave(ctx, M, p, patch); flash();
+        if (f !== 'note' && f !== 'tags') refresh(); else { M = again(); const np = M.list.find(x => x.key === p.key); if (np) p = np; }
+      }));
+      body.querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', () => { try{ navigator.clipboard.writeText(b.dataset.copy).then(() => { b.textContent = 'Copied'; setTimeout(() => { b.textContent = 'Copy email'; }, 1600); }, () => {}); }catch(e){} }));
+      body.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => fsOpen(ctx, p.rows[Number(b.dataset.open)], {forms: M.forms})));
+      body.querySelectorAll('[data-unlink]').forEach(b => b.addEventListener('click', () => { psUnlink(ctx, M, p, p.rows[Number(b.dataset.unlink)]); refresh(); }));
+      const ms = body.querySelector('[data-merge]'), mb = body.querySelector('[data-domerge]');
+      if (ms) ms.addEventListener('change', () => { mb.disabled = !ms.value; });
+      if (mb) mb.addEventListener('click', () => {
+        const into = M.list.find(x => x.key === ms.value); if (!into) return;
+        if (!confirm('Merge ' + p.name + ' into ' + into.name + '? Their forms, notes and tags move to ' + into.name + '’s card.')) return;
+        psMerge(ctx, M, p, into); p = into; refresh();
+      });
+      const fg = body.querySelector('[data-forget]');
+      if (fg) fg.addEventListener('click', () => {
+        if (!confirm(p.manual && !p.n ? 'Delete ' + p.name + '?' : 'Clear ' + p.name + '’s status, notes and details? Their forms stay.')) return;
+        delete M.store.p[p.key]; ctx.people.put(M.store); refresh();
+      });
+    };
+    draw();
+  });
+}
+/* A person who hasn't sent a form yet: a referral, a phone call, a client from before the website. */
+function psAdd(ctx, M, again){
+  U.openDrawer('Add a person', '#2a78d6', body => {
+    body.innerHTML = '<p class="aiv-cap">Add anyone who isn’t on file from a form. When they send one with the same email, phone or full name, it links to them.</p>' +
+      '<div class="rp-ps-form" style="margin-top:12px"><label>Name<input data-a="name" autocomplete="off"></label><label>Company<input data-a="company" autocomplete="off"></label>' +
+      '<label>Email<input type="email" data-a="email" autocomplete="off"></label><label>Phone<input type="tel" data-a="phone" autocomplete="off"></label>' +
+      '<label>Status<select data-a="st">' + PS_KEYS.map(k => '<option value="' + k + '">' + esc(PS[k].l) + '</option>').join('') + '</select></label>' +
+      '<label>Client since<input type="date" data-a="start"></label>' +
+      '<label class="full">Notes<textarea data-a="note"></textarea></label></div>' +
+      '<p class="rp-err" data-msg style="display:none;margin-top:8px"></p>' +
+      '<button type="button" class="aiv-btn" data-go style="margin-top:12px">Add person</button>';
+    const val = k => body.querySelector('[data-a="' + k + '"]').value.trim();
+    body.querySelector('[data-go]').addEventListener('click', () => {
+      const name = val('name'), email = val('email'), phone = val('phone'), msg = body.querySelector('[data-msg]');
+      if (!name && !psN.email(email) && !psN.phone(phone)){ msg.textContent = 'Give at least a name, an email or a phone number.'; msg.style.display = ''; return; }
+      const e = psN.email(email), ph = psN.phone(phone), n = psN.name(name);
+      const aka = [e ? 'e:' + e : '', ph ? 'p:' + ph : '', !e && !ph && n ? 'n:' + n : ''].filter(Boolean);
+      const st = val('st');
+      const rec = {manual: true, name, email, phone, company: val('company'), st, note: val('note'), start: val('start') || (st === 'current' ? isoDay(new Date()) : ''), added: isoDay(new Date()), aka, at: Date.now()};
+      const key = 'm' + uid();
+      M.store.p[key] = rec; ctx.people.put(M.store);
+      const M2 = again(), p = M2.list.find(x => x.key === key) || M2.list.find(x => aka.some(k => x.keys.indexOf(k) > -1));
+      if (p) psOpen(ctx, M2, p, again);
+    });
+  });
+}
+W.people = {g: 'conv', t: 'Client personas', d: 'One card per person behind the form submissions (website and Easyleads, all time): every form they sent linked to them, their stats, and whether they are a future, current or past client. Add people by hand too. Team only.', size: 'xl', needs: ['people'], internal: true,
+  render(h, ctx, w, D){
+    const F = D.people || {};
+    if (!ctx.people){ h.innerHTML = '<div class="rp-err">Client personas only work on the team report.</div>'; return; }
+    if (!F.details){ h.innerHTML = '<div class="rp-err">Client personas need names and contact details, which the tracker only gives the team key. Check the AI Visibility Tracker connection (AI Visibility tab, ⚙).</div>'; return; }
+    const again = () => { W.people.render(h, ctx, w, D); return h._psM; };
+    const M = peopleModel(ctx, F);
+    h._psM = M;
+    const cf = w.cfg = w.cfg || {};
+    const R = ctx.R, all = M.list;
+    let tab = PS[cf.tab] || cf.tab === 'all' ? cf.tab : 'all', sort = cf.sort || 'recent', q = h._psQ || '', onlyP = !!h._psP, shown = 48;
+    const formCol = k => FS_FORM[Math.max(0, M.forms.indexOf(k)) % FS_FORM.length];
+    const cnt = k => all.filter(p => p.st === k).length;
+    const hasPrev = !!(F.first && F.first <= R.prevEnd);
+    const newP = all.filter(p => p.first && p.first >= R.since && p.first <= R.end).length;
+    const prevNew = all.filter(p => p.first && p.first >= R.prevSince && p.first <= R.prevEnd).length;
+    const won = all.filter(p => p.st === 'current' || p.st === 'past');
+    const real = all.filter(p => p.st !== 'lost').length;
+    const ttc = won.map(p => psDays(p.first, p.start)).filter(x => x != null && x >= 0);
+    const avg = ttc.length ? Math.round(ttc.reduce((a, b) => a + b, 0) / ttc.length) : null;
+    const val = all.filter(p => p.st === 'current').reduce((t, p) => t + p.value, 0);
+    const tiles = [
+      kpiTile('People on file', fmt(all.length), fmt(all.filter(p => p.n > 1).length) + ' sent more than one form', {icon: glyph('users', 18, '#2a78d6')}),
+      kpiTile('New people', fmt(newP), esc(R.label || ''), {d: delta(newP, prevNew, hasPrev), icon: glyph('up', 18, '#0f7a58')}),
+      kpiTile('Future clients', fmt(cnt('lead')), 'leads not yet clients', {icon: glyph('target', 18, PS.lead.c), click: 'ps:lead'}),
+      kpiTile('Current clients', fmt(cnt('current')), val ? '$' + fmt(val) + ' in value' : 'working with them now', {icon: glyph('trophy', 18, PS.current.c), click: 'ps:current'}),
+      kpiTile('Past clients', fmt(cnt('past')), 'worked with before', {icon: glyph('cal', 18, PS.past.c), click: 'ps:past'}),
+      kpiTile('Lead to client', real ? pctS(won.length, real) : '—', avg != null ? 'about ' + fmt(avg) + ' days from first form' : 'of people who weren’t “not a fit”', {icon: glyph('line', 18, '#6250d6')})];
+    const tabs = [['all', 'Everyone', '#171614', all.length]].concat(PS_KEYS.map(k => [k, PS[k].l, PS[k].c, cnt(k)]));
+    h.innerHTML = '<div class="rp-ps">' +
+      '<div class="rp-kpis">' + tiles.join('') + '</div>' +
+      '<div class="rp-ps-bar"><div class="rp-ps-tabs" role="tablist">' + tabs.map(t => '<button type="button" role="tab" class="rp-ps-tab" data-tab="' + t[0] + '" style="--c:' + t[2] + '"><i></i>' + esc(t[1]) + ' <b>' + fmt(t[3]) + '</b></button>').join('') + '</div>' +
+      '<label class="rp-fx-search">' + glyph('search', 16) + '<input type="search" data-q placeholder="Search names, emails, phones, companies, forms, notes…" aria-label="Search people" autocomplete="off"></label>' +
+      '<select data-sort aria-label="Sort"><option value="recent">Latest contact</option><option value="new">Newest people</option><option value="most">Most forms</option><option value="name">Name A–Z</option><option value="value">Highest value</option></select>' +
+      '<label class="rp-ps-chk"><input type="checkbox" data-onlyp> Sent a form ' + esc((R.label || 'this period').toLowerCase()) + '</label>' +
+      '<button class="aiv-btn" type="button" data-add>+ Add person</button><button class="aiv-btn" type="button" data-csv title="Download the people shown as a spreadsheet (CSV)">Export</button></div>' +
+      '<div class="rp-ps-grid" data-list style="max-height:' + (w && w.h ? Math.max(320, w.h - 330) : 900) + 'px"></div>' +
+      '<p class="aiv-foot">Every form on file, website' + ((F.rows || []).some(r => r._src === 'el') ? ' and Easyleads' : '') + (F.first ? ', since ' + esc(prettyDate(F.first)) : '') + '. Forms link to a person by email, then phone, then full name; merge or unlink from a person’s card. The period only changes “New people” and the “Sent a form” filter. Statuses, notes and values are saved on this client for the team and never go to a client report.</p></div>';
+    const qEl = h.querySelector('[data-q]'), sEl = h.querySelector('[data-sort]'), pEl = h.querySelector('[data-onlyp]'), list = h.querySelector('[data-list]');
+    qEl.value = q; sEl.value = sort; pEl.checked = onlyP;
+    const terms = () => q.toLowerCase().split(/\s+/).filter(Boolean);
+    const view = () => {
+      const t = terms();
+      const v = all.filter(p => (tab === 'all' || p.st === tab) && (!onlyP || p.inP) && (!t.length || t.every(x => p._q.indexOf(x) > -1)));
+      const by = {recent: (a, b) => (a.lastT < b.lastT ? 1 : a.lastT > b.lastT ? -1 : 0), new: (a, b) => (a.first < b.first ? 1 : a.first > b.first ? -1 : 0),
+        most: (a, b) => b.n - a.n || (a.lastT < b.lastT ? 1 : -1), name: (a, b) => a.name.localeCompare(b.name), value: (a, b) => b.value - a.value || b.n - a.n};
+      return v.sort(by[sort] || by.recent);
+    };
+    const card = (p, i, t) => '<button type="button" class="rp-fx-card rp-ps-card" data-i="' + i + '">' +
+      '<span class="rp-fx-av" style="--c:' + fxColor(p.email || p.name) + '">' + esc(fxInitials(p.name)) + '</span>' +
+      '<span class="rp-fx-main"><span class="rp-fx-l1"><b>' + fxHl(p.name, t) + '</b><time>' + esc(p.n ? fxAgo(p.lastT) : 'no forms yet') + '</time></span>' +
+      '<span class="rp-fx-l2">' + fxHl([p.company, p.loc.City, p.loc.Province].filter(Boolean).join(' · ') || p.email || p.phone || '—', t) + '</span>' +
+      '<span class="rp-ps-meta"><span class="rp-ps-pill" style="--c:' + PS[p.st].c + '">' + esc(PS[p.st].l) + '</span><span>' + fmt(p.n) + ' form' + (p.n === 1 ? '' : 's') + '</span>' +
+      (p.first ? '<span>since ' + esc(prettyDate(p.first)) + '</span>' : '') + (p.value ? '<span>$' + fmt(p.value) + '</span>' : '') + '</span>' +
+      (p.forms.length || p.tags.length ? '<span class="rp-fx-tags">' + p.tags.slice(0, 3).map(x => '<span>#' + esc(x) + '</span>').join('') +
+        p.forms.slice(0, 3).map(f => '<span style="--c:' + formCol(f) + '"><i></i>' + esc(f) + (p.formN[f] > 1 ? ' ×' + p.formN[f] : '') + '</span>').join('') + '</span>' : '') +
+      '</span></button>';
+    let cur = [];
+    const draw = () => {
+      h.querySelectorAll('[data-tab]').forEach(b => { const on = b.dataset.tab === tab; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
+      cur = view();
+      const t = terms();
+      list.innerHTML = cur.length ? cur.slice(0, shown).map((p, i) => card(p, i, t)).join('') + (cur.length > shown ? '<button type="button" class="aiv-btn rp-fx-more" data-more>Show ' + fmt(Math.min(48, cur.length - shown)) + ' more of ' + fmt(cur.length - shown) + '</button>' : '')
+        : '<div class="rp-fx-empty"><b>' + (all.length ? 'Nobody matches' : 'No one on file yet') + '</b>' + (all.length ? 'Try another search, status or the period filter.' : 'People appear here as forms come in, or add one by hand.') + '</div>';
+      list.querySelectorAll('[data-i]').forEach(b => b.addEventListener('click', () => psOpen(ctx, h._psM, cur[Number(b.dataset.i)], again)));
+      const mb = list.querySelector('[data-more]'); if (mb) mb.addEventListener('click', () => { shown += 48; draw(); });
+    };
+    const setTab = k => { tab = k; shown = 48; if (cf.tab !== k){ cf.tab = k; if (ctx.saveItem) ctx.saveItem(w); } draw(); };
+    h.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => setTab(b.dataset.tab)));
+    onClick(h, '.rp-kpis [data-k]', el => { const k = el.dataset.k; if (k.indexOf('ps:') === 0) setTab(tab === k.slice(3) ? 'all' : k.slice(3)); });
+    qEl.addEventListener('input', () => { q = h._psQ = qEl.value; shown = 48; draw(); });
+    sEl.addEventListener('change', () => { sort = sEl.value; cf.sort = sort; if (ctx.saveItem) ctx.saveItem(w); draw(); });
+    pEl.addEventListener('change', () => { onlyP = h._psP = pEl.checked; shown = 48; draw(); });
+    h.querySelector('[data-add]').addEventListener('click', () => psAdd(ctx, h._psM, again));
+    h.querySelector('[data-csv]').addEventListener('click', () => psDownload(((ctx.clientName || ctx.domain || 'client') + ' people').replace(/[^\w\- ]+/g, '').trim() + '.csv', psCsv(cur)));
+    draw();
+  }};
+
 /* Height a widget gets when it is first placed on a free layout (px). */
 const DEF_H = {headline: 250, conv_kpi: 230, traffic_kpis: 240, gsc_kpis: 240, kw_kpis: 320, gai_organic: 210, gsc_devices: 380, gsc_countries: 380,
   conv_list: 480, kw_table: 480, kw_cards: 440, llm_checks: 470, ai_journeys: 560, gbp_grids: 470, conv_by_page: 420, traffic_channels: 400,
@@ -2784,7 +3192,7 @@ const DEF_H = {headline: 250, conv_kpi: 230, traffic_kpis: 240, gsc_kpis: 240, k
   insight_summary: 330, insight_wins: 400, goal_tracker: 250, insight_scorecard: 380, insight_compare: 430, insight_forecast: 220, insight_weekday: 300, ga4_engagement: 420,
   ga4_mix_shift: 380, ga4_conv_rate: 330, ga4_lead_sources: 380, ga4_opportunity_pages: 440, ga4_rising_pages: 400, ga4_engaging_pages: 400, ga4_unvisited: 420,
   gsc_ctr_curve: 330, gsc_brand: 330, gsc_questions: 440, gsc_query_length: 330, gsc_zero_click: 440, gsc_page_two: 440, forms_kpi: 240, forms_latest: 600, forms_rate: 420,
-  forms_heatmap: 400, gsc_health: 780, kw_wins: 330, kw_close: 380, kw_pages: 420, gbp_glance: 380, ai_share: 210, forms_inbox: 1180, easyleads_forms: 1150};
+  forms_heatmap: 400, gsc_health: 780, kw_wins: 330, kw_close: 380, kw_pages: 420, gbp_glance: 380, ai_share: 210, forms_inbox: 1180, easyleads_forms: 1150, people: 1100};
 const defH = it => it.type === 'embed' ? Math.max(200, Math.min(2400, Number((it.cfg || {}).height) || 600)) + 70 : (DEF_H[it.type] || 360);
 
 /* ---------- what each widget looks like: source marks, icon, accent ---------- */
@@ -2805,15 +3213,15 @@ const GMETA = {
 const WIC = {gsc_health: 'flag', insight_summary: 'text', insight_wins: 'up', goal_tracker: 'target', insight_scorecard: 'trophy', insight_compare: 'bars', insight_forecast: 'line', insight_weekday: 'cal',
   ga4_engagement: 'users', ga4_mix_shift: 'donut', ga4_conv_rate: 'line', ga4_lead_sources: 'flag', ga4_opportunity_pages: 'target', ga4_rising_pages: 'up', ga4_engaging_pages: 'page', ga4_unvisited: 'page',
   gsc_ctr_curve: 'line', gsc_brand: 'donut', gsc_questions: 'chat', gsc_query_length: 'bars', gsc_zero_click: 'search', gsc_page_two: 'up',
-  forms_kpi: 'table', forms_latest: 'users', forms_rate: 'target', forms_heatmap: 'cal', kw_wins: 'trophy', kw_close: 'up', kw_pages: 'page', gbp_glance: 'pin', ai_share: 'spark',
+  people: 'users', forms_kpi: 'table', forms_latest: 'users', forms_rate: 'target', forms_heatmap: 'cal', kw_wins: 'trophy', kw_close: 'up', kw_pages: 'page', gbp_glance: 'pin', ai_share: 'spark',
   forms: 'table', ga4_pages: 'page', ga4_pathways: 'path', conv_trend: 'line', conv_by_channel: 'donut', conv_by_event: 'bars', conv_by_page: 'page', conv_list: 'table', traffic_trend: 'line', traffic_channels: 'table',
   ai_visits: 'line', ai_assistants: 'donut', ai_vs_channels: 'line', ai_keyevents: 'flag', ai_pages: 'page', ai_journeys: 'path', gai_impr: 'line', gai_pages: 'page', gai_organic: 'users',
   aio: 'quote', llm_share: 'donut', llm_checks: 'table', gsc_trend: 'line', gsc_pages: 'page', gsc_almost: 'up', gsc_lowctr: 'target', gsc_devices: 'device', gsc_countries: 'globe',
   kw_cards: 'grid', kw_table: 'table', kw_movers: 'up', kw_dist: 'donut', gbp_grids: 'grid', embed: 'globe'};
-const WSRC = {forms: [], forms_kpi: [], forms_latest: [], forms_heatmap: [], forms_rate: ['ga4'], ai_share: ['ChatGPT', 'ga4'], insight_summary: ['ga4', 'gsc', 'google'], insight_wins: ['ga4', 'gsc'], insight_scorecard: ['ga4', 'gsc', 'ChatGPT'], insight_compare: ['ga4', 'gsc'], insight_forecast: ['ga4'], insight_weekday: ['ga4'], goal_tracker: ['ga4', 'gsc'], conv_ai: ['ga4', 'ChatGPT', 'Perplexity'], ai_vs_channels: ['ChatGPT', 'google'], gai_organic: ['google', 'ga4'], aio: ['google'], kw_kpis: ['google'], embed: []};
+const WSRC = {forms: [], people: [], forms_kpi: [], forms_latest: [], forms_heatmap: [], forms_rate: ['ga4'], ai_share: ['ChatGPT', 'ga4'], insight_summary: ['ga4', 'gsc', 'google'], insight_wins: ['ga4', 'gsc'], insight_scorecard: ['ga4', 'gsc', 'ChatGPT'], insight_compare: ['ga4', 'gsc'], insight_forecast: ['ga4'], insight_weekday: ['ga4'], goal_tracker: ['ga4', 'gsc'], conv_ai: ['ga4', 'ChatGPT', 'Perplexity'], ai_vs_channels: ['ChatGPT', 'google'], gai_organic: ['google', 'ga4'], aio: ['google'], kw_kpis: ['google'], embed: []};
 const metaOf = type => {
   const def = W[type] || {}, g = GMETA[def.g] || GMETA.content;
-  return {src: WSRC[type] || g.src, lbl: type === 'embed' ? '' : /^forms/.test(type) ? 'Website forms' : g.lbl, ic: WIC[type] || g.ic, tint: g.tint};
+  return {src: WSRC[type] || g.src, lbl: type === 'embed' ? '' : /^(forms|people)/.test(type) ? 'Website forms' : g.lbl, ic: WIC[type] || g.ic, tint: g.tint};
 };
 const wIcon = (type, sz) => { const m = metaOf(type); return '<span class="rp-wic" style="--tint:' + m.tint + '">' + glyph(m.ic, sz || 16) + '</span>'; };
 const srcChip = type => { const m = metaOf(type); return m.src.length || m.lbl ? '<span class="rp-src" title="Data from ' + esc(m.lbl) + '">' + (m.src.length ? logoStack(m.src, 14) : '') + esc(m.lbl) + '</span>' : ''; };
@@ -3526,7 +3934,7 @@ const catTabsOf = k => {
   if (d.g === 'content'){ t.add('content'); return t; }
   if (n.some(x => x === 'g4' || x === 'pages' || x === 'pathway')) t.add('ga4');
   if (n.indexOf('gsc') > -1) t.add('gsc');
-  if (n.indexOf('forms') > -1 || n.indexOf('formsc') > -1 || n.indexOf('easyleads') > -1) t.add('forms');
+  if (n.indexOf('forms') > -1 || n.indexOf('formsc') > -1 || n.indexOf('easyleads') > -1 || n.indexOf('people') > -1) t.add('forms');
   if (n.indexOf('feed') > -1 || ['ai', 'gai', 'bing', 'llm'].indexOf(d.g) > -1) t.add('ai');
   if (n.indexOf('kw') > -1 || n.indexOf('gbp') > -1) t.add('rank');
   return t;
@@ -3930,6 +4338,7 @@ function ctxFor(c){
   const dc = dataCache[domain] = dataCache[domain] || {g4: {}, gsc: {}, pages: {}, pg: {}, pw: {}, at: Date.now()};
   if (Date.now() - dc.at > 15 * 60 * 1000){ dataCache[domain] = {g4: {}, gsc: {}, pages: {}, pg: {}, pw: {}, at: Date.now()}; return ctxFor(c); }
   const ctx = {domain, clientName: c.name || ''};
+  ctx.people = peopleStore(c);
   const noTracker = () => Promise.reject(new Error('Connect the AI Visibility Tracker first (AI Visibility tab, ⚙).'));
   const noSite = () => Promise.reject(new Error('Add this client’s website on the Dashboard tab first.'));
   ctx.get = name => {
@@ -3966,6 +4375,18 @@ function ctxFor(c){
       dc.el = dc.el || {};
       return dc.el[k] || (dc.el[k] = AIV.apiGet(s.url, {action: 'forms', src: 'easyleads', domain, key: s.key, start: R.prevSince, end: R.end})
         .then(r => { if (r && r.error) throw new Error(r.error); return r; }).catch(e => { delete dc.el[k]; throw e; }));
+    }
+    /* Client personas: every form on file, website and Easyleads, all time (the period doesn't narrow it). */
+    if (name === 'people'){
+      if (dc.people) return dc.people;
+      const end = isoDay(new Date()), one = src => AIV.apiGet(s.url, Object.assign({action: 'forms', domain, key: s.key, start: '2010-01-01', end}, src ? {src} : {}))
+        .then(r => (r && !r.error ? r : null), () => null);
+      return dc.people = Promise.all([one(''), one('easyleads')]).then(res => {
+        const a = res[0], b = res[1];
+        if (!a && !b){ dc.people = null; throw new Error('Couldn’t read the form submissions from the tracker.'); }
+        const tag = (x, src) => (x && Array.isArray(x.rows) ? x.rows : []).filter(r => r && r.t).map(r => Object.assign({}, r, {_src: src}));
+        return {rows: tag(a, 'web').concat(tag(b, 'el')), details: !!((a && a.details) || (b && b.details)), first: [a && a.first, b && b.first].filter(Boolean).sort()[0] || ''};
+      });
     }
     /* Form inbox: the same forms payload (the team key sees every detail). */
 if (name === 'formsc') return ctx.get('forms');
