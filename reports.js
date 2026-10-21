@@ -1154,12 +1154,12 @@ function fsOpen(ctx, r, M){
       ? '<p class="aiv-cap">' + (r.origin === 'easyleads' ? 'GoHighLevel didn’t record where this visitor came from.' : 'Sent before source tracking was added, so where this visitor came from isn’t known.') + '</p>'
       : '<table class="aiv-table"><tbody>' + [['Channel', esc(r.channel || '—')], ['Source / medium', esc(r.sm || '—')], ['Campaign', esc(r.campaign || '—')],
         ['First page they landed on', r.land ? '<span class="aiv-page">' + esc(r.land) + '</span>' : '—'], ['Came from', esc(r.ref || '—')]].map(x => '<tr><td style="width:38%;color:var(--a-ink3)">' + x[0] + '</td><td>' + x[1] + '</td></tr>').join('') + '</tbody></table>';
-    body.innerHTML = statsRow([['Form', esc(r.form)], ['Sent', esc(fsWhen(r))], ['Page', r.page ? esc(r.page) : '—'], ['Channel', esc(r.channel || '—')]]) +
+    body.innerHTML = statsRow([['Form', esc(r.form)], ['Sent', esc(fsWhen(r))], ['Page', r.page ? esc(r.page) : '—'], ['Channel', esc(r.channel && r.channel !== 'Not tracked yet' ? r.channel : '—')]]) +
       '<div class="aiv-card"><h3>What they sent</h3><table class="aiv-table" style="margin-top:8px"><tbody>' +
       (Object.keys(f).length ? Object.keys(f).map(k => '<tr><td style="width:38%;color:var(--a-ink3);vertical-align:top">' + esc(k) + '</td><td style="white-space:pre-wrap">' +
         (/e-?mail/i.test(k) && /@/.test(f[k]) ? '<a href="mailto:' + esc(f[k]) + '">' + esc(f[k]) + '</a>' : /phone|tel/i.test(k) ? '<a href="tel:' + esc(String(f[k]).replace(/[^\d+]/g, '')) + '">' + esc(f[k]) + '</a>' : esc(f[k])) + '</td></tr>').join('')
         : '<tr><td>No fields were kept.</td></tr>') + '</tbody></table></div>' +
-      '<div class="aiv-card"><h3>Where they came from</h3><div style="margin-top:8px">' + src + '</div></div>';
+      (r.channel === 'Not tracked yet' || !r.channel ? '' : '<div class="aiv-card"><h3>Where they came from</h3><div style="margin-top:8px">' + src + '</div></div>');
   });
 }
 W.forms = {g: 'conv', t: 'Form submissions', d: 'Every website form submission: how many, which form, where the visitor came from, and (team only) who sent it.', size: 'xl', needs: ['forms'],
@@ -1172,7 +1172,7 @@ W.forms = {g: 'conv', t: 'Form submissions', d: 'Every website form submission: 
     const cf = w.cfg = w.cfg || {};
     let fForm = '', fCh = '', q = '';
     const tot = M.cur.length;
-    const byForm = M.count(M.cur, 'form'), byCh = M.count(M.cur, 'channel'), prevForm = M.count(M.prev, 'form');
+    const byForm = M.count(M.cur, 'form'), byCh = M.count(M.cur, 'channel').filter(x => x.k !== 'Not tracked yet' && x.k !== '—'), prevForm = M.count(M.prev, 'form');
     const tiles = [kpiTile('Submissions', fmt(tot), esc(ctx.R.label || ''), {d: delta(tot, M.prev.length, M.hasPrev), icon: glyph('table', 18, '#0f7a58')})]
       .concat(M.forms.slice(0, 3).map((k, i) => { const n = (byForm.find(x => x.k === k) || {n: 0}).n, p = (prevForm.find(x => x.k === k) || {n: 0}).n;
         return kpiTile(k, fmt(n), 'form', {d: delta(n, p, M.hasPrev), click: 'f:' + k}); }));
@@ -1184,14 +1184,14 @@ W.forms = {g: 'conv', t: 'Form submissions', d: 'Every website form submission: 
       '<select data-ff aria-label="Form"><option value="">All forms</option>' + M.forms.map(k => '<option value="' + esc(k) + '">' + esc(k) + '</option>').join('') + '</select>' +
       '<select data-fc aria-label="Channel"><option value="">All channels</option>' + byCh.map(x => '<option value="' + esc(x.k) + '">' + esc(x.k) + '</option>').join('') + '</select></div><div data-list></div></div>' +
       '<p class="aiv-foot">' + (EL ? 'Easyleads (GoHighLevel) forms' : 'Website forms') + ', ' + esc(ctx.R.text || '') + '. ' + (M.first ? 'On file since ' + esc(prettyDate(M.first)) + '. ' : '') +
-      (EL ? 'Read from GoHighLevel every hour: past submissions included. Channel and landing page come from what GoHighLevel recorded with each one; “Not tracked yet” means it recorded none.' : M.liveSince ? 'Channel and landing page are recorded for submissions from ' + esc(prettyDate(M.liveSince)) + ' on; older ones were imported from the website and show “Not tracked yet”.' : 'Older submissions were imported from the website; channel and landing page are recorded from now on.') +
+      (EL ? 'Read from GoHighLevel every hour: past submissions included. Channel and landing page come from what GoHighLevel recorded with each one.' : M.liveSince ? 'Channel and landing page are recorded for submissions from ' + esc(prettyDate(M.liveSince)) + ' on.' : 'Older submissions were imported from the website; channel and landing page are recorded from now on.') +
       (M.details && ctx.drill ? ' Names, emails, phones and messages show on the team report only, unless the client report lets the client click into them.' : '') + '</p>';
     /* Over time, by form. */
     const series = [{name: 'All submissions', color: '#0f7a58', values: B.zero(), area: true}].concat(M.forms.slice(0, 4).map((k, i) => ({name: k, color: FS_FORM[i % FS_FORM.length], values: B.zero()})));
     M.cur.forEach(r => { const i = B.slot(fsDay(r)); if (i == null) return; series[0].values[i]++; const j = M.forms.indexOf(r.form); if (j > -1 && j < 4) series[j + 1].values[i]++; });
     chart(h.querySelector('[data-ch]'), {labels: B.labels, weekly: monthly || ctx.R.weekly, height: 210, series, empty: 'No form submissions in this period.'}, ctx, w);
     const tc = byCh.slice(0, 7).map((x, i) => ({k: x.k, n: x.n, label: x.k, color: sc(ctx, fsChColor(x.k), i)}));
-    h.querySelector('[data-bych]').innerHTML = tc.length ? '<div class="rp-donutrow">' + donut(tc.map(x => ({key: x.k, label: x.label, n: x.n, color: x.color})), {sub: 'submissions'}) + legendRows(tc, tot, {click: true}) + '</div>' : '<div class="rp-err">No form submissions in this period.</div>';
+    h.querySelector('[data-bych]').innerHTML = tc.length ? '<div class="rp-donutrow">' + donut(tc.map(x => ({key: x.k, label: x.label, n: x.n, color: x.color})), {sub: 'submissions'}) + legendRows(tc, tc.reduce((t, x) => t + x.n, 0), {click: true}) + '</div>' : '<div class="rp-err">No channel data in this period.</div>';
     const pg = {}; M.cur.forEach(r => { const k = r.page || '—'; const o = pg[k] = pg[k] || {k, n: 0, land: {}}; o.n++; if (r.land) o.land[r.land] = (o.land[r.land] || 0) + 1; });
     const pgs = Object.values(pg).sort((a, b) => b.n - a.n), maxP = Math.max(1, ...pgs.map(x => x.n));
     table(h.querySelector('[data-bypg]'), pgs, [
@@ -1206,7 +1206,7 @@ W.forms = {g: 'conv', t: 'Form submissions', d: 'Every website form submission: 
       if (M.details) cols.push({key: 'name', label: 'Name', fmt: r => esc(r.name || '—') + (r.company ? '<div class="rp-fs-sub">' + esc(r.company) + '</div>' : '')},
         {key: 'email', label: 'Contact', fmt: r => esc(r.email || '') + (r.phone ? '<div class="rp-fs-sub">' + esc(r.phone) + '</div>' : '')},
         {key: 'message', label: 'Message', fmt: r => '<span class="rp-fs-msg">' + esc(String(r.message || '').slice(0, 140)) + '</span>'});
-      cols.push({key: 'channel', label: 'Channel', fmt: r => '<span class="rp-fs-ch" style="--c:' + fsChColor(r.channel) + '">' + esc(r.channel || '—') + '</span>' + (r.sm && r.channel !== 'Direct' ? '<div class="rp-fs-sub">' + esc(r.sm) + '</div>' : '')});
+      cols.push({key: 'channel', label: 'Channel', fmt: r => !r.channel || r.channel === 'Not tracked yet' ? '' : '<span class="rp-fs-ch" style="--c:' + fsChColor(r.channel) + '">' + esc(r.channel || '—') + '</span>' + (r.sm && r.channel !== 'Direct' ? '<div class="rp-fs-sub">' + esc(r.sm) + '</div>' : '')});
       if (!M.details) cols.push({key: 'page', label: 'Page', fmt: r => '<span class="aiv-page">' + esc(r.page || '—') + '</span>'});
       table(h.querySelector('[data-list]'), rows, cols, {sort: 't', empty: 'No submissions match.', maxH: chH(w, 460, 0) > 460 ? 640 : 460, onRow: M.details ? r => fsOpen(ctx, r, M) : null});
     };
@@ -3122,18 +3122,9 @@ W.people = {g: 'conv', t: 'Client personas', d: 'One card per person behind the 
     const hasPrev = !!(F.first && F.first <= R.prevEnd);
     const newP = all.filter(p => p.first && p.first >= R.since && p.first <= R.end).length;
     const prevNew = all.filter(p => p.first && p.first >= R.prevSince && p.first <= R.prevEnd).length;
-    const won = all.filter(p => p.st === 'current' || p.st === 'past');
-    const real = all.filter(p => p.st !== 'lost').length;
-    const ttc = won.map(p => psDays(p.first, p.start)).filter(x => x != null && x >= 0);
-    const avg = ttc.length ? Math.round(ttc.reduce((a, b) => a + b, 0) / ttc.length) : null;
-    const val = all.filter(p => p.st === 'current').reduce((t, p) => t + p.value, 0);
     const tiles = [
       kpiTile('People on file', fmt(all.length), fmt(all.filter(p => p.n > 1).length) + ' sent more than one form', {icon: glyph('users', 18, '#2a78d6')}),
-      kpiTile('New people', fmt(newP), esc(R.label || ''), {d: delta(newP, prevNew, hasPrev), icon: glyph('up', 18, '#0f7a58')}),
-      kpiTile('Future clients', fmt(cnt('lead')), 'leads not yet clients', {icon: glyph('target', 18, PS.lead.c), click: 'ps:lead'}),
-      kpiTile('Current clients', fmt(cnt('current')), val ? '$' + fmt(val) + ' in value' : 'working with them now', {icon: glyph('trophy', 18, PS.current.c), click: 'ps:current'}),
-      kpiTile('Past clients', fmt(cnt('past')), 'worked with before', {icon: glyph('cal', 18, PS.past.c), click: 'ps:past'}),
-      kpiTile('Lead to client', real ? pctS(won.length, real) : '—', avg != null ? 'about ' + fmt(avg) + ' days from first form' : 'of people who weren’t “not a fit”', {icon: glyph('line', 18, '#6250d6')})];
+      kpiTile('New people', fmt(newP), esc(R.label || ''), {d: delta(newP, prevNew, hasPrev), icon: glyph('up', 18, '#0f7a58')})];
     const tabs = [['all', 'Everyone', '#171614', all.length]].concat(PS_KEYS.map(k => [k, PS[k].l, PS[k].c, cnt(k)]));
     h.innerHTML = '<div class="rp-ps">' +
       '<div class="rp-kpis">' + tiles.join('') + '</div>' +
@@ -3175,7 +3166,6 @@ W.people = {g: 'conv', t: 'Client personas', d: 'One card per person behind the 
     };
     const setTab = k => { tab = k; shown = 48; if (cf.tab !== k){ cf.tab = k; if (ctx.saveItem) ctx.saveItem(w); } draw(); };
     h.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => setTab(b.dataset.tab)));
-    onClick(h, '.rp-kpis [data-k]', el => { const k = el.dataset.k; if (k.indexOf('ps:') === 0) setTab(tab === k.slice(3) ? 'all' : k.slice(3)); });
     qEl.addEventListener('input', () => { q = h._psQ = qEl.value; shown = 48; draw(); });
     sEl.addEventListener('change', () => { sort = sEl.value; cf.sort = sort; if (ctx.saveItem) ctx.saveItem(w); draw(); });
     pEl.addEventListener('change', () => { onlyP = h._psP = pEl.checked; shown = 48; draw(); });
