@@ -692,6 +692,15 @@ button.rp-lead{cursor:pointer;} button.rp-lead:hover{border-color:#b8c2cc;}
 .rp-fx-dname{font:600 18px var(--display,Poppins,Inter,sans-serif);color:var(--a-ink);overflow-wrap:anywhere;}
 .rp-fx-acts{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
 .rp-fx-acts .aiv-btn{display:inline-flex;align-items:center;gap:6px;text-decoration:none;}
+.rp-fx-hn{display:inline-block;margin-left:8px;font:600 12px var(--ui,Inter,sans-serif);color:#2a78d6;background:color-mix(in srgb,#2a78d6 12%,transparent);border-radius:999px;padding:2px 9px;vertical-align:2px;}
+.rp-fx-hist{display:flex;flex-direction:column;gap:8px;margin-top:10px;}
+.rp-fx-hi{display:grid;grid-template-columns:1fr auto;gap:3px 10px;width:100%;text-align:left;padding:10px 12px;border:1px solid var(--a-line);border-radius:11px;background:var(--a-card);font:inherit;font-size:12.5px;color:inherit;cursor:pointer;transition:border-color .15s,box-shadow .15s;}
+.rp-fx-hi:hover{border-color:var(--a-ink3,#c3ccd3);box-shadow:0 6px 16px -12px rgba(20,28,36,.4);}
+.rp-fx-hi b{font-weight:600;color:var(--a-ink);min-width:0;}
+.rp-fx-hi > span{color:var(--a-ink3);white-space:nowrap;font-variant-numeric:tabular-nums;}
+.rp-fx-hi em{grid-column:1 / -1;font-style:normal;color:var(--a-ink2);line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.rp-fx-hi.cur{border-color:#2a78d6;box-shadow:inset 0 0 0 1px #2a78d6;background:color-mix(in srgb,#2a78d6 5%,var(--a-card));cursor:default;}
+@media (max-width:560px){.rp-fx-hi{grid-template-columns:1fr;}.rp-fx-hi > span{white-space:normal;}}
 .rp-fx-others{display:flex;flex-direction:column;gap:8px;margin-top:8px;}
 .rp-fx-others div{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:8px 10px;border:1px solid var(--a-line);border-radius:10px;font-size:12.5px;}
 .rp-fx-others span{color:var(--a-ink3);}
@@ -1157,12 +1166,54 @@ function fsOpen(ctx, r, M){
       : '<table class="aiv-table"><tbody>' + [['Channel', esc(r.channel || '—')], ['Source / medium', esc(r.sm || '—')], ['Campaign', esc(r.campaign || '—')],
         ['First page they landed on', r.land ? '<span class="aiv-page">' + esc(r.land) + '</span>' : '—'], ['Came from', esc(r.ref || '—')]].map(x => '<tr><td style="width:38%;color:var(--a-ink3)">' + x[0] + '</td><td>' + x[1] + '</td></tr>').join('') + '</tbody></table>';
     body.innerHTML = statsRow([['Form', esc(r.form)], ['Sent', esc(fsWhen(r))], ['Page', r.page ? esc(r.page) : '—'], ['Channel', esc(r.channel && r.channel !== 'Not tracked yet' ? r.channel : '—')]]) +
+      '<div data-hist></div>' +
       '<div class="aiv-card"><h3>What they sent</h3><table class="aiv-table" style="margin-top:8px"><tbody>' +
       (Object.keys(f).length ? Object.keys(f).map(k => '<tr><td style="width:38%;color:var(--a-ink3);vertical-align:top">' + esc(k) + '</td><td style="white-space:pre-wrap">' +
         (/e-?mail/i.test(k) && /@/.test(f[k]) ? '<a href="mailto:' + esc(f[k]) + '">' + esc(f[k]) + '</a>' : /phone|tel/i.test(k) ? '<a href="tel:' + esc(String(f[k]).replace(/[^\d+]/g, '')) + '">' + esc(f[k]) + '</a>' : esc(f[k])) + '</td></tr>').join('')
         : '<tr><td>No fields were kept.</td></tr>') + '</tbody></table></div>' +
       (r.channel === 'Not tracked yet' || !r.channel ? '' : '<div class="aiv-card"><h3>Where they came from</h3><div style="margin-top:8px">' + src + '</div></div>');
+    fsHistory(ctx, r, body.querySelector('[data-hist]'), M.rows || [], x => fsOpen(ctx, x, M));
   });
+}
+/* ---------- Submission history: everything one person has sent ----------
+   Same person = same email, or same phone, or (when a form has neither) the same
+   full name. Reads every form on file (website and Easyleads, all time) when the
+   team report can, and the rows already loaded otherwise. Each one opens. */
+const fsSame = (r, list) => {
+  const w = psWho(r), e = psN.email(w.email), p = psN.phone(w.phone), n = psN.name(w.name);
+  return list.filter(x => {
+    const v = psWho(x), xe = psN.email(v.email), xp = psN.phone(v.phone);
+    if (e && xe === e) return true;
+    if (p && xp === p) return true;
+    return !e && !p && n.indexOf(' ') > 0 && !xe && !xp && psN.name(v.name) === n;
+  });
+};
+const fsSameRow = (a, b) => a === b || (String(a.t) === String(b.t) && (a.form || '') === (b.form || '') &&
+  psN.email(psWho(a).email) === psN.email(psWho(b).email) && psN.name(psWho(a).name) === psN.name(psWho(b).name));
+function fsHistory(ctx, r, host, local, open){
+  if (!host) return;
+  const who = psWho(r).name || psWho(r).email || 'this person';
+  const draw = (list, full) => {
+    const uniq = [];
+    list.concat([r]).forEach(x => { if (x && x.t && !uniq.some(y => fsSameRow(x, y))) uniq.push(x); });
+    let rows = fsSame(r, uniq);
+    if (!rows.some(x => fsSameRow(x, r))) rows.push(r);
+    rows = rows.sort((a, b) => a.t < b.t ? 1 : a.t > b.t ? -1 : 0);
+    const n = rows.length, first = rows[n - 1];
+    host.innerHTML = '<div class="aiv-card"><h3>Submission history<span class="rp-fx-hn">' + fmt(n) + ' submission' + (n === 1 ? '' : 's') + '</span></h3>' +
+      '<p class="aiv-cap" style="margin-top:4px">' + (n > 1 ? esc(who) + ' has sent ' + fmt(n) + ' forms' + (first ? ', the first on ' + esc(prettyDate(fsDay(first))) : '') + '. Click one to open it.' : 'This is the first form ' + esc(who) + ' has sent.') +
+      (full ? '' : ' <span data-hload>Checking older forms…</span>') + '</p>' +
+      '<div class="rp-fx-hist">' + rows.map((x, i) => {
+        const cur = fsSameRow(x, r);
+        return '<button type="button" class="rp-fx-hi' + (cur ? ' cur' : '') + '" data-hi="' + i + '"' + (cur ? ' aria-current="true"' : '') + '>' +
+          '<b><i class="rp-fx-dot" style="--c:' + fxColor(x.form || '') + '"></i>' + esc(x.form || 'Form') + '</b><span>' + (cur ? 'Viewing · ' : '') + esc(fsWhen(x)) + ' · ' + esc(fxAgo(x.t)) + '</span>' +
+          (x.message ? '<em>' + esc(String(x.message).replace(/\s+/g, ' ').slice(0, 170)) + '</em>' : '') + '</button>';
+      }).join('') + '</div></div>';
+    host.querySelectorAll('[data-hi]').forEach(b => b.addEventListener('click', () => { const x = rows[Number(b.dataset.hi)]; if (x && !fsSameRow(x, r)) open(x); }));
+  };
+  draw(local || [], !(ctx && ctx.get));
+  if (ctx && ctx.get) ctx.get('people').then(P => { if (host.isConnected) draw((local || []).concat((P && P.rows) || []), true); },
+    () => { if (host.isConnected) draw(local || [], true); });
 }
 W.forms = {g: 'conv', t: 'Form submissions', d: 'Every website form submission: how many, which form, where the visitor came from, and (team only) who sent it.', size: 'xl', needs: ['forms'],
   render(h, ctx, w, D){
@@ -2519,8 +2570,6 @@ return '﻿' + [cols.map(c => q(c[0])).join(',')].concat(rows.map(r => cols.map(
 /* One submission, everything they sent, and anything else the same person sent. */
 function fxOpen(ctx, r, all, terms){
 const who = r.name || r.email || r.form, col = fxColor(r.email || r.name || r.form);
-const mail = String(r.email || '').toLowerCase();
-const others = mail ? all.filter(x => x !== r && String(x.email || '').toLowerCase() === mail).sort((a, b) => a.t < b.t ? 1 : -1) : [];
 U.openDrawer(who + ' · ' + fsWhen(r), col, body => {
 const f = r.fields && Object.keys(r.fields).length ? r.fields : r._f;
 const act = [];
@@ -2536,17 +2585,17 @@ body.innerHTML = '<div class="rp-fx-dhead"><span class="rp-fx-av lg" style="--c:
 '<div class="rp-fx-dname">' + esc(who) + '</div><div class="aiv-cap">' + esc([r.company, where].filter(Boolean).join(' · ') || r.form) + '</div></div></div>' +
 (act.length ? '<div class="rp-fx-acts">' + act.join('') + '</div>' : '') +
 statsRow([['Form', esc(r.form)], ['Sent', esc(fsWhen(r))], ['Page', r.page ? esc(r.page) : '—'], ['Channel', esc(r.channel || '—')]]) +
+'<div data-hist></div>' +
 '<div class="aiv-card"><h3>What they sent</h3><table class="aiv-table" style="margin-top:8px"><tbody>' +
 (f && Object.keys(f).length ? Object.keys(f).map(k => '<tr><td style="width:38%;color:var(--a-ink3);vertical-align:top">' + esc(k) + '</td><td style="white-space:pre-wrap">' +
 (/e-?mail/i.test(k) && /@/.test(f[k]) ? '<a href="mailto:' + esc(f[k]) + '">' + fxHl(f[k], terms) + '</a>' : fxHl(f[k], terms)) + '</td></tr>').join('')
 : '<tr><td>No answers were kept.</td></tr>') + '</tbody></table></div>' +
-(others.length ? '<div class="aiv-card"><h3>Also sent by ' + esc(r.name || r.email) + ' (' + fmt(others.length) + ')</h3><div class="rp-fx-others">' +
-others.slice(0, 12).map(x => '<div><b>' + esc(x.form) + '</b><span>' + esc(fsWhen(x)) + '</span>' + (x.message ? '<em>' + esc(String(x.message).slice(0, 160)) + '</em>' : '') + '</div>').join('') + '</div></div>' : '') +
 '<div class="aiv-card"><h3>Where they came from</h3><div style="margin-top:8px">' + src + '</div></div>';
 body.querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', () => {
 const done = () => { b.textContent = 'Copied'; setTimeout(() => { b.textContent = 'Copy email'; }, 1600); };
 try{ navigator.clipboard.writeText(b.dataset.copy).then(done, () => {}); }catch(e){}
 }));
+fsHistory(ctx, r, body.querySelector('[data-hist]'), all, x => fxOpen(ctx, x._f ? x : Object.assign(x, {_f: fxFacetsOf(x)}), all, terms || []));
 });
 }
 W.forms_inbox = {g: 'conv', t: 'Form inbox', d: 'Every website form submission (WordPress and Concrete sites) in one searchable inbox: find anyone by name, email, company, province or city, filter by form and page, and open what they sent.', size: 'xl', needs: ['formsc'],
