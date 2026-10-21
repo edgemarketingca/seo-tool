@@ -3,7 +3,7 @@
      WordPress:    Code Snippets (or your header & footer plugin) > Footer.
      Change only the settings at the top: domain (as on the tracker's Clients tab) and, optionally, form names.
      Works with Concrete Express forms and Formidable, and on WordPress with Contact Form 7, Gravity Forms,
-     WPForms, Elementor, Formidable, Ninja Forms, Fluent Forms and Forminator. Easyleads (GoHighLevel) forms
+     WPForms, Elementor, Formidable, Ninja Forms, Fluent Forms, Forminator and Divi. Easyleads (GoHighLevel) forms
      are read from GoHighLevel directly, so they are left alone here. -->
 <script>
 (function () {
@@ -11,7 +11,7 @@
     endpoint: 'https://script.google.com/macros/s/AKfycbxMo_HxvIJaxd9ZW7NHDR-wcYfNsf--E4ES0k_VcNcWXLkmKW1f5qta_x8ONQHewfnOOg/exec',
     domain: 'example.com',
     /* Optional names, by form key: Express form id, "formidable:<id>", "cf7:<id>", "gf:<id>", "wpforms:<id>",
-       "elementor:<id>", "ninja:<id>", "fluent:<id>", "forminator:<id>". Otherwise the form's own name or the page title is used. */
+       "elementor:<id>", "ninja:<id>", "fluent:<id>", "forminator:<id>", "divi:<n>". Otherwise the form's own name or the page title is used. */
     names: {}
   };
   var SRC_KEY = 'edge_form_src', PEND_KEY = 'edge_form_pending';
@@ -89,6 +89,8 @@
     if (form.closest('.nf-form-cont')) return 'ninja:' + ((form.closest('.nf-form-cont').id || '').replace(/\D+/g, '') || '1');
     if ((v = form.getAttribute('data-form_id')) && /fluent/.test(form.className)) return 'fluent:' + v;
     if ((v = form.getAttribute('data-form-id')) && /forminator/.test(form.className)) return 'forminator:' + v;
+    var dv = form.closest('.et_pb_contact_form_container');
+    if (dv) return 'divi:' + (dv.getAttribute('data-form_unique_num') || '0');
     return '';
   }
   function nameOf(form) {
@@ -97,6 +99,9 @@
     var own = form.getAttribute('name') || form.getAttribute('aria-label') || '';
     var t = form.closest('.gform_wrapper') && form.closest('.gform_wrapper').querySelector('.gform_title');
     if (t && text(t)) return text(t);
+    var dt = form.closest('.et_pb_contact_form_container');
+    dt = dt && dt.querySelector('.et_pb_contact_main_title');
+    if (dt && text(dt)) return text(dt);
     if (own && !/^(form|wpforms-form|contact-form)$/i.test(own) && !/^[a-f0-9-]{12,}$/i.test(own)) return own;
     return (document.title.split(/[|:–-]/)[0] || 'Website form').trim();
   }
@@ -115,7 +120,7 @@
     'form.wpcf7-form.sent, .wpcf7 form.sent, .gform_confirmation_message, .gform_confirmation_wrapper, .wpforms-confirmation-container, .wpforms-confirmation-container-full, ' +
     '.elementor-message-success, .frm_message, .nf-response-msg, .ff-message-success, .forminator-success, .forminator-response-message.forminator-success';
   var BAD_SEL = '.alert-danger:not(.hide):not([style*="none"]), .ccm-block-express-form .alert-danger, .is-invalid, form.wpcf7-form.invalid, form.wpcf7-form.failed, ' +
-    'form.wpcf7-form.spam, .gform_validation_errors, .validation_error, .wpforms-error:not(:empty), .elementor-message-danger, .frm_error_style, .nf-error-msg, .ff-el-is-error, .forminator-error';
+    'form.wpcf7-form.spam, .gform_validation_errors, .validation_error, .wpforms-error:not(:empty), .elementor-message-danger, .frm_error_style, .nf-error-msg, .ff-el-is-error, .forminator-error, .et_pb_contact_error_text, .et_contact_error';
   function success(scope) { var e = (scope || document).querySelector(OK_SEL); return !!(e && (e.offsetParent !== null || /sent/.test(e.className))); }
   function failed(scope) { var e = (scope || document).querySelector(BAD_SEL); return !!(e && e.offsetParent !== null); }
 
@@ -146,7 +151,8 @@
     if (!Object.keys(p.fields).length) return;
     put(PEND_KEY, p, sessionStorage);
     /* Forms that submit without reloading: watch for the thank-you message for 30 seconds. */
-    var box = form.closest('.formidable, .ccm-block-express-form, .wpcf7, .gform_wrapper, .wpforms-container, .elementor-widget-form, .frm_forms, .nf-form-cont, .fluentform, .forminator-ui, [class*=ccm-block]') || form.parentElement || document.body;
+    /* Divi reloads its form module in place: the form is replaced by the thank-you message, or redrawn with an error. */
+    var box = form.closest('.formidable, .ccm-block-express-form, .wpcf7, .gform_wrapper, .wpforms-container, .elementor-widget-form, .frm_forms, .nf-form-cont, .fluentform, .forminator-ui, .et_pb_contact_form_container, [class*=ccm-block]') || form.parentElement || document.body;
     var n = 0, t = setInterval(function () {
       n++;
       if (!get(PEND_KEY, sessionStorage)) return clearInterval(t);
