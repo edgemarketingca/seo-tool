@@ -11773,6 +11773,57 @@ $('signOutBtn').addEventListener('click', async () => {
   try{ await fbAuth.signOut(); }catch(e){}
 });
 
+/* ---------- sign out after 5 minutes without activity ----------
+   Mouse, keyboard, scroll and touch all count as activity, in any tab of the
+   tool (tabs share the last-activity time through localStorage). For the last
+   30 seconds a notice counts down; any activity or "Stay signed in" cancels it.
+   Shared report links and embeds (public views) aren't signed in, so it never
+   runs there. A computer that slept past the limit is signed out on waking. */
+(function idleSignOut(){
+  const LIMIT = 5 * 60 * 1000, WARN = 30 * 1000, KEY = 'edgeIdleLast';
+  let last = Date.now(), lastWrite = 0, warned = false, out = false, bar = null;
+  const signedIn = () => !!(fbAuth && fbAuth.currentUser) && !isPublicView();
+  const shared = () => { try{ return Number(localStorage.getItem(KEY)) || 0; }catch(e){ return 0; } };
+  const hide = () => { warned = false; if (bar){ bar.remove(); bar = null; } };
+  const touch = () => {
+    last = Date.now();
+    if (warned) hide();
+    if (last - lastWrite > 5000){ lastWrite = last; try{ localStorage.setItem(KEY, String(last)); }catch(e){} }
+  };
+  ['mousemove', 'mousedown', 'pointerdown', 'keydown', 'wheel', 'scroll', 'touchstart'].forEach(ev => window.addEventListener(ev, touch, {passive: true, capture: true}));
+  window.addEventListener('storage', e => { if (e.key === KEY){ const t = Number(e.newValue) || 0; if (t > last){ last = t; if (warned) hide(); } } });
+  const show = secs => {
+    if (!bar){
+      bar = document.createElement('div');
+      bar.setAttribute('role', 'alert');
+      bar.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:2147483000;background:#171614;color:#fff;font:500 14px Inter,system-ui,sans-serif;padding:12px 14px 12px 18px;border-radius:12px;box-shadow:0 14px 34px -12px rgba(0,0,0,.5);display:flex;gap:14px;align-items:center;max-width:calc(100vw - 32px);';
+      bar.innerHTML = '<span data-idle-msg></span><button type="button" style="flex:none;font:600 13px Inter,system-ui,sans-serif;background:#fff;color:#171614;border:0;border-radius:8px;padding:7px 12px;cursor:pointer">Stay signed in</button>';
+      bar.querySelector('button').addEventListener('click', touch);
+      document.body.appendChild(bar);
+    }
+    bar.querySelector('[data-idle-msg]').textContent = 'No activity for a while. Signing you out in ' + secs + ' second' + (secs === 1 ? '' : 's') + '.';
+    warned = true;
+  };
+  const signOutNow = async () => {
+    if (out) return;
+    out = true; hide();
+    try{ if (typeof save === 'function') save(); }catch(e){}
+    try{ await presLeave(); }catch(e){}
+    try{ stopLiveSync(); }catch(e){}
+    try{ presStop(); }catch(e){}
+    try{ await fbAuth.signOut(); }catch(e){}
+    try{ setStatus('authStatus', 'You were signed out after 5 minutes without activity. Sign in again to continue.', 'err'); }catch(e){}
+  };
+  setInterval(() => {
+    if (!signedIn()){ hide(); out = false; last = Date.now(); return; }
+    last = Math.max(last, shared());
+    const idle = Date.now() - last;
+    if (idle >= LIMIT) signOutNow();
+    else if (idle >= LIMIT - WARN) show(Math.ceil((LIMIT - idle) / 1000));
+    else if (warned) hide();
+  }, 1000);
+})();
+
 /* ---------- selectors ---------- */
 const activeClient = () => state.clients.find(c => c.id === state.activeClientId) || null;
 function activeGbp(){
