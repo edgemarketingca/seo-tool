@@ -75,7 +75,7 @@ html,body{margin:0;background:#FDFDFD;color:#555;font-family:"Geist","Helvetica 
       return o;
     }); }catch(e){}
     /* Form widgets set to let the client click into submissions on this link: the secret goes with every forms request (the tracker checks it). */
-    const fxCs = (items.find(i => /^(forms|easyleads_forms|forms_[a-z_]+)$/.test(i.type) && i.cfg && i.cfg.contacts && /^[a-f0-9]{32}$/.test(String(i.cfg.cs || ''))) || {cfg: {}}).cfg.cs || '';
+    const fxCs = (items.find(i => /^(forms|easyleads_forms|forms_[a-z_]+|el_[a-z_]+)$/.test(i.type) && i.cfg && i.cfg.contacts && /^[a-f0-9]{32}$/.test(String(i.cfg.cs || ''))) || {cfg: {}}).cfg.cs || '';
     let snap = null;
     try{ if (view.snap) snap = JSON.parse(view.snap); }catch(e){}
     document.title = view.title || 'Report';
@@ -163,7 +163,7 @@ html,body{margin:0;background:#FDFDFD;color:#555;font-family:"Geist","Helvetica 
       return ctx;
     };
     const draw = () => {
-      ER.renderBoard(root, {mode: 'public', title: view.title, items, period, ctx: ctxFor(), editable: false,
+      ER.renderBoard(root, {mode: 'public', title: view.title, items, period, ctx: ctxFor(), editable: false, drill: view.drill === true,
         periods, lockNote: true, showDates: view.showDates !== false, bare: !!view.single, brand, clientLogo: okImg(view.clientLogo), agencyLogo: okImg(view.agencyLogo), clientName: view.clientName || '',
         emptyHtml: '<h3>This report is being prepared</h3>Check back soon.',
         onPeriod: p => { if (periods.indexOf(p) < 0) return; period = p; draw(); }});
