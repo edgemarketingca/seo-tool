@@ -2980,6 +2980,71 @@ const room = box.clientHeight - (root.offsetHeight - split.offsetHeight) - 10;
 if (room > 220) [listEl, root.querySelector('[data-side]')].forEach(el => { el.style.maxHeight = room + 'px'; });
 });
 }};
+/* ---------- Forms on this site: every form (website and Easyleads), where it is, what it got ----------
+   Built from every submission on file, all time (the Client personas data), so a form shows
+   once it has had its first submission. Platform: Easyleads, or the client's CMS for website forms.
+   Team only. */
+const FC_PLAT = {Easyleads: '#6250d6', WordPress: '#2a78d6', Concrete: '#0f7a58', Website: '#8795a1'};
+const fcPlat = (r, cms) => r._src === 'el' ? 'Easyleads' : /wordpress|\bwp\b/i.test(cms) ? 'WordPress' : /concrete/i.test(cms) ? 'Concrete' : 'Website';
+const fcPage = r => { const p = String(r.page || '').split(/[?#]/)[0].trim(); return !p ? '' : p.charAt(0) === '/' ? (p.replace(/\/+$/, '') || '/') : p; };
+const fcBadge = p => '<span class="rp-fs-ch" style="--c:' + (FC_PLAT[p] || '#8795a1') + '">' + esc(p) + '</span>';
+W.forms_catalog = {g: 'conv', t: 'Forms on this site', d: 'Every form on the website and in Easyleads that has had a submission: the platform it runs on (WordPress, Concrete or Easyleads), how many pages it sits on and which, and how many submissions it got this period and all time. Team only.', size: 'xl', needs: ['people'], internal: true,
+  render(h, ctx, w, D){
+    const P = D.people || {}, R = fsR(ctx.R), cf = w.cfg = w.cfg || {}, cms = ctx.cms || '';
+    const all = (P.rows || []).filter(r => r && r.t && !fsIsTest(r, ctx.domain));
+    if (!all.length){ h.innerHTML = '<div class="rp-err">No form submissions on file for this client yet, website or Easyleads.</div>'; return; }
+    const m = {}, pagesAll = new Set();
+    all.forEach(r => {
+      const plat = fcPlat(r, cms), form = r.form || 'Website form', k = plat + '\u0001' + form, d = fsDay(r), inCur = d >= R.since && d <= R.end;
+      const o = m[k] = m[k] || {k, form, plat, n: 0, all: 0, prev: 0, first: '', last: '', pages: {}};
+      o.all++; if (inCur) o.n++; if (d >= R.prevSince && d <= R.prevEnd) o.prev++;
+      if (!o.first || d < o.first) o.first = d; if (!o.last || r.t > o.last) o.last = r.t;
+      const pg = fcPage(r), q = o.pages[pg] = o.pages[pg] || {k: pg, all: 0, n: 0, last: ''};
+      q.all++; if (inCur) q.n++; if (r.t > q.last) q.last = r.t;
+      if (pg) pagesAll.add(pg);
+    });
+    const forms = Object.values(m), plats = Object.keys(FC_PLAT).filter(p => forms.some(o => o.plat === p));
+    const known = o => Object.keys(o.pages).filter(Boolean);
+    const sumN = forms.reduce((t, o) => t + o.n, 0), sumP = forms.reduce((t, o) => t + o.prev, 0), sumAll = forms.reduce((t, o) => t + o.all, 0);
+    const first = forms.map(o => o.first).sort()[0] || '';
+    const byPlat = plats.map(p => fmt(forms.filter(o => o.plat === p).length) + ' ' + p).join(' · ');
+    h.innerHTML = '<div class="rp-kpis">' +
+      kpiTile('Forms', fmt(forms.length), esc(byPlat), {icon: glyph('page', 18, '#2a78d6')}) +
+      kpiTile('Pages with a form', fmt(pagesAll.size), 'where submissions were sent from', {icon: glyph('pin', 18, '#c96a00')}) +
+      kpiTile('Submissions', fmt(sumN), esc(ctx.R.label || ''), {d: delta(sumN, sumP, !!first && first <= R.prevEnd), icon: glyph('table', 18, '#0f7a58')}) +
+      kpiTile('All time', fmt(sumAll), first ? 'since ' + esc(prettyDate(first)) : '', {icon: glyph('cal', 18, '#6250d6')}) + '</div>' +
+      (plats.length > 1 ? '<div class="aiv-chips" style="margin-top:12px">' + ['All'].concat(plats).map(p => '<button type="button" class="aiv-chip' + ((cf.plat || 'All') === p ? '' : ' off') + '" data-plat="' + esc(p) + '">' +
+        (p === 'All' ? '' : '<i style="background:' + FC_PLAT[p] + '"></i>') + esc(p) + ' <b style="margin-left:4px">' + fmt(p === 'All' ? forms.length : forms.filter(o => o.plat === p).length) + '</b></button>').join('') + '</div>' : '') +
+      '<div data-t style="margin-top:12px"></div>' +
+      '<p class="aiv-foot">From every submission on file, all time (test sends left out), so a form shows once it has had its first submission. Pages are where each submission was sent from; older imported submissions didn’t record one.' + (ctx.drill ? ' Click a form for its pages.' : '') + '</p>';
+    const draw = () => {
+      const rows = forms.filter(o => !cf.plat || cf.plat === 'All' || o.plat === cf.plat), maxA = Math.max(1, ...rows.map(o => o.all));
+      table(h.querySelector('[data-t]'), rows, [
+        {key: 'form', label: 'Form', fmt: o => '<b>' + esc(o.form) + '</b><div style="margin-top:3px">' + fcBadge(o.plat) + '</div>'},
+        {key: 'pg', label: 'Pages', sort: o => known(o).length, fmt: o => { const k = known(o).sort((a, b) => o.pages[b].all - o.pages[a].all);
+          return k.length ? '<b>' + fmt(k.length) + '</b> page' + (k.length === 1 ? '' : 's') + '<div class="rp-fs-sub">' + k.slice(0, 3).map(p => '<span class="aiv-page">' + esc(p) + '</span>').join(' ') + (k.length > 3 ? ' +' + (k.length - 3) + ' more' : '') + '</div>'
+            : '<span style="color:var(--a-ink3)">Not recorded</span>'; }},
+        {key: 'n', label: 'This period', num: true, sort: o => o.n, fmt: o => { const d = delta(o.n, o.prev, !!o.first && o.first <= R.prevEnd); return fmt(o.n) + (d.txt ? ' <span class="aiv-delta ' + d.cls + '">' + esc(d.txt) + '</span>' : ''); }},
+        {key: 'all', label: 'All time', num: true, fmt: o => barCell(o.all, maxA, FC_PLAT[o.plat] || '#8795a1')},
+        {key: 'last', label: 'Last sent', sort: o => o.last, fmt: o => esc(fxAgo(o.last)) + '<div class="rp-fs-sub">' + esc(prettyDate(String(o.last).slice(0, 10))) + '</div>'}],
+        {sort: 'all', empty: 'No forms on this platform.', maxH: chH(w, 520, 230) , onRow: ctx.drill ? o => fcOpen(ctx, o) : null});
+    };
+    onClick(h, '[data-plat]', el => { cf.plat = el.dataset.plat === 'All' ? '' : el.dataset.plat; if (ctx.saveItem) ctx.saveItem(w); h.querySelectorAll('[data-plat]').forEach(b => b.classList.toggle('off', b.dataset.plat !== (cf.plat || 'All'))); draw(); });
+    draw();
+  }};
+/* One form: every page it sits on, with its submissions. */
+function fcOpen(ctx, o){
+  U.openDrawer(o.form, FC_PLAT[o.plat] || '#8795a1', body => {
+    const pages = Object.values(o.pages), k = pages.filter(p => p.k).length, maxA = Math.max(1, ...pages.map(p => p.all));
+    body.innerHTML = statsRow([['Platform', fcBadge(o.plat)], ['Pages', fmt(k)], ['This period', fmt(o.n)], ['All time', fmt(o.all), 'since ' + esc(prettyDate(o.first))]]) +
+      '<div class="aiv-card"><h3>Where it is</h3><p class="aiv-cap" style="margin-bottom:8px">Each page this form was sent from. Last sent ' + esc(fxAgo(o.last)) + '.</p><div data-p></div></div>';
+    table(body.querySelector('[data-p]'), pages, [
+      {key: 'k', label: 'Page', fmt: p => p.k ? (/^\//.test(p.k) && ctx.domain ? linkTo(ctx.domain, p.k) : '<span class="aiv-page">' + esc(p.k) + '</span>') : '<span style="color:var(--a-ink3)">Not recorded (older or imported submissions)</span>'},
+      {key: 'n', label: 'This period', num: true},
+      {key: 'all', label: 'All time', num: true, fmt: p => barCell(p.all, maxA, FC_PLAT[o.plat] || '#8795a1')},
+      {key: 'last', label: 'Last sent', sort: p => p.last, fmt: p => esc(prettyDate(String(p.last).slice(0, 10)))}], {sort: 'all', maxH: 520});
+  });
+}
 W.forms_kpi = {g: 'conv', t: 'Leads', d: 'Website form submissions in the period, with the change and a sparkline.', size: 's', needs: ['forms'],
   render(h, ctx, w, D){
     const M = formsModel(ctx, D.forms), B = buckets(fsR(ctx.R)), v = B.zero();
@@ -3453,7 +3518,7 @@ const DEF_H = {headline: 250, conv_kpi: 230, traffic_kpis: 240, gsc_kpis: 240, k
   ga4_mix_shift: 380, ga4_conv_rate: 330, ga4_lead_sources: 380, ga4_opportunity_pages: 440, ga4_rising_pages: 400, ga4_engaging_pages: 400, ga4_unvisited: 420,
   gsc_ctr_curve: 330, gsc_brand: 330, gsc_questions: 440, gsc_query_length: 330, gsc_zero_click: 440, gsc_page_two: 440, forms_kpi: 240, forms_latest: 600, forms_rate: 420,
   forms_heatmap: 400, gsc_health: 780, kw_wins: 330, kw_close: 380, kw_pages: 420, gbp_glance: 380, ai_share: 210, forms_inbox: 1180, easyleads_forms: 1150, people: 1100,
-  el_kpi: 240, el_channels: 460, el_trend: 380, el_forms: 340, el_location: 340, el_inbox: 1180};
+  el_kpi: 240, el_channels: 460, el_trend: 380, el_forms: 340, el_location: 340, el_inbox: 1180, forms_catalog: 640};
 const defH = it => it.type === 'embed' ? Math.max(200, Math.min(2400, Number((it.cfg || {}).height) || 600)) + 70 : (DEF_H[it.type] || 360);
 
 /* ---------- what each widget looks like: source marks, icon, accent ---------- */
@@ -3479,11 +3544,11 @@ const WIC = {gsc_health: 'flag', insight_summary: 'text', insight_wins: 'up', go
   ai_visits: 'line', ai_assistants: 'donut', ai_vs_channels: 'line', ai_keyevents: 'flag', ai_pages: 'page', ai_journeys: 'path', gai_impr: 'line', gai_pages: 'page', gai_organic: 'users',
   aio: 'quote', llm_share: 'donut', llm_checks: 'table', gsc_trend: 'line', gsc_pages: 'page', gsc_almost: 'up', gsc_lowctr: 'target', gsc_devices: 'device', gsc_countries: 'globe',
   kw_cards: 'grid', kw_table: 'table', kw_movers: 'up', kw_dist: 'donut', gbp_grids: 'grid', embed: 'globe',
-  easyleads_forms: 'table', el_kpi: 'table', el_channels: 'donut', el_trend: 'line', el_forms: 'bars', el_location: 'pin', el_inbox: 'table'};
-const WSRC = {forms: [], people: [], easyleads_forms: [], el_kpi: [], el_channels: [], el_trend: [], el_forms: [], el_location: [], el_inbox: [], forms_kpi: [], forms_latest: [], forms_heatmap: [], forms_rate: ['ga4'], ai_share: ['ChatGPT', 'ga4'], insight_summary: ['ga4', 'gsc', 'google'], insight_wins: ['ga4', 'gsc'], insight_scorecard: ['ga4', 'gsc', 'ChatGPT'], insight_compare: ['ga4', 'gsc'], insight_forecast: ['ga4'], insight_weekday: ['ga4'], goal_tracker: ['ga4', 'gsc'], conv_ai: ['ga4', 'ChatGPT', 'Perplexity'], ai_vs_channels: ['ChatGPT', 'google'], gai_organic: ['google', 'ga4'], aio: ['google'], kw_kpis: ['google'], embed: []};
+  easyleads_forms: 'table', el_kpi: 'table', el_channels: 'donut', el_trend: 'line', el_forms: 'bars', el_location: 'pin', el_inbox: 'table', forms_catalog: 'page'};
+const WSRC = {forms: [], people: [], easyleads_forms: [], el_kpi: [], el_channels: [], el_trend: [], el_forms: [], el_location: [], el_inbox: [], forms_catalog: [], forms_kpi: [], forms_latest: [], forms_heatmap: [], forms_rate: ['ga4'], ai_share: ['ChatGPT', 'ga4'], insight_summary: ['ga4', 'gsc', 'google'], insight_wins: ['ga4', 'gsc'], insight_scorecard: ['ga4', 'gsc', 'ChatGPT'], insight_compare: ['ga4', 'gsc'], insight_forecast: ['ga4'], insight_weekday: ['ga4'], goal_tracker: ['ga4', 'gsc'], conv_ai: ['ga4', 'ChatGPT', 'Perplexity'], ai_vs_channels: ['ChatGPT', 'google'], gai_organic: ['google', 'ga4'], aio: ['google'], kw_kpis: ['google'], embed: []};
 const metaOf = type => {
   const def = W[type] || {}, g = GMETA[def.g] || GMETA.content;
-  return {src: WSRC[type] || g.src, lbl: type === 'embed' ? '' : /^(el_|easyleads)/.test(type) ? 'Easyleads' : /^(forms|people)/.test(type) ? 'Website forms' : g.lbl, ic: WIC[type] || g.ic, tint: g.tint};
+  return {src: WSRC[type] || g.src, lbl: type === 'embed' ? '' : type === 'forms_catalog' ? 'Website + Easyleads' : /^(el_|easyleads)/.test(type) ? 'Easyleads' : /^(forms|people)/.test(type) ? 'Website forms' : g.lbl, ic: WIC[type] || g.ic, tint: g.tint};
 };
 const wIcon = (type, sz) => { const m = metaOf(type); return '<span class="rp-wic" style="--tint:' + m.tint + '">' + glyph(m.ic, sz || 16) + '</span>'; };
 const srcChip = type => { const m = metaOf(type); return m.src.length || m.lbl ? '<span class="rp-src" title="Data from ' + esc(m.lbl) + '">' + (m.src.length ? logoStack(m.src, 14) : '') + esc(m.lbl) + '</span>' : ''; };
@@ -4631,7 +4696,7 @@ function ctxFor(c){
   const s = AIV.tracker ? AIV.tracker() : {};
   const dc = dataCache[domain] = dataCache[domain] || {g4: {}, gsc: {}, pages: {}, pg: {}, pw: {}, at: Date.now()};
   if (Date.now() - dc.at > 15 * 60 * 1000){ dataCache[domain] = {g4: {}, gsc: {}, pages: {}, pg: {}, pw: {}, at: Date.now()}; return ctxFor(c); }
-  const ctx = {domain, clientName: c.name || ''};
+  const ctx = {domain, clientName: c.name || '', cms: c.cms || ''};
   ctx.people = peopleStore(c);
   const noTracker = () => Promise.reject(new Error('Connect the AI Visibility Tracker first (AI Visibility tab, ⚙).'));
   const noSite = () => Promise.reject(new Error('Add this client’s website on the Dashboard tab first.'));
