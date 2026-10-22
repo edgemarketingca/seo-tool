@@ -124,12 +124,15 @@ html,body{margin:0;background:#FDFDFD;color:#555;font-family:"Geist","Helvetica 
         if (name === 'people'){
           if (!canLive) return Promise.reject(new Error('Not available.'));
           if (live.people) return live.people;
-          const end = new Date().toISOString().slice(0, 10);
-          const one = src => AIV.apiGet(view.feedUrl, Object.assign({action: 'forms', domain: view.domain, t: view.token, start: '2010-01-01', end}, src ? {src} : {})).then(r => (r && !r.error ? r : null), () => null);
+          /* The token reads about two years back; anything older came with the report when it was published. */
+          const end = new Date().toISOString().slice(0, 10), start = new Date(Date.now() - 728 * 864e5).toISOString().slice(0, 10);
+          const old = (snap && Array.isArray(snap.peopleOld) ? snap.peopleOld : []).filter(a => Array.isArray(a) && String(a[0]).slice(0, 10) < start)
+            .map(a => ({t: String(a[0]), form: String(a[1] || ''), page: String(a[2] || ''), test: !!a[4], _src: a[3] ? 'el' : 'web'}));
+          const one = src => AIV.apiGet(view.feedUrl, Object.assign({action: 'forms', domain: view.domain, t: view.token, start, end}, src ? {src} : {})).then(r => (r && !r.error ? r : null), () => null);
           return live.people = Promise.all([one(''), one('easyleads')]).then(res => {
-            if (!res[0] && !res[1]){ live.people = null; throw new Error('Not available.'); }
+            if (!res[0] && !res[1] && !old.length){ live.people = null; throw new Error('Not available.'); }
             const tag = (x, src) => (x && Array.isArray(x.rows) ? x.rows : []).filter(r => r && r.t).map(r => ({t: String(r.t), form: String(r.form || ''), page: String(r.page || ''), test: r.test, _src: src}));
-            return {rows: tag(res[0], 'web').concat(tag(res[1], 'el')), details: false};
+            return {rows: old.concat(tag(res[0], 'web'), tag(res[1], 'el')), details: false};
           });
         }
         const R = ctx.R;
