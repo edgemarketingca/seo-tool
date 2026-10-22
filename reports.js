@@ -1328,7 +1328,7 @@ W.forms = {g: 'conv', t: 'Form submissions', d: 'Every website form submission: 
     const tiles = [kpiTile('Submissions', fmt(tot), esc(ctx.R.label || ''), {d: delta(tot, M.prev.length, M.hasPrev), icon: glyph('table', 18, '#0f7a58')})]
       .concat(M.forms.slice(0, 3).map((k, i) => { const n = (byForm.find(x => x.k === k) || {n: 0}).n, p = (prevForm.find(x => x.k === k) || {n: 0}).n;
         return kpiTile(k, fmt(n), 'form', {d: delta(n, p, M.hasPrev), click: 'f:' + k}); }));
-    h.innerHTML = (!M.rows.length && !M.tests && !M.first && !EL ? '<div class="rp-err" style="margin-bottom:12px">No website form submissions on file for this client yet. New ones arrive as they’re sent once the tracking snippet is on the site' + (ctx.formsImport && ctx.drill ? '; past ones can be imported (button below).' : '.') + '</div>' : '') +
+    h.innerHTML = (!M.rows.length && !M.tests && !M.first && !EL ? '<div class="rp-err" style="margin-bottom:12px">No website form submissions on file for this client yet. New ones arrive as they’re sent once the tracking snippet is on the site' + (ctx.formsImport && ctx.team ? '; past ones can be imported (button below).' : '.') + '</div>' : '') +
       '<div class="rp-kpis">' + tiles.join('') + '</div>' +
       '<div data-ch style="margin-top:14px"></div>' +
       '<div style="margin-top:14px"><h4 class="rp-fs-h">Pages the forms were sent from</h4><div data-bypg></div></div>' +
@@ -1338,10 +1338,10 @@ W.forms = {g: 'conv', t: 'Form submissions', d: 'Every website form submission: 
       '</div><div data-list></div></div>' +
       '<p class="aiv-foot">' + (EL ? 'Easyleads (GoHighLevel) forms' : 'Website forms') + ', ' + esc(ctx.R.text || '') + '. ' + (M.first ? 'On file since ' + esc(prettyDate(M.first)) + '. ' : '') +
       (EL ? 'Read from GoHighLevel every hour: past submissions included. Channel and landing page come from what GoHighLevel recorded with each one.' : M.liveSince ? 'Channel and landing page are recorded for submissions from ' + esc(prettyDate(M.liveSince)) + ' on.' : 'Older submissions were imported from the website; channel and landing page are recorded from now on.') +
-      (M.details && ctx.drill ? ' Names, emails, phones and messages show on the team report only, unless the client report lets the client click into them.' : '') +
+      (M.details && ctx.team ? ' Names, emails, phones and messages show on the team report only, unless the client report lets the client click into them.' : '') +
       (M.tests || (w.cfg && w.cfg.tests) ? ' <a href="#" data-tests>' + (w.cfg && w.cfg.tests ? 'Leave out test submissions' : fmt(M.tests) + ' test submission' + (M.tests === 1 ? '' : 's') + ' left out · show') + '</a>.' : '') +
       (M.jobs ? ' ' + fmt(M.jobs) + ' job application' + (M.jobs === 1 ? ' is' : 's are') + ' counted here but not in the Leads widgets.' : '') + '</p>' +
-      (ctx.formsImport && ctx.drill && !EL ? '<div style="margin-top:8px"><button type="button" class="aiv-btn" data-fsimp>Import past submissions</button></div>' : '');
+      (ctx.formsImport && ctx.team && !EL ? '<div style="margin-top:8px"><button type="button" class="aiv-btn" data-fsimp>Import past submissions</button></div>' : '');
     /* Over time, by form. */
     const series = [{name: 'All submissions', color: '#0f7a58', values: B.zero(), area: true}].concat(M.forms.slice(0, 4).map((k, i) => ({name: k, color: FS_FORM[i % FS_FORM.length], values: B.zero()})));
     M.cur.forEach(r => { const i = B.slot(fsDay(r)); if (i == null) return; series[0].values[i]++; const j = M.forms.indexOf(r.form); if (j > -1 && j < 4) series[j + 1].values[i]++; });
@@ -2613,7 +2613,7 @@ function elLoc(r){
 function elModel(h, ctx, D){
   const F = D.easyleads || {};
   if (F.connected === false && !(F.rows || []).length){
-    h.innerHTML = '<div class="rp-err">Easyleads isn’t connected for this client yet.' + (ctx.drill ? ' In the AI Visibility Tracker sheet: AI Tracker menu › Connect Easyleads for a client.' : '') + '</div>';
+    h.innerHTML = '<div class="rp-err">Easyleads isn’t connected for this client yet.' + (ctx.team ? ' In the AI Visibility Tracker sheet: AI Tracker menu › Connect Easyleads for a client.' : '') + '</div>';
     return null;
   }
   return formsModel(ctx, F);
@@ -2629,7 +2629,7 @@ function elList(ctx, title, color, rows, M){
     table(body.querySelector('[data-l]'), list, cols, {sort: 't', empty: 'None.', maxH: 620, onRow: M.details ? r => fsOpen(ctx, r, M) : null});
   });
 }
-const elCanOpen = (ctx, M) => !!(ctx.drill && M.details);
+const elCanOpen = ctx => !!ctx.drill;
 W.el_kpi = {g: 'conv', t: 'Easyleads leads', d: 'How many Easyleads (GoHighLevel) form submissions came in this period, with the change and a sparkline.', size: 's', needs: ['easyleads'],
   render(h, ctx, w, D){
     const M = elModel(h, ctx, D); if (!M) return;
@@ -2702,6 +2702,11 @@ W.el_location = {g: 'conv', t: 'Easyleads leads by location', d: 'Where Easylead
       {sort: 'n', empty: 'No Easyleads leads in this period.', maxH: chH(w, 340, 30), onRow: elCanOpen(ctx, M) ? x => elList(ctx, x.k, '#6250d6', m[x.k], M) : null});
     if (tot && !known) h.insertAdjacentHTML('beforeend', '<p class="aiv-foot">None of these forms ask for a city, location or province, and none were sent from a location page.</p>');
   }};
+W.el_inbox = {g: 'conv', t: 'Easyleads inbox', d: 'Every Easyleads (GoHighLevel) form submission in one searchable inbox: filter by city or region, by source (organic, direct, paid), form and page, and open what they sent.', size: 'xl', needs: ['easyleads'],
+  render(h, ctx, w, D){
+    if (!elModel(h, ctx, D)) return;
+    W.forms_inbox.render(h, ctx, w, {formsc: D.easyleads, el: true});
+  }};
 /* ---------- Form inbox (website forms: WordPress, Concrete) ----------
 One searchable inbox of every website form submission: find anyone by name, email,
 company, province or city; filter by form, page, channel and any short answer the
@@ -2719,7 +2724,7 @@ const fxSecretOk = s => /^[a-f0-9]{32}$/.test(String(s || ''));
 /* Every widget that lists form submissions (website and Easyleads). */
 const FX_TYPES = /^(forms|easyleads_forms|forms_[a-z_]+|el_[a-z_]+)$/;
 /* Form widgets never get smaller than this on a report, older reports included: [height px, columns]. */
-const FX_MIN = {forms: [1150, 12], easyleads_forms: [1150, 12], forms_inbox: [1180, 12], forms_latest: [600, 6], forms_kpi: [240, 3], forms_rate: [420, 4], forms_heatmap: [400, 6], el_kpi: [240, 3], el_channels: [460, 4], el_trend: [380, 6], el_forms: [340, 4], el_location: [340, 4]};
+const FX_MIN = {forms: [1150, 12], easyleads_forms: [1150, 12], forms_inbox: [1180, 12], forms_latest: [600, 6], forms_kpi: [240, 3], forms_rate: [420, 4], forms_heatmap: [400, 6], el_kpi: [240, 3], el_channels: [460, 4], el_trend: [380, 6], el_forms: [340, 4], el_location: [340, 4], el_inbox: [1180, 12]};
 /* The link secret when this report's form widgets let the client click into submissions. */
 const fxSharedCs = items => { const it = (items || []).find(i => FX_TYPES.test(i.type) && i.cfg && i.cfg.contacts && fxSecretOk(i.cfg.cs)); return it ? it.cfg.cs : ''; };
 /* The client report's one setting for all its form widgets: let the client click into submissions on their link
@@ -2817,11 +2822,13 @@ fsHistory(ctx, r, body.querySelector('[data-hist]'), all, x => fxOpen(ctx, x._f 
 }
 W.forms_inbox = {g: 'conv', t: 'Form inbox', d: 'Every website form submission (WordPress and Concrete sites) in one searchable inbox: find anyone by name, email, company, province or city, filter by form and page, and open what they sent.', size: 'xl', needs: ['formsc'],
 render(h, ctx, w, D){
-const F = D.formsc || {}, M = formsModel(ctx, F, {jobs: true}), det = !!M.details;
+const EL = !!D.el, F = D.formsc || {}, M = formsModel(ctx, F, {jobs: true}), det = !!M.details;
 const cf = w.cfg = w.cfg || {};
 M.rows.forEach(r => {
-if (r._f) return;
-r._f = fxFacetsOf(r);
+if (r._q) return;
+r._f = r._f || fxFacetsOf(r);
+/* Easyleads: a location page (/contact-us/red-deer) stands in when the form asks no city or province. */
+if (EL && !r._f.City && !r._f.Province && !r._f.Location){ const l = elLoc(r); if (l) r._f.Location = l; }
 r._q = [r.name, r.email, r.phone, r.company, r.message, r.page, r.form, r.channel].concat(Object.values(r.fields || {}), Object.values(r.facets || {}), Object.values(r._f))
 .filter(Boolean).join(' \u0001 ').toLowerCase();
 });
@@ -2833,10 +2840,10 @@ const cover = k => Object.values(fv[k]).reduce((t, n) => t + n, 0);
 const rank = k => k === 'Province' ? 0 : k === 'City' ? 1 : 2;
 const facets = Object.keys(fv).filter(k => cover(k) >= Math.max(2, cur.length * 0.15) && Object.keys(fv[k]).length <= 120)
 .sort((a, b) => rank(a) - rank(b) || cover(b) - cover(a)).slice(0, 4);
-const DIMS = [['form', 'Form']].concat(facets.map(k => ['f:' + k, k]), [['page', 'Page'], ['channel', 'Channel']]);
-const valOf = (r, d) => d === 'form' ? r.form || '—' : d === 'page' ? r.page || '—' : d === 'channel' ? r.channel || '—' : r._f[d.slice(2)] || '';
+const DIMS = [['form', 'Form']].concat(facets.map(k => ['f:' + k, k]), [['grp', 'Source'], ['page', 'Page'], ['channel', 'Channel']]);
+const valOf = (r, d) => d === 'form' ? r.form || '—' : d === 'page' ? r.page || '—' : d === 'channel' ? r.channel || '—' : d === 'grp' ? elGroup(r.channel) : r._f[d.slice(2)] || '';
 const formCol = k => FS_FORM[Math.max(0, M.forms.indexOf(k)) % FS_FORM.length];
-const dimCol = (d, v) => d === 'form' ? formCol(v) : d === 'channel' ? fsChColor(v) : '#0f7a58';
+const dimCol = (d, v) => d === 'form' ? formCol(v) : d === 'channel' ? fsChColor(v) : d === 'grp' ? elGrpColor(v) : '#0f7a58';
 const sel = {};
 let q = '', sort = 'new', shown = 30, open = '';
 
@@ -2860,9 +2867,9 @@ h.innerHTML = '<div class="rp-fx">' +
 '<div class="rp-fx-dims">' + DIMS.map(d => '<div class="rp-fx-dim" data-dim="' + esc(d[0]) + '"><button type="button" aria-haspopup="listbox" aria-expanded="false"></button></div>').join('') + '</div>' +
 '<div class="rp-fx-chips" data-chips></div>' +
 '<div class="rp-fx-split"><div class="rp-fx-side" data-side></div><div class="rp-fx-list" data-list role="list" style="max-height:' + (w && w.h ? Math.max(320, w.h - 360) : 900) + 'px"></div></div>' +
-'<p class="aiv-foot">Website forms (WordPress and Concrete), ' + esc(ctx.R.text || '') + '. ' + (M.first ? 'On file since ' + esc(prettyDate(M.first)) + '. ' : '') +
-(M.liveSince ? 'Where each visitor came from is recorded from ' + esc(prettyDate(M.liveSince)) + ' on; older submissions were imported and show “Not tracked yet”. ' : '') +
-(ctx.drill ? 'Names and contact details are for the team; a client’s link shows them only when “Let the client click into form submissions” is on in the client report.' : det ? 'Contact details are shared on this report by EDGE Marketing.' : 'Names and contact details aren’t shown on this report.') + '</p></div>';
+'<p class="aiv-foot">' + (EL ? 'Easyleads (GoHighLevel) forms, past ones included' : 'Website forms (WordPress and Concrete)') + ', ' + esc(ctx.R.text || '') + '. ' + (M.first ? 'On file since ' + esc(prettyDate(M.first)) + '. ' : '') +
+(!EL && M.liveSince ? 'Where each visitor came from is recorded from ' + esc(prettyDate(M.liveSince)) + ' on; older submissions were imported and show “Not tracked yet”. ' : '') +
+(ctx.team ? 'Names and contact details are for the team; a client’s link shows them only when “Let the client click into form submissions” is on in the client report.' : det ? 'Contact details are shared on this report by EDGE Marketing.' : 'Names and contact details aren’t shown on this report.') + '</p></div>';
 
 const qEl = h.querySelector('[data-q]'), sortEl = h.querySelector('[data-sort]'), listEl = h.querySelector('[data-list]');
 const terms = () => q.toLowerCase().split(/\s+/).map(t => t.trim()).filter(t => t.length > 0);
@@ -2876,7 +2883,7 @@ return Object.keys(m).map(k => ({k, n: m[k]})).sort((a, b) => b.n - a.n || (a.k 
 const bars = (d, title, n) => {
 const c = countFor(d).slice(0, n), max = Math.max(1, ...c.map(x => x.n));
 return c.length ? '<div><h4 class="rp-fs-h">' + esc(title) + '</h4><div class="rp-fx-bars">' + c.map(x => '<button type="button" data-bar="' + esc(d) + '" data-v="' + esc(x.k) + '"' + (sel[d] === x.k ? ' class="on"' : '') + '>' +
-'<span>' + (d === 'form' || d === 'channel' ? '<span class="rp-fx-dot" style="--c:' + dimCol(d, x.k) + '"></span>' : '') + esc(x.k) + '</span><em>' + fmt(x.n) + '</em><i style="--p:' + Math.round(x.n / max * 100) + '%;--c:' + dimCol(d, x.k) + '"></i></button>').join('') + '</div></div>' : '';
+'<span>' + (d === 'form' || d === 'channel' || d === 'grp' ? '<span class="rp-fx-dot" style="--c:' + dimCol(d, x.k) + '"></span>' : '') + esc(x.k) + '</span><em>' + fmt(x.n) + '</em><i style="--p:' + Math.round(x.n / max * 100) + '%;--c:' + dimCol(d, x.k) + '"></i></button>').join('') + '</div></div>' : '';
 };
 const card = (r, i, t) => {
 const nm = det ? (r.name || r.email || 'No name given') : r.form;
@@ -2908,7 +2915,7 @@ h.querySelector('[data-chips]').innerHTML = on.map(d => '<button type="button" c
 (on.length + (q.trim() ? 1 : 0) > 1 ? '<button type="button" class="rp-fx-clear" data-clear>Clear all</button>' : '') +
 '<span class="rp-fx-count">' + (view.length === cur.length ? fmt(cur.length) + ' submission' + (cur.length === 1 ? '' : 's') : fmt(view.length) + ' of ' + fmt(cur.length)) + '</span>';
 h.querySelector('[data-side]').innerHTML = (facets[0] ? bars('f:' + facets[0], 'Where they’re from' + (facets[0] === 'Province' ? '' : ': ' + facets[0]), 8) : '') +
-bars('form', 'Forms', 6) + (facets[1] ? bars('f:' + facets[1], facets[1], 6) : bars('page', 'Pages', 6));
+bars('grp', 'Source', 5) + bars('form', 'Forms', 6) + (facets[1] ? bars('f:' + facets[1], facets[1], 6) : bars('page', 'Pages', 6));
 listEl.innerHTML = view.length ? view.slice(0, shown).map((r, i) => card(r, i, t)).join('') +
 (view.length > shown ? '<button type="button" class="aiv-btn rp-fx-more" data-more>Show ' + fmt(Math.min(30, view.length - shown)) + ' more · ' + fmt(view.length - shown) + ' left</button>' : '')
 : '<div class="rp-fx-empty"><b>' + (cur.length ? 'Nothing matches' : 'No form submissions in this period') + '</b>' +
@@ -2961,7 +2968,7 @@ if (e.key === 'ArrowDown' && e.target === qEl){ e.preventDefault(); const f = li
 });
 h.querySelector('[data-csv]').addEventListener('click', () => {
 const blob = new Blob([fxCsv(view, facets, det)], {type: 'text/csv;charset=utf-8'}), a = document.createElement('a');
-a.href = URL.createObjectURL(blob); a.download = (ctx.domain || 'forms') + '-form-submissions-' + ctx.R.since + '-to-' + ctx.R.end + '.csv';
+a.href = URL.createObjectURL(blob); a.download = (ctx.domain || 'forms') + (EL ? '-easyleads-submissions-' : '-form-submissions-') + ctx.R.since + '-to-' + ctx.R.end + '.csv';
 document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
 });
 draw();
@@ -3446,7 +3453,7 @@ const DEF_H = {headline: 250, conv_kpi: 230, traffic_kpis: 240, gsc_kpis: 240, k
   ga4_mix_shift: 380, ga4_conv_rate: 330, ga4_lead_sources: 380, ga4_opportunity_pages: 440, ga4_rising_pages: 400, ga4_engaging_pages: 400, ga4_unvisited: 420,
   gsc_ctr_curve: 330, gsc_brand: 330, gsc_questions: 440, gsc_query_length: 330, gsc_zero_click: 440, gsc_page_two: 440, forms_kpi: 240, forms_latest: 600, forms_rate: 420,
   forms_heatmap: 400, gsc_health: 780, kw_wins: 330, kw_close: 380, kw_pages: 420, gbp_glance: 380, ai_share: 210, forms_inbox: 1180, easyleads_forms: 1150, people: 1100,
-  el_kpi: 240, el_channels: 460, el_trend: 380, el_forms: 340, el_location: 340};
+  el_kpi: 240, el_channels: 460, el_trend: 380, el_forms: 340, el_location: 340, el_inbox: 1180};
 const defH = it => it.type === 'embed' ? Math.max(200, Math.min(2400, Number((it.cfg || {}).height) || 600)) + 70 : (DEF_H[it.type] || 360);
 
 /* ---------- what each widget looks like: source marks, icon, accent ---------- */
@@ -3472,8 +3479,8 @@ const WIC = {gsc_health: 'flag', insight_summary: 'text', insight_wins: 'up', go
   ai_visits: 'line', ai_assistants: 'donut', ai_vs_channels: 'line', ai_keyevents: 'flag', ai_pages: 'page', ai_journeys: 'path', gai_impr: 'line', gai_pages: 'page', gai_organic: 'users',
   aio: 'quote', llm_share: 'donut', llm_checks: 'table', gsc_trend: 'line', gsc_pages: 'page', gsc_almost: 'up', gsc_lowctr: 'target', gsc_devices: 'device', gsc_countries: 'globe',
   kw_cards: 'grid', kw_table: 'table', kw_movers: 'up', kw_dist: 'donut', gbp_grids: 'grid', embed: 'globe',
-  easyleads_forms: 'table', el_kpi: 'table', el_channels: 'donut', el_trend: 'line', el_forms: 'bars', el_location: 'pin'};
-const WSRC = {forms: [], people: [], easyleads_forms: [], el_kpi: [], el_channels: [], el_trend: [], el_forms: [], el_location: [], forms_kpi: [], forms_latest: [], forms_heatmap: [], forms_rate: ['ga4'], ai_share: ['ChatGPT', 'ga4'], insight_summary: ['ga4', 'gsc', 'google'], insight_wins: ['ga4', 'gsc'], insight_scorecard: ['ga4', 'gsc', 'ChatGPT'], insight_compare: ['ga4', 'gsc'], insight_forecast: ['ga4'], insight_weekday: ['ga4'], goal_tracker: ['ga4', 'gsc'], conv_ai: ['ga4', 'ChatGPT', 'Perplexity'], ai_vs_channels: ['ChatGPT', 'google'], gai_organic: ['google', 'ga4'], aio: ['google'], kw_kpis: ['google'], embed: []};
+  easyleads_forms: 'table', el_kpi: 'table', el_channels: 'donut', el_trend: 'line', el_forms: 'bars', el_location: 'pin', el_inbox: 'table'};
+const WSRC = {forms: [], people: [], easyleads_forms: [], el_kpi: [], el_channels: [], el_trend: [], el_forms: [], el_location: [], el_inbox: [], forms_kpi: [], forms_latest: [], forms_heatmap: [], forms_rate: ['ga4'], ai_share: ['ChatGPT', 'ga4'], insight_summary: ['ga4', 'gsc', 'google'], insight_wins: ['ga4', 'gsc'], insight_scorecard: ['ga4', 'gsc', 'ChatGPT'], insight_compare: ['ga4', 'gsc'], insight_forecast: ['ga4'], insight_weekday: ['ga4'], goal_tracker: ['ga4', 'gsc'], conv_ai: ['ga4', 'ChatGPT', 'Perplexity'], ai_vs_channels: ['ChatGPT', 'google'], gai_organic: ['google', 'ga4'], aio: ['google'], kw_kpis: ['google'], embed: []};
 const metaOf = type => {
   const def = W[type] || {}, g = GMETA[def.g] || GMETA.content;
   return {src: WSRC[type] || g.src, lbl: type === 'embed' ? '' : /^(el_|easyleads)/.test(type) ? 'Easyleads' : /^(forms|people)/.test(type) ? 'Website forms' : g.lbl, ic: WIC[type] || g.ic, tint: g.tint};
@@ -3591,7 +3598,8 @@ function renderBoard(root, o){
   const ctx = o.ctx;
   ctx.R = rangeOf(o.period);
   ctx._m = {};
-  ctx.drill = o.mode === 'team';
+  ctx.drill = o.mode === 'team' || !!o.drill;
+  ctx.team = o.mode === 'team';
   ctx.internal = o.mode !== 'public';
   ctx.editable = !!o.editable;
   const aa = o.aa != null ? !!o.aa : o.mode !== 'team';
@@ -4509,19 +4517,32 @@ function drawMember(v, c, ctx, R, m){
 }
 /* Public link to a member's dashboard for this client (client-report look, no names or emails), plus the team link. */
 const memLinkOf = (c, m) => { const L = m.links || {}; return L[c.id] && /^clientreport-[\w-]+$/.test(L[c.id]) ? L[c.id] : 'clientreport-' + c.id + '-m-' + String(m.id).replace(/[^\w-]/g, ''); };
+/* What a member's public links show: the periods a viewer can pick, the one it opens on, and whether details are clickable (m.pub, one setting for all their client links). */
+function memPub(m){
+  const p = m.pub || {}, per = validPeriod(m.period) ? m.period : '30';
+  let ps = (Array.isArray(p.periods) ? p.periods : []).filter(validPeriod);
+  if (!ps.length) ps = Array.from(new Set([per].concat(CLIENT_PERIODS_DEFAULT)));
+  ps = PERIODS.map(x => x[0]).filter(k => ps.indexOf(k) > -1);
+  return {periods: ps, period: ps.indexOf(String(p.period)) > -1 ? String(p.period) : ps.indexOf(per) > -1 ? per : ps[0], drill: !!p.drill};
+}
 async function publishMember(c, m, id){
   if (typeof fbDb === 'undefined' || !fbDb) throw new Error('Not connected to the cloud.');
-  const per = validPeriod(m.period) ? m.period : '30';
+  const P = memPub(m);
   const items = memItems(m).filter(i => W[i.type] && !W[i.type].internal).map(i => Object.assign(copyOf(i), {cfg: JSON.parse(JSON.stringify(i.cfg || {}))}));
-  const periods = Array.from(new Set([per].concat(CLIENT_PERIODS_DEFAULT)));
-  const doc = await buildDoc(c, {items, period: per, periods, multi: true, title: m.name + ' — ' + (c.name || '')});
+  const doc = await buildDoc(c, {items, period: P.period, periods: P.periods, drill: P.drill, multi: true, title: m.name + ' — ' + (c.name || '')});
   await fbDb.collection('publicViews').doc(id).set(doc);
 }
 async function shareMember(c, m){
   U.openDrawer(m.name + '’s dashboard · share links', '#171614', async body => {
     const show = (id, note) => {
       const url = linkUrl(id), team = memberTeamUrl(c, m);
+      const P = memPub(m), lbl = k => (PERIODS.find(x => x[0] === k) || [0, k])[1];
       body.innerHTML = '<div class="rp-share">' + (note ? '<p class="aiv-status" style="margin:0 0 10px">' + esc(note) + '</p>' : '') +
+        '<h4 style="margin:0 0 4px;font-size:13.5px">What the public link shows</h4><p class="aiv-cap" style="margin:0 0 8px">For every client link of ' + esc(firstName(m)) + '’s dashboard. Tick one period to lock the link to it.</p>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:6px">' + PERIODS.map(p => '<label class="rp-chipx' + (P.periods.indexOf(p[0]) > -1 ? ' on' : '') + '"><input type="checkbox" data-mp value="' + p[0] + '"' + (P.periods.indexOf(p[0]) > -1 ? ' checked' : '') + '>' + esc(p[1]) + '</label>').join('') + '</div>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:10px 0 4px"><span class="aiv-cap">Opens on</span><select data-mfirst>' + P.periods.map(k => '<option value="' + k + '"' + (k === P.period ? ' selected' : '') + '>' + esc(lbl(k)) + '</option>').join('') + '</select>' +
+        '<label class="rp-chipx' + (P.drill ? ' on' : '') + '"><input type="checkbox" data-mdrill' + (P.drill ? ' checked' : '') + '>Clickable details</label></div>' +
+        '<p class="aiv-cap" style="margin:0 0 16px">Clickable details: viewers can click numbers, rows and charts to open what’s behind them, the way the team report works. Names, emails and messages from forms still never show.</p>' +
         '<h4 style="margin:0 0 4px;font-size:13.5px">Public link</h4><p class="aiv-cap" style="margin:0 0 8px">' + esc(m.name) + '’s widgets for <b>' + esc(c.name || '') + '</b> in the client-report look. Numbers stay live; names, emails and messages from forms never show.</p>' +
         '<input readonly data-f="l" value="' + esc(url) + '"><div class="aiv-actions"><button class="aiv-btn" type="button" data-copy="l">Copy link</button><a class="aiv-btn" href="' + esc(url) + '" target="_blank" rel="noopener">Open</a>' +
         '<button class="aiv-btn" type="button" data-new title="Make a new link and switch this one off for good">New link</button></div>' +
@@ -4529,6 +4550,22 @@ async function shareMember(c, m){
         '<input readonly data-f="t" value="' + esc(team) + '"><div class="aiv-actions"><button class="aiv-btn" type="button" data-copy="t">Copy team link</button><a class="aiv-btn" href="' + esc(team) + '" target="_blank" rel="noopener">Open</a></div></div>';
       body.querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', () => { const t = b.dataset.copy === 'l' ? url : team;
         (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => { const o = b.textContent; b.textContent = 'Copied'; setTimeout(() => { b.textContent = o; }, 1400); }, () => body.querySelector('[data-f="' + b.dataset.copy + '"]').select()); }));
+      /* A setting changed: save it, then update every client link of this dashboard. */
+      const setPub = async next => {
+        m.pub = Object.assign({}, m.pub || {}, next); saveState();
+        const links = Object.assign({}, m.links || {}, {[c.id]: id}), all = state.clients || [];
+        body.querySelectorAll('input,select').forEach(x => { x.disabled = true; });
+        let bad = 0;
+        for (const cid of Object.keys(links)){ const cc = cid === c.id ? c : all.find(x => x.id === cid); if (!cc) continue; try{ await publishMember(cc, m, links[cid]); }catch(e){ bad++; console.warn('member publish', e); } }
+        show(id, bad ? 'Saved, but ' + bad + ' link' + (bad === 1 ? '' : 's') + ' couldn’t update. Try again.' : 'Saved. The link' + (Object.keys(links).length > 1 ? 's show' : ' shows') + ' this now.');
+      };
+      body.querySelectorAll('[data-mp]').forEach(cb => cb.addEventListener('change', () => {
+        const ps = Array.from(body.querySelectorAll('[data-mp]:checked')).map(x => x.value);
+        if (!ps.length){ cb.checked = true; toastMsg('Keep at least one period'); return; }
+        setPub({periods: ps, period: ps.indexOf(P.period) > -1 ? P.period : ps[0]});
+      }));
+      body.querySelector('[data-mfirst]').addEventListener('change', e => setPub({periods: P.periods, period: e.target.value}));
+      body.querySelector('[data-mdrill]').addEventListener('change', e => setPub({drill: e.target.checked}));
       body.querySelector('[data-new]').addEventListener('click', async () => {
         if (!confirm('Make a new link for ' + m.name + '’s dashboard on ' + (c.name || 'this client') + '?\n\nThe current link stops working straight away for everyone who has it.')) return;
         body.innerHTML = '<div class="rp-share"><span><span class="aiv-spin"></span>Making a new link…</span></div>';
@@ -4715,7 +4752,8 @@ function datePanel(host, c, R){
     '<div class="aiv-cap">Only the periods ticked here appear on the shared report. Tick one to lock the report to that period.</div>' +
     '<div class="row"><span class="lbl">Client can switch between</span>' + PERIODS.map(p => '<label class="rp-chipx' + (ps.indexOf(p[0]) > -1 ? ' on' : '') + '"><input type="checkbox" value="' + p[0] + '"' + (ps.indexOf(p[0]) > -1 ? ' checked' : '') + '>' + esc(p[1]) + '</label>').join('') + '</div>' +
     '<div class="row"><span class="lbl">Opens on</span><select data-first>' + ps.map(k => '<option value="' + k + '"' + (k === cur ? ' selected' : '') + '>' + esc((PERIODS.find(x => x[0] === k) || [0, k])[1]) + '</option>').join('') + '</select>' +
-      '<label class="rp-chipx' + (R.client.showDates !== false ? ' on' : '') + '" style="margin-left:12px"><input type="checkbox" data-dates' + (R.client.showDates !== false ? ' checked' : '') + '>Show the exact dates under the title</label></div>' +
+      '<label class="rp-chipx' + (R.client.showDates !== false ? ' on' : '') + '" style="margin-left:12px"><input type="checkbox" data-dates' + (R.client.showDates !== false ? ' checked' : '') + '>Show the exact dates under the title</label>' +
+      '<label class="rp-chipx' + (R.client.drill ? ' on' : '') + '" style="margin-left:6px" title="Viewers can click numbers, rows and charts for the details behind them. Names and emails from forms still only show when that is switched on for the forms."><input type="checkbox" data-drill' + (R.client.drill ? ' checked' : '') + '>Clickable details</label></div>' +
     '<div class="row" style="justify-content:flex-end"><button class="aiv-btn" type="button" data-close>Close</button></div></div>';
   const P = host.firstChild;
   const done = () => { persist(c, 'client'); autoPublish(c); draw(); };
@@ -4728,6 +4766,7 @@ function datePanel(host, c, R){
   }));
   P.querySelector('[data-first]').addEventListener('change', e => { R.client.period = e.target.value; done(); });
   P.querySelector('[data-dates]').addEventListener('change', e => { if (e.target.checked) delete R.client.showDates; else R.client.showDates = false; done(); });
+  P.querySelector('[data-drill]').addEventListener('change', e => { if (e.target.checked) R.client.drill = true; else delete R.client.drill; done(); });
   P.querySelector('[data-close]').addEventListener('click', () => { host.innerHTML = ''; panelOpen.rclient = ''; });
 }
 function draw(){
@@ -5040,7 +5079,7 @@ async function buildDoc(c, over){
   const need = new Set(); items.forEach(it => ((W[it.type] && W[it.type].needs) || []).forEach(n => need.add(n)));
   const s = AIV.tracker();
   const doc = {type: 'clientreport', clientName: c.name || ctx.domain, domain: ctx.domain, title: over ? over.title : R.client.title || ((c.name || ctx.domain) + ' — Report'),
-    period, periods: over ? (over.periods || [period]) : clientPeriods(R), showDates: R.client.showDates !== false,
+    period, periods: over ? (over.periods || [period]) : clientPeriods(R), showDates: R.client.showDates !== false, drill: over ? !!over.drill : !!R.client.drill,
     layout: JSON.stringify(items.map(i => Object.assign(layoutOf(i), {cfg: i.cfg || {}}))), updatedAt: Date.now(),
     feedUrl: s.url || ''};
   /* Branding travels with the report; keyword and map grids are stored on their own so they show even when the data copy is too big to keep. */
