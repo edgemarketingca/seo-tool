@@ -11778,12 +11778,17 @@ $('signOutBtn').addEventListener('click', async () => {
    tool (tabs share the last-activity time through localStorage). For the last
    30 seconds a notice counts down; any activity or "Stay signed in" cancels it.
    Shared report links and embeds (public views) aren't signed in, so it never
-   runs there. A computer that slept past the limit is signed out on waking. */
+   runs there. A computer that slept past the limit is signed out on waking.
+   Closing the tab doesn't keep you in either: opening the tool again more than
+   2 minutes after the last activity (in any tab) asks for the password again,
+   unless you have just signed in with it. */
 (function idleSignOut(){
   const LIMIT = 2 * 60 * 1000, WARN = 30 * 1000, KEY = 'edgeIdleLast';
-  let last = Date.now(), lastWrite = 0, warned = false, out = false, bar = null;
+  let last = Date.now(), lastWrite = 0, warned = false, out = false, bar = null, checked = false;
   const signedIn = () => !!(fbAuth && fbAuth.currentUser) && !isPublicView();
   const shared = () => { try{ return Number(localStorage.getItem(KEY)) || 0; }catch(e){ return 0; } };
+  /* The last activity before this page opened (read before this page records any of its own). */
+  const atLoad = shared();
   const hide = () => { warned = false; if (bar){ bar.remove(); bar = null; } };
   const touch = () => {
     last = Date.now();
@@ -11815,7 +11820,13 @@ $('signOutBtn').addEventListener('click', async () => {
     try{ setStatus('authStatus', 'You were signed out after 2 minutes without activity. Sign in again to continue.', 'err'); }catch(e){}
   };
   setInterval(() => {
-    if (!signedIn()){ hide(); out = false; last = Date.now(); return; }
+    if (!signedIn()){ hide(); out = false; checked = false; last = Date.now(); return; }
+    /* A session kept from before this page opened: only if there was activity in the last 2 minutes. */
+    if (!checked){
+      checked = true;
+      const u = fbAuth.currentUser, at = Date.parse((u && u.metadata && u.metadata.lastSignInTime) || '') || 0;
+      if (Date.now() - at > LIMIT && (!atLoad || Date.now() - atLoad >= LIMIT)){ signOutNow(); return; }
+    }
     last = Math.max(last, shared());
     const idle = Date.now() - last;
     if (idle >= LIMIT) signOutNow();
