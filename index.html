@@ -11765,6 +11765,8 @@ function initCloud(){
   fbAuth.onAuthStateChanged(user => {
     if (user){
       secretsLocked = false;
+      /* the password never waits in the form once it has been used */
+      { const pw = $('authPassword'); if (pw) pw.value = ''; }
       setScreen('loading');
       loadCloudForUser(user);
     } else {
@@ -11773,6 +11775,9 @@ function initCloud(){
       presStop();
       fbUid = null; fbReady = false;
       cloudLoadedOk = false; cloudBaseStamp = 0; cloudBaseRev = null;
+      /* signed out: an empty password box, and no leftover "Signing in…" */
+      { const pw = $('authPassword'); if (pw) pw.value = ''; }
+      { const st = $('authStatus'); if (st && /\bbusy\b/.test(st.className)) setStatus('authStatus', '', ''); }
       setScreen('login');
       const btn = $('authSubmitBtn');
       if (btn) btn.disabled = false;
