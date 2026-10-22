@@ -10443,7 +10443,46 @@ function pill(mode){
    space runs out they are cleared, largest first, until the workspace fits.
    Saved settings (pins, names, preferences) are never touched. */
 var DISPOSABLE_CACHE = [/^jlPathway:/, /^egPathway:/, /^gscq:/, /^gscQueries:/, /^aivFeed:/];
+/* ---- keys never stay in a signed-out browser ----------------------------
+   The tracker master key, the DataForSEO login and password, the Serper key
+   and the proxy prefix are kept on the cloud copy. When nobody is signed in
+   they are taken out of this browser's storage (and its backups) and out of
+   the page's memory, so a signed-out computer holds none of them. Signing in
+   brings them back from the cloud: settings merge key by key, and a missing
+   or blank value never replaces a filled-in one (see the merge below). */
+const SECRET_SETTINGS = ['aiTracker', 'dfsLogin', 'dfsPassword', 'serperKey', 'proxyPrefix'];
+let secretsLocked = false;
+function stripSecrets(obj){
+  if (obj && obj.settings && typeof obj.settings === 'object') SECRET_SETTINGS.forEach(k => { delete obj.settings[k]; });
+  return obj;
+}
+function scrubLocalSecrets(){
+  secretsLocked = true;
+  try{ stripSecrets(state); }catch(e){}
+  [STORE_KEY, LEGACY_KEY].forEach(k => {
+    try{ const raw = localStorage.getItem(k); if (raw) localStorage.setItem(k, JSON.stringify(stripSecrets(JSON.parse(raw)))); }catch(e){}
+  });
+  try{
+    const list = JSON.parse(localStorage.getItem(BACKUP_KEY) || '[]');
+    if (Array.isArray(list) && list.length){
+      list.forEach(b => { try{ if (b && b.data) b.data = JSON.stringify(stripSecrets(JSON.parse(b.data))); }catch(e){} });
+      localStorage.setItem(BACKUP_KEY, JSON.stringify(list));
+    }
+  }catch(e){ try{ localStorage.removeItem(BACKUP_KEY); }catch(e2){} }
+}
+/* Before signing out: push anything not yet in the cloud (a key typed a moment ago included), for up to 5 seconds. */
+async function flushBeforeSignOut(){
+  try{ save(); }catch(e){}
+  try{
+    if (fbReady && fbDb && fbUid && cloudLoadedOk){
+      clearTimeout(fbTimer); fbTimer = null;
+      for (let i = 0; i < 30 && (cloudBusy || livePulling); i++) await new Promise(r => setTimeout(r, 100));
+      await Promise.race([cloudSave(), new Promise(r => setTimeout(r, 5000))]);
+    }
+  }catch(e){}
+}
 function writeLocalState(json){
+  if (secretsLocked){ try{ json = JSON.stringify(stripSecrets(JSON.parse(json))); }catch(e){} }
   try{ localStorage.setItem(STORE_KEY, json); return; }catch(e){ /* full: make room below */ }
   const caches = [];
   for (let i = 0; i < localStorage.length; i++){
@@ -11725,9 +11764,11 @@ function initCloud(){
   }
   fbAuth.onAuthStateChanged(user => {
     if (user){
+      secretsLocked = false;
       setScreen('loading');
       loadCloudForUser(user);
     } else {
+      scrubLocalSecrets();
       stopLiveSync();
       presStop();
       fbUid = null; fbReady = false;
@@ -11766,6 +11807,8 @@ $('authEmail').addEventListener('keydown', e => { if (e.key === 'Enter'){ e.prev
 $('signOutBtn').addEventListener('click', async () => {
   if (!fbAuth) return;
   if (!confirm('Sign out of EDGE SEO Reporter on this computer?')) return;
+  /* anything not yet in the cloud goes up first: the keys leave this browser at sign-out */
+  await flushBeforeSignOut();
   /* leave the team list before the credentials go */
   try{ await presLeave(); }catch(e){}
   stopLiveSync();
@@ -11814,7 +11857,7 @@ $('signOutBtn').addEventListener('click', async () => {
   const signOutNow = async () => {
     if (out) return;
     out = true; hide();
-    try{ if (typeof save === 'function') save(); }catch(e){}
+    try{ await flushBeforeSignOut(); }catch(e){}
     try{ await presLeave(); }catch(e){}
     try{ stopLiveSync(); }catch(e){}
     try{ presStop(); }catch(e){}
