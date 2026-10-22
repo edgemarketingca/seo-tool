@@ -2983,12 +2983,12 @@ if (room > 220) [listEl, root.querySelector('[data-side]')].forEach(el => { el.s
 /* ---------- Forms on this site: every form (website and Easyleads), where it is, what it got ----------
    Built from every submission on file, all time (the Client personas data), so a form shows
    once it has had its first submission. Platform: Easyleads, or the client's CMS for website forms.
-   Team only. */
+   Shared links read the same records with their read-only token: form, page and date only. */
 const FC_PLAT = {Easyleads: '#6250d6', WordPress: '#2a78d6', Concrete: '#0f7a58', Website: '#8795a1'};
 const fcPlat = (r, cms) => r._src === 'el' ? 'Easyleads' : /wordpress|\bwp\b/i.test(cms) ? 'WordPress' : /concrete/i.test(cms) ? 'Concrete' : 'Website';
 const fcPage = r => { const p = String(r.page || '').split(/[?#]/)[0].trim(); return !p ? '' : p.charAt(0) === '/' ? (p.replace(/\/+$/, '') || '/') : p; };
 const fcBadge = p => '<span class="rp-fs-ch" style="--c:' + (FC_PLAT[p] || '#8795a1') + '">' + esc(p) + '</span>';
-W.forms_catalog = {g: 'conv', t: 'Forms on this site', d: 'Every form on the website and in Easyleads that has had a submission: the platform it runs on (WordPress, Concrete or Easyleads), how many pages it sits on and which, and how many submissions it got this period and all time. Team only.', size: 'xl', needs: ['people'], internal: true,
+W.forms_catalog = {g: 'conv', t: 'Forms on this site', d: 'Every form on the website and in Easyleads that has had a submission: the platform it runs on (WordPress, Concrete or Easyleads), how many pages it sits on and which, and how many submissions it got this period and all time.', size: 'xl', needs: ['people'],
   render(h, ctx, w, D){
     const P = D.people || {}, R = fsR(ctx.R), cf = w.cfg = w.cfg || {}, cms = ctx.cms || '';
     const all = (P.rows || []).filter(r => r && r.t && !fsIsTest(r, ctx.domain));
@@ -5146,7 +5146,7 @@ async function buildDoc(c, over){
   const doc = {type: 'clientreport', clientName: c.name || ctx.domain, domain: ctx.domain, title: over ? over.title : R.client.title || ((c.name || ctx.domain) + ' — Report'),
     period, periods: over ? (over.periods || [period]) : clientPeriods(R), showDates: R.client.showDates !== false, drill: over ? !!over.drill : !!R.client.drill,
     layout: JSON.stringify(items.map(i => Object.assign(layoutOf(i), {cfg: i.cfg || {}}))), updatedAt: Date.now(),
-    feedUrl: s.url || ''};
+    feedUrl: s.url || '', cms: String(c.cms || '').slice(0, 60)};
   /* Branding travels with the report; keyword and map grids are stored on their own so they show even when the data copy is too big to keep. */
   const lg = logosFor(c, R.client), br = R.client.brand || {};
   doc.brand = JSON.stringify({agency: br.agency !== false, accent: br.accent || '', banner: !!br.banner, logoH: Number(br.logoH) || 44});
