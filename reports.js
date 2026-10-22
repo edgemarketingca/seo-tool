@@ -2592,6 +2592,116 @@ W.easyleads_forms = {g: 'conv', t: 'Easyleads form submissions', d: 'Every Easyl
     }
     W.forms.render(h, ctx, w, {forms: F, el: true});
   }};
+/* ---------- Easyleads widgets, one view each: count, channel, date, form, location ----------
+   The same GoHighLevel records as "Easyleads form submissions", split the way the website
+   form widgets are. Leads only: test sends and job applications are left out, as on the
+   Leads widget. On the team report every row opens the submissions behind it. */
+const EL_GRP = [['Organic', '#1baf7a', /^organic/i], ['Direct', '#2a78d6', /^direct$/i], ['Paid', '#eda100', /^paid/i],
+  ['Other', '#6250d6', /^(referral|email|ai assistants|other campaign)$/i]];
+const elGroup = ch => { const g = EL_GRP.find(x => x[2].test(String(ch || ''))); return g ? g[0] : 'Not recorded'; };
+const elGrpColor = k => (EL_GRP.find(x => x[0] === k) || [0, '#c3ccd3'])[1];
+/* Where a lead is: what they answered (city, then location / office / branch, then province), else a location page they sent it from (/contact-us/red-deer). */
+const EL_LOC = ['City', 'Location', 'Office', 'Branch', 'Province', 'Region', 'State', 'Country'];
+function elLoc(r){
+  const f = r._f || (r._f = fxFacetsOf(r));
+  for (const k of EL_LOC) if (f[k]) return f[k];
+  const p = String(r.page || r.land || '').split('?')[0].replace(/\/+$/, '').split('/').filter(Boolean);
+  if (p.length >= 2 && /contact|location|office|branch|area|cit(y|ies)|service-area/i.test(p[p.length - 2])) return fxVal('City', p[p.length - 1].replace(/[-_]+/g, ' '));
+  return '';
+}
+/* The model, or a message when Easyleads isn't connected for this client. */
+function elModel(h, ctx, D){
+  const F = D.easyleads || {};
+  if (F.connected === false && !(F.rows || []).length){
+    h.innerHTML = '<div class="rp-err">Easyleads isn’t connected for this client yet.' + (ctx.drill ? ' In the AI Visibility Tracker sheet: AI Tracker menu › Connect Easyleads for a client.' : '') + '</div>';
+    return null;
+  }
+  return formsModel(ctx, F);
+}
+/* The submissions behind one row, in a drawer (team report). */
+function elList(ctx, title, color, rows, M){
+  U.openDrawer(title, color, body => {
+    const list = rows.slice().sort((a, b) => a.t < b.t ? 1 : -1);
+    body.innerHTML = '<p class="aiv-cap">' + fmt(list.length) + ' lead' + (list.length === 1 ? '' : 's') + ' · ' + esc(ctx.R.label || ctx.R.text || '') + '</p><div data-l style="margin-top:8px"></div>';
+    const cols = [{key: 't', label: 'Sent', fmt: r => esc(fsWhen(r))}];
+    if (M.details) cols.push({key: 'name', label: 'Name', fmt: r => esc(r.name || r.email || '—') + (r.company ? '<div class="rp-fs-sub">' + esc(r.company) + '</div>' : '')});
+    cols.push({key: 'form', label: 'Form', fmt: r => esc(r.form)}, {key: 'channel', label: 'Channel', fmt: r => '<span class="rp-fs-ch" style="--c:' + fsChColor(r.channel) + '">' + esc(r.channel === 'Not tracked yet' ? 'Not recorded' : r.channel || '—') + '</span>'});
+    table(body.querySelector('[data-l]'), list, cols, {sort: 't', empty: 'None.', maxH: 620, onRow: M.details ? r => fsOpen(ctx, r, M) : null});
+  });
+}
+const elCanOpen = (ctx, M) => !!(ctx.drill && M.details);
+W.el_kpi = {g: 'conv', t: 'Easyleads leads', d: 'How many Easyleads (GoHighLevel) form submissions came in this period, with the change and a sparkline.', size: 's', needs: ['easyleads'],
+  render(h, ctx, w, D){
+    const M = elModel(h, ctx, D); if (!M) return;
+    const B = buckets(fsR(ctx.R)), v = B.zero();
+    M.cur.forEach(r => { const i = B.slot(fsDay(r)); if (i != null) v[i]++; });
+    const top = M.count(M.cur, 'form')[0];
+    h.innerHTML = bigNum(fmt(M.cur.length), delta(M.cur.length, M.prev.length, M.hasPrev), top ? 'Most: ' + esc(top.k) + ' (' + fmt(top.n) + ')' : 'None in this period') + '<div style="margin-top:8px">' + U.sparkline(v, '#0f7a58') + '</div>';
+    const s = h.querySelector('svg'); if (s){ s.style.width = '100%'; s.style.height = '34px'; }
+  }};
+W.el_channels = {g: 'conv', t: 'Easyleads leads by channel', d: 'Easyleads leads split into organic, direct and paid (plus other and not recorded), with the change from the period before.', size: 'm', needs: ['easyleads'],
+  render(h, ctx, w, D){
+    const M = elModel(h, ctx, D); if (!M) return;
+    const by = (list, k) => list.filter(r => elGroup(r.channel) === k);
+    const keys = EL_GRP.map(x => x[0]).concat(['Not recorded']);
+    const rows = keys.map(k => ({k, n: by(M.cur, k).length, p: by(M.prev, k).length})).filter(x => x.n || x.p || ['Organic', 'Direct', 'Paid'].indexOf(x.k) > -1);
+    const tot = M.cur.length;
+    h.innerHTML = '<div class="rp-kpis">' + ['Organic', 'Direct', 'Paid'].map(k => { const x = rows.find(y => y.k === k);
+      return kpiTile(k, fmt(x.n), pctS(x.n, tot) + ' of leads', {d: delta(x.n, x.p, M.hasPrev), click: elCanOpen(ctx, M) ? 'g:' + k : ''}); }).join('') + '</div>' +
+      '<div data-t style="margin-top:12px"></div>' +
+      (rows.some(x => x.k === 'Not recorded' && x.n) ? '<p class="aiv-foot">“Not recorded” is a lead GoHighLevel kept no source for (often older submissions, or a form opened straight from a link).</p>' : '');
+    const max = Math.max(1, ...rows.map(x => x.n));
+    table(h.querySelector('[data-t]'), rows, [
+      {key: 'k', label: 'Channel', fmt: x => dotName(x.k, elGrpColor(x.k))},
+      {key: 'n', label: 'Leads', num: true, fmt: x => barCell(x.n, max, elGrpColor(x.k))},
+      {key: 's', label: 'Share', num: true, sort: x => x.n, fmt: x => pctS(x.n, tot)},
+      {key: 'p', label: 'Change', num: true, sort: x => x.n - x.p, fmt: x => { const d = delta(x.n, x.p, M.hasPrev); return d.txt ? '<span class="aiv-delta ' + d.cls + '">' + esc(d.txt) + '</span>' : '—'; }}],
+      {sort: 'n', empty: 'No Easyleads leads in this period.', onRow: elCanOpen(ctx, M) ? x => elList(ctx, x.k + ' leads', elGrpColor(x.k), by(M.cur, x.k), M) : null});
+    onClick(h, '[data-k]', el => { const k = el.dataset.k.slice(2); if (k) elList(ctx, k + ' leads', elGrpColor(k), by(M.cur, k), M); });
+  }};
+W.el_trend = {g: 'conv', t: 'Easyleads leads over time', d: 'Easyleads leads by day, week or month, with organic, direct and paid as their own lines.', size: 'l', needs: ['easyleads'],
+  render(h, ctx, w, D){
+    const M = elModel(h, ctx, D); if (!M) return;
+    fillBody(h, ctx, w);
+    const monthly = ctx.R.days > 120;
+    const B = monthly ? (() => { const labels = []; for (let d = ctx.R.since.slice(0, 8) + '01'; d <= fsR(ctx.R).end; d = isoDay(new Date(Date.UTC(+d.slice(0, 4), +d.slice(5, 7), 1)))) labels.push(d);
+      const idx = {}; labels.forEach((d, i) => { idx[d.slice(0, 7)] = i; }); return {labels, slot: d => idx[String(d).slice(0, 7)], zero: () => labels.map(() => 0)}; })() : buckets(fsR(ctx.R));
+    const series = [{name: 'All leads', color: '#0f7a58', values: B.zero(), area: true}].concat(['Organic', 'Direct', 'Paid'].map(k => ({name: k, color: elGrpColor(k), values: B.zero()})));
+    M.cur.forEach(r => { const i = B.slot(fsDay(r)); if (i == null) return; series[0].values[i]++; const j = ['Organic', 'Direct', 'Paid'].indexOf(elGroup(r.channel)); if (j > -1) series[j + 1].values[i]++; });
+    chart(h, {labels: B.labels, weekly: monthly || ctx.R.weekly, height: chH(w, 230, 40), series, empty: 'No Easyleads leads in this period.',
+      foot: fmt(M.cur.length) + ' lead' + (M.cur.length === 1 ? '' : 's') + (monthly ? ', by month' : ctx.R.weekly ? ', by week' : ', by day') + '.'}, ctx, w);
+  }};
+W.el_forms = {g: 'conv', t: 'Easyleads leads by form', d: 'Each Easyleads form and how many leads it brought in, with its share and the change from the period before.', size: 'm', needs: ['easyleads'],
+  render(h, ctx, w, D){
+    const M = elModel(h, ctx, D); if (!M) return;
+    const prev = {}; M.count(M.prev, 'form').forEach(x => { prev[x.k] = x.n; });
+    const rows = M.count(M.cur, 'form').map(x => ({k: x.k, n: x.n, p: prev[x.k] || 0}));
+    Object.keys(prev).forEach(k => { if (!rows.some(x => x.k === k)) rows.push({k, n: 0, p: prev[k]}); });
+    const tot = M.cur.length, max = Math.max(1, ...rows.map(x => x.n));
+    table(h, rows, [
+      {key: 'k', label: 'Form', fmt: x => '<i class="rp-fs-dot" style="background:' + FS_FORM[Math.max(0, M.forms.indexOf(x.k)) % FS_FORM.length] + '"></i>' + esc(x.k)},
+      {key: 'n', label: 'Leads', num: true, fmt: x => barCell(x.n, max, '#0f7a58')},
+      {key: 's', label: 'Share', num: true, sort: x => x.n, fmt: x => pctS(x.n, tot)},
+      {key: 'p', label: 'Change', num: true, sort: x => x.n - x.p, fmt: x => { const d = delta(x.n, x.p, M.hasPrev); return d.txt ? '<span class="aiv-delta ' + d.cls + '">' + esc(d.txt) + '</span>' : '—'; }}],
+      {sort: 'n', empty: 'No Easyleads leads in this period.', maxH: chH(w, 340, 10), onRow: elCanOpen(ctx, M) ? x => elList(ctx, x.k, '#0f7a58', M.cur.filter(r => r.form === x.k), M) : null});
+  }};
+W.el_location = {g: 'conv', t: 'Easyleads leads by location', d: 'Where Easyleads leads are: the city, location or province they gave on the form, or the location page they sent it from.', size: 'm', needs: ['easyleads'],
+  render(h, ctx, w, D){
+    const M = elModel(h, ctx, D); if (!M) return;
+    const m = {}, pm = {};
+    M.cur.forEach(r => { const k = elLoc(r) || 'Not given'; (m[k] = m[k] || []).push(r); });
+    M.prev.forEach(r => { const k = elLoc(r) || 'Not given'; pm[k] = (pm[k] || 0) + 1; });
+    const rows = Object.keys(m).map(k => ({k, n: m[k].length, p: pm[k] || 0}));
+    const tot = M.cur.length, max = Math.max(1, ...rows.filter(x => x.k !== 'Not given').map(x => x.n));
+    const known = rows.filter(x => x.k !== 'Not given').length;
+    table(h, rows, [
+      {key: 'k', label: 'Location', fmt: x => x.k === 'Not given' ? '<span style="color:var(--a-ink3)">Not given</span>' : esc(x.k)},
+      {key: 'n', label: 'Leads', num: true, fmt: x => barCell(x.n, max, x.k === 'Not given' ? '#c3ccd3' : '#6250d6')},
+      {key: 's', label: 'Share', num: true, sort: x => x.n, fmt: x => pctS(x.n, tot)},
+      {key: 'p', label: 'Change', num: true, sort: x => x.n - x.p, fmt: x => { const d = delta(x.n, x.p, M.hasPrev); return d.txt ? '<span class="aiv-delta ' + d.cls + '">' + esc(d.txt) + '</span>' : '—'; }}],
+      {sort: 'n', empty: 'No Easyleads leads in this period.', maxH: chH(w, 340, 30), onRow: elCanOpen(ctx, M) ? x => elList(ctx, x.k, '#6250d6', m[x.k], M) : null});
+    if (tot && !known) h.insertAdjacentHTML('beforeend', '<p class="aiv-foot">None of these forms ask for a city, location or province, and none were sent from a location page.</p>');
+  }};
 /* ---------- Form inbox (website forms: WordPress, Concrete) ----------
 One searchable inbox of every website form submission: find anyone by name, email,
 company, province or city; filter by form, page, channel and any short answer the
@@ -2607,9 +2717,9 @@ NU: 'Nunavut', ON: 'Ontario', PE: 'Prince Edward Island', QC: 'Quebec', SK: 'Sas
 const fxAttr = s => String(s).replace(/["\\]/g, '\\$&');
 const fxSecretOk = s => /^[a-f0-9]{32}$/.test(String(s || ''));
 /* Every widget that lists form submissions (website and Easyleads). */
-const FX_TYPES = /^(forms|easyleads_forms|forms_[a-z_]+)$/;
+const FX_TYPES = /^(forms|easyleads_forms|forms_[a-z_]+|el_[a-z_]+)$/;
 /* Form widgets never get smaller than this on a report, older reports included: [height px, columns]. */
-const FX_MIN = {forms: [1150, 12], easyleads_forms: [1150, 12], forms_inbox: [1180, 12], forms_latest: [600, 6], forms_kpi: [240, 3], forms_rate: [420, 4], forms_heatmap: [400, 6]};
+const FX_MIN = {forms: [1150, 12], easyleads_forms: [1150, 12], forms_inbox: [1180, 12], forms_latest: [600, 6], forms_kpi: [240, 3], forms_rate: [420, 4], forms_heatmap: [400, 6], el_kpi: [240, 3], el_channels: [460, 4], el_trend: [380, 6], el_forms: [340, 4], el_location: [340, 4]};
 /* The link secret when this report's form widgets let the client click into submissions. */
 const fxSharedCs = items => { const it = (items || []).find(i => FX_TYPES.test(i.type) && i.cfg && i.cfg.contacts && fxSecretOk(i.cfg.cs)); return it ? it.cfg.cs : ''; };
 /* The client report's one setting for all its form widgets: let the client click into submissions on their link
@@ -3335,7 +3445,8 @@ const DEF_H = {headline: 250, conv_kpi: 230, traffic_kpis: 240, gsc_kpis: 240, k
   insight_summary: 330, insight_wins: 400, goal_tracker: 250, insight_scorecard: 380, insight_compare: 430, insight_forecast: 220, insight_weekday: 300, ga4_engagement: 420,
   ga4_mix_shift: 380, ga4_conv_rate: 330, ga4_lead_sources: 380, ga4_opportunity_pages: 440, ga4_rising_pages: 400, ga4_engaging_pages: 400, ga4_unvisited: 420,
   gsc_ctr_curve: 330, gsc_brand: 330, gsc_questions: 440, gsc_query_length: 330, gsc_zero_click: 440, gsc_page_two: 440, forms_kpi: 240, forms_latest: 600, forms_rate: 420,
-  forms_heatmap: 400, gsc_health: 780, kw_wins: 330, kw_close: 380, kw_pages: 420, gbp_glance: 380, ai_share: 210, forms_inbox: 1180, easyleads_forms: 1150, people: 1100};
+  forms_heatmap: 400, gsc_health: 780, kw_wins: 330, kw_close: 380, kw_pages: 420, gbp_glance: 380, ai_share: 210, forms_inbox: 1180, easyleads_forms: 1150, people: 1100,
+  el_kpi: 240, el_channels: 460, el_trend: 380, el_forms: 340, el_location: 340};
 const defH = it => it.type === 'embed' ? Math.max(200, Math.min(2400, Number((it.cfg || {}).height) || 600)) + 70 : (DEF_H[it.type] || 360);
 
 /* ---------- what each widget looks like: source marks, icon, accent ---------- */
@@ -3360,11 +3471,12 @@ const WIC = {gsc_health: 'flag', insight_summary: 'text', insight_wins: 'up', go
   forms: 'table', ga4_pages: 'page', ga4_pathways: 'path', conv_trend: 'line', conv_by_channel: 'donut', conv_by_event: 'bars', conv_by_page: 'page', conv_list: 'table', traffic_trend: 'line', traffic_channels: 'table',
   ai_visits: 'line', ai_assistants: 'donut', ai_vs_channels: 'line', ai_keyevents: 'flag', ai_pages: 'page', ai_journeys: 'path', gai_impr: 'line', gai_pages: 'page', gai_organic: 'users',
   aio: 'quote', llm_share: 'donut', llm_checks: 'table', gsc_trend: 'line', gsc_pages: 'page', gsc_almost: 'up', gsc_lowctr: 'target', gsc_devices: 'device', gsc_countries: 'globe',
-  kw_cards: 'grid', kw_table: 'table', kw_movers: 'up', kw_dist: 'donut', gbp_grids: 'grid', embed: 'globe'};
-const WSRC = {forms: [], people: [], forms_kpi: [], forms_latest: [], forms_heatmap: [], forms_rate: ['ga4'], ai_share: ['ChatGPT', 'ga4'], insight_summary: ['ga4', 'gsc', 'google'], insight_wins: ['ga4', 'gsc'], insight_scorecard: ['ga4', 'gsc', 'ChatGPT'], insight_compare: ['ga4', 'gsc'], insight_forecast: ['ga4'], insight_weekday: ['ga4'], goal_tracker: ['ga4', 'gsc'], conv_ai: ['ga4', 'ChatGPT', 'Perplexity'], ai_vs_channels: ['ChatGPT', 'google'], gai_organic: ['google', 'ga4'], aio: ['google'], kw_kpis: ['google'], embed: []};
+  kw_cards: 'grid', kw_table: 'table', kw_movers: 'up', kw_dist: 'donut', gbp_grids: 'grid', embed: 'globe',
+  easyleads_forms: 'table', el_kpi: 'table', el_channels: 'donut', el_trend: 'line', el_forms: 'bars', el_location: 'pin'};
+const WSRC = {forms: [], people: [], easyleads_forms: [], el_kpi: [], el_channels: [], el_trend: [], el_forms: [], el_location: [], forms_kpi: [], forms_latest: [], forms_heatmap: [], forms_rate: ['ga4'], ai_share: ['ChatGPT', 'ga4'], insight_summary: ['ga4', 'gsc', 'google'], insight_wins: ['ga4', 'gsc'], insight_scorecard: ['ga4', 'gsc', 'ChatGPT'], insight_compare: ['ga4', 'gsc'], insight_forecast: ['ga4'], insight_weekday: ['ga4'], goal_tracker: ['ga4', 'gsc'], conv_ai: ['ga4', 'ChatGPT', 'Perplexity'], ai_vs_channels: ['ChatGPT', 'google'], gai_organic: ['google', 'ga4'], aio: ['google'], kw_kpis: ['google'], embed: []};
 const metaOf = type => {
   const def = W[type] || {}, g = GMETA[def.g] || GMETA.content;
-  return {src: WSRC[type] || g.src, lbl: type === 'embed' ? '' : /^(forms|people)/.test(type) ? 'Website forms' : g.lbl, ic: WIC[type] || g.ic, tint: g.tint};
+  return {src: WSRC[type] || g.src, lbl: type === 'embed' ? '' : /^(el_|easyleads)/.test(type) ? 'Easyleads' : /^(forms|people)/.test(type) ? 'Website forms' : g.lbl, ic: WIC[type] || g.ic, tint: g.tint};
 };
 const wIcon = (type, sz) => { const m = metaOf(type); return '<span class="rp-wic" style="--tint:' + m.tint + '">' + glyph(m.ic, sz || 16) + '</span>'; };
 const srcChip = type => { const m = metaOf(type); return m.src.length || m.lbl ? '<span class="rp-src" title="Data from ' + esc(m.lbl) + '">' + (m.src.length ? logoStack(m.src, 14) : '') + esc(m.lbl) + '</span>' : ''; };
@@ -4953,7 +5065,7 @@ async function buildDoc(c, over){
   if (need.has('forms')){ const g = await get('forms'); if (g && !g.error) snap.forms = {first: g.first, details: false,
     rows: (g.rows || []).map(r => ({t: r.t, form: r.form, page: r.page, channel: r.channel, sm: r.sm, campaign: r.campaign, land: r.land, origin: r.origin}))}; }
   if (need.has('easyleads')){ const g = await get('easyleads'); if (g && !g.error) snap.easyleads = {first: g.first, details: false, connected: g.connected,
-    rows: (g.rows || []).map(r => ({t: r.t, form: r.form, page: r.page, channel: r.channel, sm: r.sm, campaign: r.campaign, land: r.land, origin: r.origin}))}; }
+    rows: (g.rows || []).map(r => ({t: r.t, form: r.form, page: r.page, channel: r.channel, sm: r.sm, campaign: r.campaign, land: r.land, origin: r.origin, facets: r.facets || fxFacetsOf(r)}))}; }
   /* When the client report lets the client click into form submissions, its stored copy keeps who sent each form too; otherwise the safe copy (plus, for the Form inbox, the non-personal answers: province, city, service…). */
 const fxFull = !!fxSharedCs(items);
 const fxPerson = r => ({t: r.t, form: r.form, page: r.page, channel: r.channel, sm: r.sm, campaign: r.campaign, land: r.land, origin: r.origin, name: r.name, email: r.email, phone: r.phone, company: r.company, message: r.message, fields: r.fields});
