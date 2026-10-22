@@ -5175,6 +5175,9 @@ const fxFull = !!fxSharedCs(items);
 const fxPerson = r => ({t: r.t, form: r.form, page: r.page, channel: r.channel, sm: r.sm, campaign: r.campaign, land: r.land, origin: r.origin, name: r.name, email: r.email, phone: r.phone, company: r.company, message: r.message, fields: r.fields});
 if (fxFull && snap.forms){ const g = await get('forms'); if (g && !g.error) snap.forms = {first: g.first, details: true, rows: (g.rows || []).map(fxPerson)}; }
 if (fxFull && snap.easyleads){ const g = await get('easyleads'); if (g && !g.error) snap.easyleads = Object.assign({}, snap.easyleads, {details: true, rows: (g.rows || []).map(fxPerson)}); }
+/* Forms on this site: a link's read-only token reads about two years back, so older submissions travel with the report (form, page, date only). */
+if (need.has('people')){ const g = await get('people'); if (g && Array.isArray(g.rows)){ const cut = addDays(today(), -728);
+snap.peopleOld = g.rows.filter(r => r && r.t && String(r.t).slice(0, 10) < cut).slice(-3000).map(r => [String(r.t).slice(0, 16), String(r.form || '').slice(0, 120), String(r.page || '').slice(0, 200), r._src === 'el' ? 1 : 0, fsIsTest(r, ctx.domain) ? 1 : 0]); } }
 if (need.has('formsc')){ const g = await get('formsc'); if (g && !g.error){
 const full = fxFull;
 snap.formsc = {first: g.first, details: full, rows: (g.rows || []).map(r => full ? {t: r.t, form: r.form, page: r.page, channel: r.channel, sm: r.sm, campaign: r.campaign, land: r.land, origin: r.origin,
@@ -5191,6 +5194,7 @@ if (need.has('pages')){ const g = await get('pages'); if (g && !g.error) snap.pa
   if (str.length > room && snap.pathway){ snap.pathway = Object.assign({}, snap.pathway, {moves: snap.pathway.moves.slice(0, 800), steps: snap.pathway.steps.slice(0, 1500), views: snap.pathway.views.slice(0, 600)}); str = JSON.stringify(snap); }
   if (str.length > room && snap.pages){ snap.pages.pages = snap.pages.pages.slice(0, 100); snap.pages.sitemap = []; str = JSON.stringify(snap); }
   ['formsc', 'forms', 'easyleads'].forEach(k => { if (str.length > room && snap[k] && snap[k].details){ snap[k] = Object.assign({}, snap[k], {rows: snap[k].rows.map(r => Object.assign({}, r, {fields: undefined, message: r.message ? String(r.message).slice(0, 240) : r.message}))}); str = JSON.stringify(snap); } });
+if (str.length > room && snap.peopleOld){ snap.peopleOld = snap.peopleOld.slice(-600); str = JSON.stringify(snap); }
 if (str.length <= room) doc.snap = str;
   return doc;
 }
