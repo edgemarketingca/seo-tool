@@ -11774,7 +11774,8 @@ $('signOutBtn').addEventListener('click', async () => {
 });
 
 /* ---------- sign out after 2 minutes without activity ----------
-   Mouse, keyboard, scroll and touch all count as activity, in any tab of the
+   Clicking (or tapping), scrolling and typing count as activity; just moving
+   the mouse does not. It counts in any tab of the
    tool (tabs share the last-activity time through localStorage). For the last
    30 seconds a notice counts down; any activity or "Stay signed in" cancels it.
    Shared report links and embeds (public views) aren't signed in, so it never
@@ -11795,7 +11796,8 @@ $('signOutBtn').addEventListener('click', async () => {
     if (warned) hide();
     if (last - lastWrite > 5000){ lastWrite = last; try{ localStorage.setItem(KEY, String(last)); }catch(e){} }
   };
-  ['mousemove', 'mousedown', 'pointerdown', 'keydown', 'wheel', 'scroll', 'touchstart'].forEach(ev => window.addEventListener(ev, touch, {passive: true, capture: true}));
+  /* Real clicks, taps, wheel or touch scrolling and typing only: the page scrolling itself doesn't count. */
+  ['pointerdown', 'mousedown', 'touchstart', 'wheel', 'touchmove', 'keydown'].forEach(ev => window.addEventListener(ev, e => { if (e.isTrusted !== false) touch(); }, {passive: true, capture: true}));
   window.addEventListener('storage', e => { if (e.key === KEY){ const t = Number(e.newValue) || 0; if (t > last){ last = t; if (warned) hide(); } } });
   const show = secs => {
     if (!bar){
