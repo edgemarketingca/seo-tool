@@ -6,8 +6,9 @@
       successful submission here (action 'form'). No key is needed, so each
       post is checked: the site must be a client, a few per hour at most,
       and sizes are capped.
-   2. Old submissions: exported once from the site's dashboard and posted
-      with a short-lived import key (action 'formsImport').
+   2. Old submissions: exported once from the site's dashboard (edge-forms-import
+      files) and posted from the SEO tool's Form submissions widget, "Import past
+      submissions", with the team key (or a short-lived import key) (action 'formsImport').
 
    3. Easyleads (GoHighLevel) forms: read from GoHighLevel's API (easyleads.gs),
       origin 'easyleads'.
@@ -56,7 +57,7 @@ function fsNorm_(f) {
     email: fsPick_(f, /e-?mail/i),
     phone: fsPick_(f, /phone|^tel|mobile|cell/i),
     company: fsPick_(f, /company|business name|organi[sz]ation/i),
-    message: fsPick_(f, /message|comment|question|details|additional|inquiry|enquiry|how can we help|scope of work/i)
+    message: fsPick_(f, /message|comment|question|description|details|notes|additional|inquiry|enquiry|how can we help|tell us|scope of work/i)
   };
 }
 function fsHost_(u) {
@@ -140,7 +141,7 @@ function formsImport_(b) {
     });
     const add = [];
     var skipped = 0;
-    (b.rows || []).forEach(function (x) {
+    (b.rows || []).slice(0, 1000).forEach(function (x) {
       const when = new Date(x.date);
       const f = fsClean_(x.fields);
       if (isNaN(when) || !Object.keys(f).length) { skipped++; return; }
@@ -158,6 +159,21 @@ function formsImport_(b) {
     log_('Form import', 'OK', domain + ': ' + add.length + ' added, ' + skipped + ' already there or empty');
     return { ok: true, added: add.length, skipped: skipped };
   } finally { lock.releaseLock(); }
+}
+
+/* A test send: the team's own address anywhere in it, an address at the client's own domain
+   (except job applications), or a short "test" message. Returned as test: true; the report
+   widgets leave these out unless a widget is set to show them. */
+const FS_JOB_ = /career|\bjobs?\b|employment|resum[eé]|r[ée]sum[ée]|apply now|job application/i;
+function fsIsTest_(domain, form, name, email, message, f) {
+  f = f || {};
+  const vals = [name, email, message].concat(Object.keys(f).map(function (k) { return f[k]; })).map(function (v) { return String(v == null ? '' : v); });
+  if (vals.some(function (v) { return /@edgemarketing\.ca\b/i.test(v); })) return true;
+  const em = String(email || '').toLowerCase().split('@')[1] || '', d = String(domain || '').toLowerCase().replace(/^www\./, '');
+  if (em && d && (em === d || em.slice(-d.length - 1) === '.' + d) && !FS_JOB_.test(String(form || ''))) return true;
+  const msg = String(message || fsPick_(f, /message|comment|question|description|details|notes|additional/i) || '').trim(), nm = String(name || '').trim();
+  if (msg && msg.length <= 60 && /^(this is (just )?a |just a )?(test|testing)\b|^check\b/i.test(msg)) return true;
+  return /\btest\b/i.test(nm) && msg.length <= 80;
 }
 
 /* src: 'site' (default: the website's own forms), 'easyleads' (GoHighLevel), or 'all'. */
@@ -179,7 +195,7 @@ function formsFor_(domain, start, end, admin, src) {
     if (day < s || day > e) return;
     var fields = {};
     try { fields = JSON.parse(r[9] || '{}') || {}; } catch (err) { fields = {}; }
-    const o = { t: Utilities.formatDate(d, tz, "yyyy-MM-dd'T'HH:mm"), form: r[2], page: r[3], channel: r[10], sm: r[11], campaign: r[12], land: r[13], origin: r[15], facets: fsFacets_(fields) };
+    const o = { t: Utilities.formatDate(d, tz, "yyyy-MM-dd'T'HH:mm"), form: r[2], page: r[3], channel: r[10], sm: r[11], campaign: r[12], land: r[13], origin: r[15], facets: fsFacets_(fields), test: fsIsTest_(domain, r[2], r[4], r[5], r[8], fields) };
     if (admin) {
       o.name = r[4]; o.email = r[5]; o.phone = r[6]; o.company = r[7]; o.message = r[8]; o.ref = r[14]; o.id = r[16];
       o.fields = fields;
