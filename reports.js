@@ -1148,13 +1148,35 @@ const fsDay = r => String(r.t || '').slice(0, 10);
 const fsWhen = r => prettyDate(fsDay(r)) + (String(r.t || '').length > 10 ? ' · ' + String(r.t).slice(11, 16) : '');
 /* Forms are live, unlike GA4 and Search Console, so a period that ends yesterday runs to today for every form widget. */
 const fsR = R => R && R.end === addDays(today(), -1) ? Object.assign({}, R, {end: today()}) : R;
-function formsModel(ctx, F){
-  const rows = (F && Array.isArray(F.rows) ? F.rows : []).filter(r => r && r.t), R = fsR(ctx.R);
+/* Test sends and job applications. Tests (the team's own address, the client's own email
+   domain, a "test" message) are left out of every widget unless one is set to show them.
+   Job applications count as submissions but not as leads. The tracker flags tests too
+   (r.test), so a client's link agrees with the team report. */
+const FS_JOB = /career|\bjobs?\b|employment|resum[eé]|r[ée]sum[ée]|apply now|job application/i;
+const FS_MSG = /message|comment|question|description|details|notes|additional|inquiry|enquiry|how can we help|tell us|scope of work/i;
+const fsIsJob = r => FS_JOB.test(String(r.form || ''));
+function fsIsTest(r, domain){
+  if (r.test != null) return !!r.test;
+  const f = r.fields || {}, vals = [r.name, r.email, r.company, r.message].concat(Object.values(f)).map(v => String(v == null ? '' : v));
+  if (vals.some(v => /@edgemarketing\.ca\b/i.test(v))) return true;
+  const em = String(r.email || '').toLowerCase().split('@')[1] || '', d = String(domain || '').toLowerCase().replace(/^www\./, '');
+  if (em && d && (em === d || em.slice(-d.length - 1) === '.' + d) && !fsIsJob(r)) return true;
+  const mk = Object.keys(f).find(k => FS_MSG.test(k) && String(f[k]).trim());
+  const msg = String(r.message || (mk ? f[mk] : '') || '').trim(), name = String(r.name || '').trim();
+  if (msg && msg.length <= 60 && /^(this is (just )?a |just a )?(test|testing)\b|^check\b/i.test(msg)) return true;
+  return /\btest\b/i.test(name) && msg.length <= 80;
+}
+/* opt.tests: keep test sends; opt.jobs: keep job applications. Both are left out by default, so the Leads widgets count real leads. */
+function formsModel(ctx, F, opt){
+  opt = opt || {};
+  const all = (F && Array.isArray(F.rows) ? F.rows : []).filter(r => r && r.t), R = fsR(ctx.R);
+  all.forEach(r => { if (r._t == null){ r._t = fsIsTest(r, ctx.domain); r._j = fsIsJob(r); } });
+  const rows = all.filter(r => (opt.tests || !r._t) && (opt.jobs || !r._j));
   const cur = rows.filter(r => fsDay(r) >= R.since && fsDay(r) <= R.end), prev = rows.filter(r => fsDay(r) >= R.prevSince && fsDay(r) <= R.prevEnd);
   const count = (list, key) => { const m = {}; list.forEach(r => { const k = r[key] || '—'; m[k] = (m[k] || 0) + 1; }); return Object.keys(m).map(k => ({k, n: m[k]})).sort((a, b) => b.n - a.n); };
   const forms = count(rows, 'form').map(x => x.k);
   const live = rows.filter(r => r.origin === 'live').map(fsDay).sort();
-  return {rows, cur, prev, count, forms, details: !!(F && F.details), first: (F && F.first) || '', liveSince: live[0] || '', hasPrev: !!(F && F.first && F.first <= R.prevEnd)};
+  return {tests: all.filter(r => r._t && fsDay(r) >= R.since && fsDay(r) <= R.end).length, jobs: cur.filter(r => r._j).length, rows, cur, prev, count, forms, details: !!(F && F.details), first: (F && F.first) || '', liveSince: live[0] || '', hasPrev: !!(F && F.first && F.first <= R.prevEnd)};
 }
 /* One submission, every field. */
 function fsOpen(ctx, r, M){
@@ -1215,9 +1237,86 @@ function fsHistory(ctx, r, host, local, open){
   if (ctx && ctx.get) ctx.get('people').then(P => { if (host.isConnected) draw((local || []).concat((P && P.rows) || []), true); },
     () => { if (host.isConnected) draw(local || [], true); });
 }
+/* ---------- Import past form submissions (team only) ----------
+   The edge-forms-import files exported from each site's dashboard. Drop one or many,
+   for any client: each goes to the client its file names, in batches. The tracker
+   skips submissions it already has, so importing the same file twice is safe. */
+function fsImportOpen(ctx){
+  U.openDrawer('Import past form submissions', '#0f7a58', body => {
+    const groups = {};
+    let busy = false;
+    body.innerHTML = '<p class="aiv-cap">Drop the <b>edge-forms-….json</b> files exported from the client sites: one or many, for any client. Each file goes to the client it names. Submissions already on file are skipped, so a file can be imported again safely.</p>' +
+      '<label data-drop style="display:block;margin-top:12px;border:2px dashed var(--a-line,#d5dce3);border-radius:12px;padding:26px 16px;text-align:center;cursor:pointer;color:var(--a-ink2,#4b5663)">' +
+      '<input type="file" accept=".json,application/json" multiple data-file style="display:none"><b style="color:var(--a-ink,#18202a)">Choose files</b> or drop them here</label>' +
+      '<div data-sum style="margin-top:14px"></div>' +
+      '<details style="margin-top:12px"><summary class="aiv-cap" style="cursor:pointer">The tracker asks for an import key?</summary><p class="aiv-cap">Only an older tracker does. Paste the FORM_IMPORT key (the part before the |) here, or update forms.gs and Code.gs from the repo so the team key is enough.</p>' +
+      '<input type="text" data-ik placeholder="Import key (optional)" autocomplete="off" style="width:100%;font:inherit;padding:8px 10px;border:1px solid var(--a-line,#d5dce3);border-radius:8px"></details>';
+    const drop = body.querySelector('[data-drop]'), inp = body.querySelector('[data-file]'), sum = body.querySelector('[data-sum]');
+    const range = rows => { const d = rows.map(r => String(r.date || '').slice(0, 10)).filter(Boolean).sort(); return d.length ? prettyDate(d[0]) + ' – ' + prettyDate(d[d.length - 1]) : '—'; };
+    const draw = () => {
+      const doms = Object.keys(groups).sort();
+      if (!doms.length){ sum.innerHTML = ''; return; }
+      const total = doms.reduce((t, d) => t + groups[d].rows.length, 0);
+      sum.innerHTML = '<table class="aiv-table"><thead><tr><th>Client site</th><th style="text-align:right">Submissions</th><th>Forms</th><th>Status</th></tr></thead><tbody>' +
+        doms.map(d => { const g = groups[d], forms = Array.from(new Set(g.rows.map(r => r.form || 'Website form')));
+          return '<tr><td><b>' + esc(d) + '</b><div class="rp-fs-sub">' + esc(range(g.rows)) + ' · ' + g.files.length + ' file' + (g.files.length === 1 ? '' : 's') + '</div></td>' +
+            '<td style="text-align:right">' + fmt(g.rows.length) + '</td><td>' + forms.map(f => '<div class="rp-fs-sub" style="margin:0">' + esc(f) + '</div>').join('') + '</td>' +
+            '<td data-st="' + esc(d) + '" style="white-space:nowrap">' + (g.st || 'Ready') + '</td></tr>'; }).join('') + '</tbody></table>' +
+        '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap"><button type="button" class="aiv-btn go" data-go' + (busy ? ' disabled' : '') + '>Import ' + fmt(total) + ' submission' + (total === 1 ? '' : 's') + '</button>' +
+        '<button type="button" class="aiv-btn" data-clear' + (busy ? ' disabled' : '') + '>Clear</button></div>';
+      const go = sum.querySelector('[data-go]'), cl = sum.querySelector('[data-clear]');
+      if (cl) cl.addEventListener('click', () => { Object.keys(groups).forEach(k => delete groups[k]); draw(); });
+      if (go) go.addEventListener('click', run);
+    };
+    const setSt = (d, html) => { groups[d].st = html; const c = sum.querySelector('[data-st="' + cssEsc(d) + '"]'); if (c) c.innerHTML = html; };
+    const read = list => Promise.all(Array.from(list || []).map(f => f.text().then(t => {
+      let d; try { d = JSON.parse(t); } catch (e) { return f.name + ': not a JSON file'; }
+      const dom = AIV.normDomain(d && d.domain || '');
+      if (!d || d.type !== 'edge-forms-import' || !Array.isArray(d.rows) || !dom) return f.name + ': not a form export';
+      const g = groups[dom] = groups[dom] || {rows: [], files: [], st: ''};
+      if (g.files.indexOf(f.name) > -1) return '';
+      g.files.push(f.name); g.st = '';
+      d.rows.forEach(r => { if (r && r.date && r.fields) g.rows.push({id: r.id, form: r.form, date: r.date, page: r.page || '', fields: r.fields}); });
+      return '';
+    }))).then(bad => { draw(); bad = bad.filter(Boolean); if (bad.length) sum.insertAdjacentHTML('afterbegin', '<div class="rp-err" style="margin-bottom:10px">' + bad.map(esc).join('<br>') + '</div>'); });
+    inp.addEventListener('change', () => { read(inp.files); inp.value = ''; });
+    drop.addEventListener('dragover', e => { e.preventDefault(); drop.style.borderColor = '#0f7a58'; });
+    drop.addEventListener('dragleave', () => { drop.style.borderColor = ''; });
+    drop.addEventListener('drop', e => { e.preventDefault(); drop.style.borderColor = ''; read(e.dataTransfer && e.dataTransfer.files); });
+    async function run(){
+      if (busy) return;
+      busy = true; draw();
+      const ik = (body.querySelector('[data-ik]').value || '').trim();
+      let added = 0, skipped = 0, failed = 0;
+      for (const d of Object.keys(groups).sort()){
+        const rows = groups[d].rows; let a = 0, s = 0;
+        try {
+          for (let i = 0; i < rows.length; i += 150){
+            setSt(d, 'Sending… ' + fmt(Math.min(rows.length, i + 150)) + ' of ' + fmt(rows.length));
+            const r = await ctx.formsImport(d, rows.slice(i, i + 150), ik);
+            a += Number(r.added) || 0; s += Number(r.skipped) || 0;
+          }
+          added += a; skipped += s;
+          setSt(d, '<span style="color:#0f7a58;font-weight:600">' + fmt(a) + ' added</span>' + (s ? '<div class="rp-fs-sub">' + fmt(s) + ' already on file or empty</div>' : ''));
+        } catch (e){
+          failed++;
+          const m = String(e && e.message || e);
+          setSt(d, '<span style="color:#c0392b;font-weight:600">' + (/unknown site/.test(m) ? 'Not a client on the tracker' : /unauthori/.test(m) ? 'Tracker refused (see below)' : esc(m)) + '</span>' + (a ? '<div class="rp-fs-sub">' + fmt(a) + ' added before it stopped</div>' : ''));
+          if (/unauthori/.test(m)) body.querySelector('details').open = true;
+        }
+      }
+      busy = false;
+      const go = sum.querySelector('[data-go]'), cl = sum.querySelector('[data-clear]');
+      if (go){ go.disabled = false; go.textContent = 'Import again'; } if (cl) cl.disabled = false;
+      sum.insertAdjacentHTML('beforeend', '<p class="aiv-cap" style="margin-top:10px">' + fmt(added) + ' added, ' + fmt(skipped) + ' already on file' + (failed ? ', ' + failed + ' site' + (failed === 1 ? '' : 's') + ' failed' : '') + '. The form widgets now show them.</p>');
+      if (ctx.formsReload) ctx.formsReload();
+      if (added && ctx.redraw) ctx.redraw();
+    }
+  });
+}
 W.forms = {g: 'conv', t: 'Form submissions', d: 'Every website form submission: how many, which form, where the visitor came from, and (team only) who sent it.', size: 'xl', needs: ['forms'],
   render(h, ctx, w, D){
-    const M = formsModel(ctx, D.forms), EL = !!D.el;
+    const EL = !!D.el, M = formsModel(ctx, D.forms, {jobs: true, tests: !!(w.cfg && w.cfg.tests)});
     /* Forms are few a day, so long periods are grouped by month. */
     const monthly = ctx.R.days > 120;
     const B = monthly ? (() => { const labels = []; for (let d = ctx.R.since.slice(0, 8) + '01'; d <= fsR(ctx.R).end; d = isoDay(new Date(Date.UTC(+d.slice(0, 4), +d.slice(5, 7), 1)))) labels.push(d);
@@ -1229,7 +1328,8 @@ W.forms = {g: 'conv', t: 'Form submissions', d: 'Every website form submission: 
     const tiles = [kpiTile('Submissions', fmt(tot), esc(ctx.R.label || ''), {d: delta(tot, M.prev.length, M.hasPrev), icon: glyph('table', 18, '#0f7a58')})]
       .concat(M.forms.slice(0, 3).map((k, i) => { const n = (byForm.find(x => x.k === k) || {n: 0}).n, p = (prevForm.find(x => x.k === k) || {n: 0}).n;
         return kpiTile(k, fmt(n), 'form', {d: delta(n, p, M.hasPrev), click: 'f:' + k}); }));
-    h.innerHTML = '<div class="rp-kpis">' + tiles.join('') + '</div>' +
+    h.innerHTML = (!M.rows.length && !M.tests && !M.first && !EL ? '<div class="rp-err" style="margin-bottom:12px">No website form submissions on file for this client yet. New ones arrive as they’re sent once the tracking snippet is on the site' + (ctx.formsImport && ctx.drill ? '; past ones can be imported (button below).' : '.') + '</div>' : '') +
+      '<div class="rp-kpis">' + tiles.join('') + '</div>' +
       '<div data-ch style="margin-top:14px"></div>' +
       '<div style="margin-top:14px"><h4 class="rp-fs-h">Pages the forms were sent from</h4><div data-bypg></div></div>' +
       '<div style="margin-top:14px"><div class="aiv-filters rp-fs-bar"><h4 class="rp-fs-h" style="margin:0;flex:1">' + (M.details ? 'Every submission' : 'Submissions') + '</h4>' +
@@ -1238,12 +1338,15 @@ W.forms = {g: 'conv', t: 'Form submissions', d: 'Every website form submission: 
       '</div><div data-list></div></div>' +
       '<p class="aiv-foot">' + (EL ? 'Easyleads (GoHighLevel) forms' : 'Website forms') + ', ' + esc(ctx.R.text || '') + '. ' + (M.first ? 'On file since ' + esc(prettyDate(M.first)) + '. ' : '') +
       (EL ? 'Read from GoHighLevel every hour: past submissions included. Channel and landing page come from what GoHighLevel recorded with each one.' : M.liveSince ? 'Channel and landing page are recorded for submissions from ' + esc(prettyDate(M.liveSince)) + ' on.' : 'Older submissions were imported from the website; channel and landing page are recorded from now on.') +
-      (M.details && ctx.drill ? ' Names, emails, phones and messages show on the team report only, unless the client report lets the client click into them.' : '') + '</p>';
+      (M.details && ctx.drill ? ' Names, emails, phones and messages show on the team report only, unless the client report lets the client click into them.' : '') +
+      (M.tests || (w.cfg && w.cfg.tests) ? ' <a href="#" data-tests>' + (w.cfg && w.cfg.tests ? 'Leave out test submissions' : fmt(M.tests) + ' test submission' + (M.tests === 1 ? '' : 's') + ' left out · show') + '</a>.' : '') +
+      (M.jobs ? ' ' + fmt(M.jobs) + ' job application' + (M.jobs === 1 ? ' is' : 's are') + ' counted here but not in the Leads widgets.' : '') + '</p>' +
+      (ctx.formsImport && ctx.drill && !EL ? '<div style="margin-top:8px"><button type="button" class="aiv-btn" data-fsimp>Import past submissions</button></div>' : '');
     /* Over time, by form. */
     const series = [{name: 'All submissions', color: '#0f7a58', values: B.zero(), area: true}].concat(M.forms.slice(0, 4).map((k, i) => ({name: k, color: FS_FORM[i % FS_FORM.length], values: B.zero()})));
     M.cur.forEach(r => { const i = B.slot(fsDay(r)); if (i == null) return; series[0].values[i]++; const j = M.forms.indexOf(r.form); if (j > -1 && j < 4) series[j + 1].values[i]++; });
     chart(h.querySelector('[data-ch]'), {labels: B.labels, weekly: monthly || ctx.R.weekly, height: 210, series, empty: 'No form submissions in this period.'}, ctx, w);
-    const pg = {}; M.cur.forEach(r => { const k = r.page || '—'; const o = pg[k] = pg[k] || {k, n: 0, land: {}}; o.n++; if (r.land) o.land[r.land] = (o.land[r.land] || 0) + 1; });
+    const pg = {}; M.cur.forEach(r => { const k = r.page || (r.origin === 'live' ? '—' : 'Not recorded (sent before tracking)'); const o = pg[k] = pg[k] || {k, n: 0, land: {}}; o.n++; if (r.land) o.land[r.land] = (o.land[r.land] || 0) + 1; });
     const pgs = Object.values(pg).sort((a, b) => b.n - a.n), maxP = Math.max(1, ...pgs.map(x => x.n));
     table(h.querySelector('[data-bypg]'), pgs, [
       {key: 'k', label: 'Page', fmt: r => '<span class="aiv-page">' + esc(r.k) + '</span>'},
@@ -1253,7 +1356,7 @@ W.forms = {g: 'conv', t: 'Form submissions', d: 'Every website form submission: 
       const t = q.trim().toLowerCase();
       const rows = M.cur.filter(r => (!fForm || r.form === fForm) && (!fCh || r.channel === fCh) &&
         (!t || [r.name, r.email, r.phone, r.company, r.message, r.page].concat(Object.values(r.fields || {})).join(' ').toLowerCase().indexOf(t) > -1));
-      const cols = [{key: 't', label: 'Sent', fmt: r => esc(fsWhen(r))}, {key: 'form', label: 'Form', fmt: r => '<i class="rp-fs-dot" style="background:' + FS_FORM[Math.max(0, M.forms.indexOf(r.form)) % FS_FORM.length] + '"></i>' + esc(r.form)}];
+      const cols = [{key: 't', label: 'Sent', fmt: r => esc(fsWhen(r))}, {key: 'form', label: 'Form', fmt: r => '<i class="rp-fs-dot" style="background:' + FS_FORM[Math.max(0, M.forms.indexOf(r.form)) % FS_FORM.length] + '"></i>' + esc(r.form) + (r._t ? ' <span class="rp-fs-sub" style="display:inline">· test</span>' : '')}];
       if (M.details) cols.push({key: 'name', label: 'Name', fmt: r => esc(r.name || '—') + (r.company ? '<div class="rp-fs-sub">' + esc(r.company) + '</div>' : '')},
         {key: 'email', label: 'Contact', fmt: r => esc(r.email || '') + (r.phone ? '<div class="rp-fs-sub">' + esc(r.phone) + '</div>' : '')},
         {key: 'message', label: 'Message', fmt: r => '<span class="rp-fs-msg">' + esc(String(r.message || '').slice(0, 140)) + '</span>'});
@@ -1263,6 +1366,10 @@ W.forms = {g: 'conv', t: 'Form submissions', d: 'Every website form submission: 
     sF.addEventListener('change', () => { fForm = sF.value; list(); });
     if (sQ) sQ.addEventListener('input', () => { q = sQ.value; list(); });
     onClick(h, '[data-k]', el => { const k = el.dataset.k; if (k.indexOf('f:') === 0){ fForm = fForm === k.slice(2) ? '' : k.slice(2); sF.value = fForm; list(); } });
+    const tl = h.querySelector('[data-tests]');
+    if (tl) tl.addEventListener('click', e => { e.preventDefault(); cf.tests = !cf.tests; if (ctx.saveItem) ctx.saveItem(w); W.forms.render(h, ctx, w, D); });
+    const ib = h.querySelector('[data-fsimp]');
+    if (ib) ib.addEventListener('click', () => fsImportOpen(ctx));
     list();
 fxShareBox(h, ctx, w);
   }};
@@ -2600,7 +2707,7 @@ fsHistory(ctx, r, body.querySelector('[data-hist]'), all, x => fxOpen(ctx, x._f 
 }
 W.forms_inbox = {g: 'conv', t: 'Form inbox', d: 'Every website form submission (WordPress and Concrete sites) in one searchable inbox: find anyone by name, email, company, province or city, filter by form and page, and open what they sent.', size: 'xl', needs: ['formsc'],
 render(h, ctx, w, D){
-const F = D.formsc || {}, M = formsModel(ctx, F), det = !!M.details;
+const F = D.formsc || {}, M = formsModel(ctx, F, {jobs: true}), det = !!M.details;
 const cf = w.cfg = w.cfg || {};
 M.rows.forEach(r => {
 if (r._f) return;
@@ -3444,6 +3551,8 @@ function renderBoard(root, o){
   const commit = () => { o.onItems && o.onItems(items); };
   /* A chart's ticked lines are saved with the widget (not on the public page). */
   ctx.saveItem = o.editable ? () => commit() : null;
+  /* Draw every widget again (after new data, e.g. imported form submissions). */
+  ctx.redraw = () => drawAll();
 
   const elOf = it => grid.querySelector('.rp-w[data-id="' + cssEsc(it.id) + '"]');
   const mobile = () => window.matchMedia && window.matchMedia('(max-width:760px)').matches;
@@ -4444,7 +4553,12 @@ return Promise.reject(new Error('Unknown data source ' + name));
   /* Form inbox: let one client report link see who sent each website form (registers or removes that link's secret on the tracker). */
 ctx.formsShare = (secret, on) => (!s.url || !s.key || domain.indexOf('.') < 0) ? Promise.reject(new Error('The tracker isn’t connected.'))
 : fetch(s.url, {method: 'POST', body: JSON.stringify({key: s.key, action: 'formsShare', domain, secret, on: !!on})}).then(r => r.json()).then(r => { if (r && r.error) throw new Error(r.error); return r; });
-/* Search Console health: queue this client's pages for inspection now. */
+/* Past website form submissions (edge-forms-import files): one client's rows, in a batch, with the team key. */
+  ctx.formsImport = (dom, rows, importKey) => (!s.url || !s.key) ? Promise.reject(new Error('The tracker isn’t connected.'))
+    : fetch(s.url, {method: 'POST', body: JSON.stringify(Object.assign({key: s.key, action: 'formsImport', domain: dom, rows}, importKey ? {importKey} : {}))}).then(r => r.json()).then(r => { if (r && r.error) throw new Error(r.error); return r; });
+  /* Forget the form data loaded so far (every client), so the next draw reads it again. */
+  ctx.formsReload = () => Object.keys(dataCache).forEach(d => { const x = dataCache[d]; if (x){ x.forms = null; x.el = null; x.people = null; } });
+  /* Search Console health: queue this client's pages for inspection now. */
   ctx.gscHealthNow = () => (!s.url || !s.key || domain.indexOf('.') < 0) ? Promise.reject(new Error('The tracker isn’t connected.'))
     : fetch(s.url, {method: 'POST', body: JSON.stringify({key: s.key, action: 'gscHealthNow', domain})}).then(r => r.json()).then(r => { dc.gsch = null; return r; });
   ctx.loadJourneys = (since, end) => AIV.apiGet(s.url, {action: 'journeys', domain, key: s.key, start: since, end});
