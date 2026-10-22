@@ -2,7 +2,7 @@
      Concrete CMS: Dashboard > System & Settings > SEO & Statistics > Tracking Codes (footer).
      WordPress:    Code Snippets (or your header & footer plugin) > Footer.
      Change only the settings at the top: domain (as on the tracker's Clients tab) and, optionally, form names.
-     Works with Concrete Express forms and Formidable, and on WordPress with Contact Form 7, Gravity Forms,
+     Works with Concrete Express forms, the older concrete5 Form block (5.6, 5.7, 8) and Formidable, and on WordPress with Contact Form 7, Gravity Forms,
      WPForms, Elementor, Formidable, Ninja Forms, Fluent Forms, Forminator and Divi. Easyleads (GoHighLevel) forms
      are read from GoHighLevel directly, so they are left alone here. -->
 <script>
@@ -36,7 +36,7 @@
 
   /* 2. Read a form: every filled-in field, by its label. */
   var GROUP = '.form-group, .mb-3, fieldset, .formidable-element, .element, .gfield, .wpforms-field, .elementor-field-group, .frm_form_field, ' +
-    '.nf-field-container, .ff-el-group, .forminator-field, .forminator-row, .wpcf7-form-control-wrap, .row';
+    '.nf-field-container, .ff-el-group, .forminator-field, .forminator-row, .wpcf7-form-control-wrap, .row, tr';
   function text(el) { return el ? (el.textContent || '').replace(/\s+/g, ' ').replace(/\*/g, '').trim() : ''; }
   function ownText(label, el) {
     /* A label that wraps its input: its words without the input's own text. */
@@ -50,8 +50,8 @@
     var wrap = el.closest('label');
     if (wrap && el.type !== 'checkbox' && el.type !== 'radio' && ownText(wrap, el)) return ownText(wrap, el);
     var g = el.closest(GROUP) || el.parentElement;
-    var gl = g && g.querySelector('legend, .gfield_label, .wpforms-field-label, .elementor-field-label, .frm_primary_label, .nf-field-label label, .ff-el-input--label label, .forminator-label, label:not([for]), .form-label, label');
-    if (gl && !gl.contains(el) && (gl.getAttribute('for') || '') !== el.id) return text(gl);
+    var gl = g && g.querySelector('legend, .gfield_label, .wpforms-field-label, .elementor-field-label, .frm_primary_label, .nf-field-label label, .ff-el-input--label label, .forminator-label, label:not([for]), .form-label, label, td.question');
+    if (gl && !gl.contains(el) && (!el.id || (gl.getAttribute('for') || '') !== el.id)) return text(gl);
     if ((el.type === 'checkbox' || el.type === 'radio') && g) { var first = g.querySelector('label'); if (first) return text(first); }
     if (l) return text(l);
     /* Contact Form 7 without labels: the text just before the field. */
@@ -62,7 +62,7 @@
     var f = {};
     Array.prototype.forEach.call(form.elements, function (el) {
       var t = (el.type || '').toLowerCase();
-      if (!el.name || /^(hidden|password|submit|button|reset|image)$/.test(t) || /recaptcha|ccm_token|honeypot|g-recaptcha|hcaptcha|cf-turnstile|_wpcf7|ak_hp|ak_js/i.test(el.name)) return;
+      if (!el.name || /^(hidden|password|submit|button|reset|image)$/.test(t) || /captcha|ccm_token|honeypot|hcaptcha|cf-turnstile|_wpcf7|ak_hp|ak_js/i.test(el.name)) return;
       if (el.offsetParent === null && t !== 'checkbox' && t !== 'radio' && el.tagName !== 'SELECT' && /hp|honey|website_url|fax_only/i.test(el.name + ' ' + el.className)) return;
       var v = '';
       if (t === 'checkbox' || t === 'radio') { if (!el.checked) return; v = text(el.closest('label')) || (el.id && text(form.querySelector('label[for="' + el.id + '"]'))) || el.value; }
@@ -119,9 +119,9 @@
   var OK_SEL = '.alert-success, .formidable .message.success, .formidable-success, .ccm-block-express-form .alert-success, ' +
     'form.wpcf7-form.sent, .wpcf7 form.sent, .gform_confirmation_message, .gform_confirmation_wrapper, .wpforms-confirmation-container, .wpforms-confirmation-container-full, ' +
     '.elementor-message-success, .frm_message, .nf-response-msg, .ff-message-success, .forminator-success, .forminator-response-message.forminator-success';
-  var BAD_SEL = '.alert-danger:not(.hide):not([style*="none"]), .ccm-block-express-form .alert-danger, .is-invalid, form.wpcf7-form.invalid, form.wpcf7-form.failed, ' +
+  var BAD_SEL = '.alert-danger:not(.hide):not([style*="none"]), .ccm-block-express-form .alert-danger, #msg .error, .ccm-error, .is-invalid, form.wpcf7-form.invalid, form.wpcf7-form.failed, ' +
     'form.wpcf7-form.spam, .gform_validation_errors, .validation_error, .wpforms-error:not(:empty), .elementor-message-danger, .frm_error_style, .nf-error-msg, .ff-el-is-error, .forminator-error, .et_pb_contact_error_text, .et_contact_error';
-  function success(scope) { var e = (scope || document).querySelector(OK_SEL); return !!(e && (e.offsetParent !== null || /sent/.test(e.className))); }
+  function success(scope) { var e = (scope || document).querySelector(OK_SEL); return !!(e && (e.offsetParent !== null || /sent/.test(e.className))) || (!scope && /[?&]surveySuccess=1/.test(location.search)); }
   function failed(scope) { var e = (scope || document).querySelector(BAD_SEL); return !!(e && e.offsetParent !== null); }
 
   /* A page load after a submit (Express and some WordPress forms post and reload). */
