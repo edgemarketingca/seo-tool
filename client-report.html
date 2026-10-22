@@ -103,10 +103,10 @@ html,body{margin:0;background:#FDFDFD;color:#555;font-family:"Geist","Helvetica 
     if (brand.accent) document.documentElement.style.setProperty('--brand', brand.accent);
 
     let period = periods.indexOf(view.period) > -1 ? view.period : periods[0];
-    const live = {feed: null, g4: {}, gsc: {}, pages: {}, pg: {}, pathway: {}, pw: {}, forms: {}, easyleads: {}, formsc: {}, gsch: {}};
+    const live = {feed: null, people: null, g4: {}, gsc: {}, pages: {}, pg: {}, pathway: {}, pw: {}, forms: {}, easyleads: {}, formsc: {}, gsch: {}};
     /* Stored copy for the period the report was published with; live numbers (read-only token) for everything else. */
     const ctxFor = () => {
-      const ctx = {domain: view.domain, clientName: view.clientName || ''};
+      const ctx = {domain: view.domain, clientName: view.clientName || '', cms: String(view.cms || '')};
       const fromSnap = n => snap && snap[n] && snap.period === period ? snap[n] : null;
       const canLive = !!(view.feedUrl && view.token);
       ctx.get = name => {
@@ -119,6 +119,18 @@ html,body{margin:0;background:#FDFDFD;color:#555;font-family:"Geist","Helvetica 
           if (!canLive) return Promise.reject(new Error('Not available.'));
           live.feed = AIV.apiGet(view.feedUrl, {action: 'feed', domain: view.domain, t: view.token}).catch(e => { live.feed = null; if (snap && snap.feed) return snap.feed; throw e; });
           return snap && snap.feed ? Promise.resolve(snap.feed) : live.feed;
+        }
+        /* Every form submission on file, website and Easyleads, all time (Forms on this site): form, page and date only. */
+        if (name === 'people'){
+          if (!canLive) return Promise.reject(new Error('Not available.'));
+          if (live.people) return live.people;
+          const end = new Date().toISOString().slice(0, 10);
+          const one = src => AIV.apiGet(view.feedUrl, Object.assign({action: 'forms', domain: view.domain, t: view.token, start: '2010-01-01', end}, src ? {src} : {})).then(r => (r && !r.error ? r : null), () => null);
+          return live.people = Promise.all([one(''), one('easyleads')]).then(res => {
+            if (!res[0] && !res[1]){ live.people = null; throw new Error('Not available.'); }
+            const tag = (x, src) => (x && Array.isArray(x.rows) ? x.rows : []).filter(r => r && r.t).map(r => ({t: String(r.t), form: String(r.form || ''), page: String(r.page || ''), test: r.test, _src: src}));
+            return {rows: tag(res[0], 'web').concat(tag(res[1], 'el')), details: false};
+          });
         }
         const R = ctx.R;
         if (name === 'pathway'){
