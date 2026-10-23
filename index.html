@@ -22613,21 +22613,52 @@ function seoRankPage(loc){
      and later pages ten, which places a rank far better than rank / 10 did. */
   return r <= 9 ? 1 : 2 + Math.floor((r - 10) / 10);
 }
-/* The pinned search, opened at the page the result is on, with a text
-   fragment naming the matched domain. Chrome and Edge use the fragment to
-   scroll to and highlight the client's result when the link is clicked;
-   other browsers ignore it and simply open the page. */
-function seoRankLink(url, rank, page, domain){
+/* The pinned search, opened so the client's result sits in the middle of the
+   page instead of wherever a page break happens to fall. Google takes any
+   start offset, not just multiples of ten, so a #52 opens at result 47 and
+   shows about 47-56: the result can drift four or five places either way
+   between the scan and the click (Google reshuffles constantly) and still be
+   on screen. A text fragment then scrolls to it and highlights the client's
+   whole result, from the title through the web address, in Chrome and Edge.
+   If Google shows a different title than the scan saw, that part is skipped
+   and the domain alone is highlighted, as before. Other browsers ignore it. */
+function seoRankStart(rank, page){
+  if (rank > 6) return rank - 5;
+  if (!(rank > 0) && page > 1) return (page - 1) * 10;
+  return 0;
+}
+function seoTextFrag(s){
+  return encodeURIComponent(s).replace(/-/g, '%2D').replace(/,/g, '%2C');
+}
+function seoRankLink(url, rank, page, domain, title){
   if (!url) return null;
-  let u = String(url).split('#')[0].replace(/&start=\d+/, '');
-  if (page > 1) u += (u.indexOf('?') === -1 ? '?' : '&') + 'start=' + ((page - 1) * 10);
+  let u = String(url).split('#')[0].replace(/([?&])start=\d+&?/, '$1').replace(/[?&]$/, '');
+  const st = seoRankStart(rank, page);
+  if (st > 0) u += (u.indexOf('?') === -1 ? '?' : '&') + 'start=' + st;
   const d = String(domain || '').toLowerCase().replace(/^www\./, '');
-  if (rank > 0 && /^[a-z0-9.-]+\.[a-z]{2,}$/.test(d)) u += '#:~:text=' + encodeURIComponent(d).replace(/-/g, '%2D');
+  if (rank > 0 && /^[a-z0-9.-]+\.[a-z]{2,}$/.test(d)){
+    /* The first few words of the title (up to six, about 45 characters) so a
+       title Google cuts short with an ellipsis still matches. */
+    const words = String(title || '').replace(/\s*(\.\.\.|\u2026)\s*$/, '').split(/\s+/).filter(Boolean);
+    let head = '', n = 0;
+    for (const w of words){
+      const next = head ? head + ' ' + w : w;
+      if (n && next.length > 45) break;
+      head = next; n++;
+      if (n >= 6) break;
+    }
+    head = head.replace(/(\s+[^\w\s]+)+$/, '');   /* no dangling | or - */
+    n = head ? head.split(' ').length : 0;
+    const dirs = [];
+    if (n >= 2) dirs.push('text=' + seoTextFrag(head) + ',' + seoTextFrag(d));
+    dirs.push('text=' + seoTextFrag(d));
+    u += '#:~:' + dirs.join('&');
+  }
   return u;
 }
 function seoRankPageUrl(loc){
   if (!loc || !loc.sourceUrl) return null;
-  return seoRankLink(loc.sourceUrl, Number(loc.rank) || 0, seoRankPage(loc), loc.matchedDomain);
+  return seoRankLink(loc.sourceUrl, Number(loc.rank) || 0, seoRankPage(loc), loc.matchedDomain, loc.matchedTitle);
 }
 function seoCopyLink(url, btnEl){
   const isTextBtn = btnEl && btnEl.classList && btnEl.classList.contains('seo-copy-link-btn');
@@ -24827,7 +24858,7 @@ function buildSeoReportPayload(c, opts){
             /* Opened at the page the rank was read on, not page one: a #14
                is on page two, and page one can't show it. */
             sourceUrl: opts.showLinks && loc.sourceUrl
-              ? seoRankLink(loc.sourceUrl, Number(snap.rank) || 0, seoRankPage({rank: snap.rank, page: snap.page, precision: snap.precision}), loc.matchedDomain)
+              ? seoRankLink(loc.sourceUrl, Number(snap.rank) || 0, seoRankPage({rank: snap.rank, page: snap.page, precision: snap.precision}), loc.matchedDomain, loc.matchedTitle)
               : null,
             /* How deep the scan looked before reporting a miss. Additive and
                optional: a report published before today simply omits it and
@@ -26081,7 +26112,7 @@ function renderSeoReport(data){
          page two. Newer links already carry it and are used as they are. */
       let href = k.sourceUrl, pg = 1;
       const st = /[?&]start=(\d+)/.exec(href);
-      if (st) pg = Math.floor(Number(st[1]) / 10) + 1;
+      if (st) pg = k.rank > 9 ? 2 + Math.floor((k.rank - 10) / 10) : (k.rank > 0 ? 1 : Math.floor(Number(st[1]) / 10) + 1);
       else if (k.rank > 9 && href.indexOf('#') === -1){
         pg = 2 + Math.floor((k.rank - 10) / 10);
         href += (href.indexOf('?') === -1 ? '?' : '&') + 'start=' + ((pg - 1) * 10);
