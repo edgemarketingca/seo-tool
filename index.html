@@ -22264,17 +22264,31 @@ function seoRailFiltered(){
   const el = $('seoClientSearch');
   return !!(el && (el.value || '').trim());
 }
+/* The top level is one list: folders and the clients that aren't in a
+   folder, interleaved however you arrange them. Folders never arranged sit
+   first (A-Z) and clients never arranged follow, as the rail always looked. */
+function seoTopItems(){
+  const folders = seoSortedFolders().map((f, i) => ({kind: 'folder', rec: f, k: seoHandOrder(f) != null ? seoHandOrder(f) : 1e9 + i}));
+  const clients = seoClientsInFolder(null).map((c, i) => ({kind: 'client', rec: c, k: seoHandOrder(c) != null ? seoHandOrder(c) : 2e9 + i}));
+  return folders.concat(clients).sort((a, b) => a.k - b.k);
+}
+/* Puts rec into the list next to beforeId / afterId (or at the end), then
+   renumbers the list 10, 20, 30... */
+function seoInsertAndNumber(list, rec, beforeId, afterId){
+  const rest = list.filter(x => x !== rec);
+  let at = rest.length;
+  if (beforeId){ const i = rest.findIndex(x => x.id === beforeId); if (i >= 0) at = i; }
+  else if (afterId){ const i = rest.findIndex(x => x.id === afterId); if (i >= 0) at = i + 1; }
+  rest.splice(at, 0, rec);
+  rest.forEach((x, i) => { if (x.sortOrder !== (i + 1) * 10) x.sortOrder = (i + 1) * 10; });
+}
 function seoPlaceClient(clientId, folderId, beforeId, afterId){
   const c = state.seoClients.find(x => x.id === clientId);
   if (!c) return;
   const was = c.folderId || null, to = folderId || null;
   c.folderId = to;
-  const group = seoClientsInFolder(to).filter(x => x.id !== c.id);
-  let at = group.length;
-  if (beforeId){ const i = group.findIndex(x => x.id === beforeId); if (i >= 0) at = i; }
-  else if (afterId){ const i = group.findIndex(x => x.id === afterId); if (i >= 0) at = i + 1; }
-  group.splice(at, 0, c);
-  group.forEach((x, i) => { if (x.sortOrder !== (i + 1) * 10) x.sortOrder = (i + 1) * 10; });
+  if (to) seoInsertAndNumber(seoClientsInFolder(to), c, beforeId, afterId);
+  else seoInsertAndNumber(seoTopItems().map(it => it.rec), c, beforeId, afterId);
   const f = to ? seoFolderById(to) : null;
   if (f) f.collapsed = false;
   save(); renderSeoTree();
@@ -22283,12 +22297,7 @@ function seoPlaceClient(clientId, folderId, beforeId, afterId){
 function seoPlaceFolder(folderId, beforeId, afterId){
   const f = seoFolderById(folderId);
   if (!f) return;
-  const list = seoSortedFolders().filter(x => x.id !== f.id);
-  let at = list.length;
-  if (beforeId){ const i = list.findIndex(x => x.id === beforeId); if (i >= 0) at = i; }
-  else if (afterId){ const i = list.findIndex(x => x.id === afterId); if (i >= 0) at = i + 1; }
-  list.splice(at, 0, f);
-  list.forEach((x, i) => { if (x.sortOrder !== (i + 1) * 10) x.sortOrder = (i + 1) * 10; });
+  seoInsertAndNumber(seoTopItems().map(it => it.rec), f, beforeId, afterId);
   save(); renderSeoTree();
 }
 function seoClearDropLines(){
@@ -22322,7 +22331,7 @@ function seoOpenMoveMenu(anchor, c){
   head.textContent = 'Move ' + (c.name || 'client') + ' to';
   menu.appendChild(head);
   /* Up and down within its group - the touchscreen way to reorder. */
-  const sibs = seoClientsInFolder(c.folderId || null);
+  const sibs = c.folderId ? seoClientsInFolder(c.folderId) : seoTopItems().map(it => it.rec);
   const pos = sibs.findIndex(x => x.id === c.id);
   const addStep = (label, fn) => {
     const b = document.createElement('button');
@@ -22484,9 +22493,12 @@ function seoClientRowEl(c, folderHint){
     document.body.classList.remove('seo-dragging');
     Array.prototype.forEach.call(document.querySelectorAll('.drop-on'), el => el.classList.remove('drop-on'));
   });
-  /* Dropping another client on this row places it just above or below. */
+  /* Dropping a client - or, at the top level, a folder - on this row places it
+     just above or below this one. */
+  const acceptsDrop = () => !seoRailFiltered() &&
+    ((seoDragClientId && seoDragClientId !== c.id) || (seoDragFolderId && !c.folderId));
   row.addEventListener('dragover', e => {
-    if (!seoDragClientId || seoDragClientId === c.id || seoRailFiltered()) return;
+    if (!acceptsDrop()) return;
     e.preventDefault(); e.stopPropagation();
     try{ e.dataTransfer.dropEffect = 'move'; }catch(err){}
     const after = seoDropAfter(row, e);
@@ -22495,12 +22507,12 @@ function seoClientRowEl(c, folderHint){
   });
   row.addEventListener('dragleave', () => row.classList.remove('drop-before', 'drop-after'));
   row.addEventListener('drop', e => {
-    if (!seoDragClientId || seoDragClientId === c.id || seoRailFiltered()) return;
+    if (!acceptsDrop()) return;
     e.preventDefault(); e.stopPropagation();
     const after = seoDropAfter(row, e);
-    const id = seoDragClientId;
     seoClearDropLines();
-    seoPlaceClient(id, c.folderId || null, after ? null : c.id, after ? c.id : null);
+    if (seoDragFolderId) seoPlaceFolder(seoDragFolderId, after ? null : c.id, after ? c.id : null);
+    else seoPlaceClient(seoDragClientId, c.folderId || null, after ? null : c.id, after ? c.id : null);
   });
   row.addEventListener('dragend', seoClearDropLines);
   return row;
@@ -22539,7 +22551,10 @@ function renderSeoTree(){
     return;
   }
 
-  seoSortedFolders().forEach(f => {
+  seoTopItems().forEach(it => {
+    /* Clients and folders share the top level, in the order you arranged them. */
+    if (it.kind === 'client'){ tree.appendChild(seoClientRowEl(it.rec, '')); return; }
+    const f = it.rec;
     const wrap = document.createElement('div');
     wrap.className = 'rail-folder' + (f.collapsed ? '' : ' open');
 
@@ -22558,8 +22573,10 @@ function renderSeoTree(){
     });
     row.querySelector('.rename').addEventListener('click', e => { e.stopPropagation(); seoRenameFolder(f); });
     row.querySelector('.kill').addEventListener('click', e => { e.stopPropagation(); seoDeleteFolder(f); });
-    seoWireDropTarget(row, f.id);
-    /* Folders reorder by dragging the folder row itself. */
+    /* The folder row takes three kinds of drop. A folder dropped on it goes
+       above or below it. A client dropped on its top edge (or bottom edge, when
+       the folder is closed) goes above or below the folder at the top level;
+       dropped on the middle, it goes into the folder. */
     row.draggable = true;
     row.addEventListener('dragstart', e => {
       seoDragFolderId = f.id;
@@ -22568,25 +22585,36 @@ function renderSeoTree(){
     });
     row.addEventListener('dragend', () => {
       seoDragFolderId = null;
-      row.classList.remove('dragging');
+      row.classList.remove('dragging', 'drop-on');
       seoClearDropLines();
     });
+    const zoneOf = e => {
+      const r = row.getBoundingClientRect(), y = (e.clientY - r.top) / (r.height || 1);
+      if (seoDragFolderId) return y < 0.5 ? 'before' : 'after';
+      if (y < 0.3) return 'before';
+      if (y > 0.7 && f.collapsed) return 'after';
+      return 'into';
+    };
+    const takes = () => (seoDragFolderId && seoDragFolderId !== f.id) || !!seoDragClientId;
     row.addEventListener('dragover', e => {
-      if (!seoDragFolderId || seoDragFolderId === f.id) return;
+      if (!takes()) return;
       e.preventDefault();
       try{ e.dataTransfer.dropEffect = 'move'; }catch(err){}
-      const after = seoDropAfter(row, e);
-      row.classList.toggle('drop-before', !after);
-      row.classList.toggle('drop-after', after);
+      const z = zoneOf(e);
+      row.classList.toggle('drop-before', z === 'before');
+      row.classList.toggle('drop-after', z === 'after');
+      row.classList.toggle('drop-on', z === 'into');
     });
-    row.addEventListener('dragleave', () => row.classList.remove('drop-before', 'drop-after'));
+    row.addEventListener('dragleave', () => row.classList.remove('drop-before', 'drop-after', 'drop-on'));
     row.addEventListener('drop', e => {
-      if (!seoDragFolderId || seoDragFolderId === f.id) return;
+      if (!takes()) return;
       e.preventDefault(); e.stopPropagation();
-      const after = seoDropAfter(row, e);
-      const id = seoDragFolderId;
+      const z = zoneOf(e);
+      row.classList.remove('drop-on');
       seoClearDropLines();
-      seoPlaceFolder(id, after ? null : f.id, after ? f.id : null);
+      if (seoDragFolderId){ seoPlaceFolder(seoDragFolderId, z === 'before' ? f.id : null, z === 'before' ? null : f.id); return; }
+      if (z === 'into') seoMoveClientToFolder(seoDragClientId, f.id);
+      else seoPlaceClient(seoDragClientId, null, z === 'before' ? f.id : null, z === 'after' ? f.id : null);
     });
     wrap.appendChild(row);
 
@@ -22604,7 +22632,7 @@ function renderSeoTree(){
     tree.appendChild(wrap);
   });
 
-  seoClientsInFolder(null).forEach(c => tree.appendChild(seoClientRowEl(c, '')));
+  /* (Top-level clients are drawn in the loop above, among the folders.) */
 
   /* Only visible while something is being dragged, so it never takes up
      room in the list the rest of the time. */
