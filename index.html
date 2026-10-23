@@ -11821,7 +11821,7 @@ $('signOutBtn').addEventListener('click', async () => {
   try{ await fbAuth.signOut(); }catch(e){}
 });
 
-/* ---------- sign out after 1 minute without activity ----------
+/* ---------- sign out after 5 minutes without activity ----------
    Clicking (or tapping), scrolling and typing count as activity; just moving
    the mouse does not. It counts in any tab of the
    tool (tabs share the last-activity time through localStorage). For the last
@@ -11829,10 +11829,10 @@ $('signOutBtn').addEventListener('click', async () => {
    Shared report links and embeds (public views) aren't signed in, so it never
    runs there. A computer that slept past the limit is signed out on waking.
    Closing the tab doesn't keep you in either: opening the tool again more than
-   1 minute after the last activity (in any tab) asks for the password again,
+   5 minutes after the last activity (in any tab) asks for the password again,
    unless you have just signed in with it. */
 (function idleSignOut(){
-  const LIMIT = 60 * 1000, WARN = 30 * 1000, KEY = 'edgeIdleLast';
+  const LIMIT = 5 * 60 * 1000, WARN = 30 * 1000, KEY = 'edgeIdleLast';
   let last = Date.now(), lastWrite = 0, warned = false, out = false, bar = null, checked = false;
   const signedIn = () => !!(fbAuth && fbAuth.currentUser) && !isPublicView();
   const shared = () => { try{ return Number(localStorage.getItem(KEY)) || 0; }catch(e){ return 0; } };
@@ -11867,11 +11867,11 @@ $('signOutBtn').addEventListener('click', async () => {
     try{ stopLiveSync(); }catch(e){}
     try{ presStop(); }catch(e){}
     try{ await fbAuth.signOut(); }catch(e){}
-    try{ setStatus('authStatus', 'You were signed out after 1 minute without activity. Sign in again to continue.', 'err'); }catch(e){}
+    try{ setStatus('authStatus', 'You were signed out after 5 minutes without activity. Sign in again to continue.', 'err'); }catch(e){}
   };
   setInterval(() => {
     if (!signedIn()){ hide(); out = false; checked = false; last = Date.now(); return; }
-    /* A session kept from before this page opened: only if there was activity in the last minute. */
+    /* A session kept from before this page opened: only if there was activity in the last 5 minutes. */
     if (!checked){
       checked = true;
       const u = fbAuth.currentUser, at = Date.parse((u && u.metadata && u.metadata.lastSignInTime) || '') || 0;
