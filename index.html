@@ -6139,6 +6139,7 @@ body.embed-clean .rank-dot.wide{box-shadow:0 0 0 2px #fff,0 0 0 3.5px rgba(212,6
                 <div class="seo-match-pages-h">
                   <div><b>Pages &amp; metadata</b><span class="hint" id="seoMatchPulled"></span></div>
                   <div class="seo-match-actions">
+                    <button class="btn btn-sm" id="seoMatchRefreshAll" type="button" title="Read the sitemap and page metadata of every client with a website, one after another. Uses DataForSEO, roughly half a cent per client.">Refresh all clients</button>
                     <button class="btn btn-sm" id="seoMatchAddPage" type="button">Add page</button>
                     <button class="btn btn-sm btn-go" id="seoMatchRefresh" type="button">Refresh from site</button>
                   </div>
@@ -23079,6 +23080,42 @@ $('seoMatchRefresh').addEventListener('click', async () => {
   }finally{
     btn.disabled = false;
   }
+});
+
+/* Every client at once: their sitemap and each page's meta title and
+   description, one client after another. Clients without a website are
+   skipped; pages edited by hand are kept, as with a single refresh. */
+$('seoMatchRefreshAll').addEventListener('click', async () => {
+  const all = state.seoClients || [];
+  const list = all.filter(c => cleanDomain(c.website));
+  const skipped = all.length - list.length;
+  const btn = $('seoMatchRefreshAll'), one = $('seoMatchRefresh');
+  if (!list.length){ setStatus('seoMatchStatus', 'No client has a website set yet.', 'err'); return; }
+  btn.disabled = true; one.disabled = true;
+  let ok = 0, pages = 0, cost = 0;
+  const failed = [];
+  for (let i = 0; i < list.length; i++){
+    const c = list[i];
+    const head = 'Client ' + (i + 1) + ' of ' + list.length + ': ' + (c.name || cleanDomain(c.website));
+    setStatus('seoMatchStatus', head + '…', 'busy');
+    try{
+      const r = await seoPullSiteMeta(c, (d, t) => setStatus('seoMatchStatus', head + ' · page ' + d + ' of ' + t + '…', 'busy'));
+      ok++; pages += r.ok; cost += r.cost || 0;
+      save();
+    }catch(e){
+      failed.push((c.name || cleanDomain(c.website)) + ' (' + ((e && e.message) || 'failed') + ')');
+    }
+  }
+  btn.disabled = false; one.disabled = false;
+  const cur = activeSeoClient();
+  if (cur) seoRenderMatchPages(cur);
+  const msg = 'Updated ' + ok + ' of ' + list.length + ' clients, ' + pages + ' pages' +
+    (cost ? ' · DataForSEO cost $' + cost.toFixed(4) : '') +
+    (skipped ? ' · ' + skipped + ' without a website skipped' : '') +
+    (failed.length ? ' · couldn’t read: ' + failed.join('; ') : '') + '.';
+  setStatus('seoMatchStatus', msg, failed.length ? 'err' : 'ok');
+  toast('Ranking match updated for ' + ok + ' client' + (ok === 1 ? '' : 's'));
+  window.__seoRefreshAllResult = msg;
 });
 
 /* Reading the client's site. A browser can't fetch another site's pages
