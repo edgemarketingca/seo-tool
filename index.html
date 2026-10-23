@@ -229,6 +229,12 @@ body{
   text-align:center;font-size:11.5px;color:#7d8b98;
 }
 body.seo-dragging .rail-root-drop{display:block;}
+/* Hand ordering: a line shows where a dragged client or folder will land. */
+.folder-row{position:relative;}
+.tree-row.drop-before::before,.tree-row.drop-after::after,.folder-row.drop-before::before,.folder-row.drop-after::after{content:'';position:absolute;left:6px;right:6px;height:2px;border-radius:2px;background:var(--brand);box-shadow:0 0 0 2px rgba(232,119,34,.25);pointer-events:none;z-index:2;}
+.tree-row.drop-before::before,.folder-row.drop-before::before{top:-2px;}
+.tree-row.drop-after::after,.folder-row.drop-after::after{bottom:-2px;}
+.folder-row.dragging{opacity:.45;}
 .tree-move{
   opacity:0;background:none;border:none;color:#7d8b98;cursor:pointer;padding:2px 4px;border-radius:5px;
   display:grid;place-items:center;transition:all .15s var(--ease);
@@ -11020,8 +11026,8 @@ function liveFingerprint(){
     fp.rail = JSON.stringify([state.activeClientId, state.activeGbpId, state.view,
       (state.clients || []).map(c => [c.id, c.name, (c.gbps || []).map(g => [g.id, g.name, g.bizName])])]);
     fp.seoRail = JSON.stringify([state.activeSeoClientId,
-      (state.seoFolders || []).map(f => f ? [f.id, f.name, f.collapsed] : null),
-      (state.seoClients || []).map(c => c ? [c.id, c.name, c.status, c.folderId, !!(c.autoScan && c.autoScan.enabled),
+      (state.seoFolders || []).map(f => f ? [f.id, f.name, f.collapsed, f.sortOrder] : null),
+      (state.seoClients || []).map(c => c ? [c.id, c.name, c.status, c.folderId, c.sortOrder, !!(c.autoScan && c.autoScan.enabled),
         (c.keywords || []).map(k => (k.locations || []).map(l => l ? [l.rank, l.prevRank, l.checkedAt] : null))] : null)]);
     fp.recents = JSON.stringify(state.serpRecents || []);
     if (fp.m === 'gbp'){
@@ -22222,10 +22228,76 @@ function seoFolderList(){
 }
 function seoFolderById(id){ return seoFolderList().find(f => f.id === id) || null; }
 function seoSortedFolders(){
-  return seoFolderList().slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  /* Folders you have arranged by hand keep that order; any never arranged
+     follow A-Z, which is how every folder starts. */
+  return seoFolderList().slice().sort((a, b) => {
+    const ka = seoHandOrder(a), kb = seoHandOrder(b);
+    if (ka != null && kb != null) return ka - kb;
+    if (ka != null) return -1;
+    if (kb != null) return 1;
+    return (a.name || '').localeCompare(b.name || '');
+  });
 }
 function seoClientsInFolder(folderId, list){
-  return (list || state.seoClients).filter(c => (c.folderId || null) === (folderId || null));
+  /* In the order you dragged them into. A client never arranged keeps its
+     place in the order it was added, below the arranged ones. */
+  const all = list || state.seoClients;
+  return all.map((c, i) => [c, i])
+    .filter(([c]) => (c.folderId || null) === (folderId || null))
+    .sort((a, b) => {
+      const ka = seoHandOrder(a[0]), kb = seoHandOrder(b[0]);
+      return (ka != null ? ka : 1e9 + a[1]) - (kb != null ? kb : 1e9 + b[1]);
+    })
+    .map(x => x[0]);
+}
+function seoHandOrder(x){
+  return x && typeof x.sortOrder === 'number' && isFinite(x.sortOrder) ? x.sortOrder : null;
+}
+/* HAND ORDERING. Dropping a client on another client puts it just above or
+   below that one (whichever half of the row it was dropped on), in that
+   row's folder; dropping it on a folder puts it at the bottom of the folder.
+   Folders reorder the same way among themselves. Positions are stored as a
+   sortOrder on each record, renumbered 10, 20, 30... within the group, so
+   they sync like any other field. */
+let seoDragFolderId = null;
+function seoRailFiltered(){
+  const el = $('seoClientSearch');
+  return !!(el && (el.value || '').trim());
+}
+function seoPlaceClient(clientId, folderId, beforeId, afterId){
+  const c = state.seoClients.find(x => x.id === clientId);
+  if (!c) return;
+  const was = c.folderId || null, to = folderId || null;
+  c.folderId = to;
+  const group = seoClientsInFolder(to).filter(x => x.id !== c.id);
+  let at = group.length;
+  if (beforeId){ const i = group.findIndex(x => x.id === beforeId); if (i >= 0) at = i; }
+  else if (afterId){ const i = group.findIndex(x => x.id === afterId); if (i >= 0) at = i + 1; }
+  group.splice(at, 0, c);
+  group.forEach((x, i) => { if (x.sortOrder !== (i + 1) * 10) x.sortOrder = (i + 1) * 10; });
+  const f = to ? seoFolderById(to) : null;
+  if (f) f.collapsed = false;
+  save(); renderSeoTree();
+  if (was !== to) toast(f ? 'Moved to ' + f.name : 'Moved out of the folder');
+}
+function seoPlaceFolder(folderId, beforeId, afterId){
+  const f = seoFolderById(folderId);
+  if (!f) return;
+  const list = seoSortedFolders().filter(x => x.id !== f.id);
+  let at = list.length;
+  if (beforeId){ const i = list.findIndex(x => x.id === beforeId); if (i >= 0) at = i; }
+  else if (afterId){ const i = list.findIndex(x => x.id === afterId); if (i >= 0) at = i + 1; }
+  list.splice(at, 0, f);
+  list.forEach((x, i) => { if (x.sortOrder !== (i + 1) * 10) x.sortOrder = (i + 1) * 10; });
+  save(); renderSeoTree();
+}
+function seoClearDropLines(){
+  Array.prototype.forEach.call(document.querySelectorAll('.drop-before, .drop-after'), el => el.classList.remove('drop-before', 'drop-after'));
+}
+/* Which half of the row the pointer is over. */
+function seoDropAfter(el, e){
+  const r = el.getBoundingClientRect();
+  return e.clientY > r.top + r.height / 2;
 }
 
 const SEO_ICON_MOVE = '<svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>';
@@ -22249,6 +22321,21 @@ function seoOpenMoveMenu(anchor, c){
   head.className = 'rail-menu-h';
   head.textContent = 'Move ' + (c.name || 'client') + ' to';
   menu.appendChild(head);
+  /* Up and down within its group - the touchscreen way to reorder. */
+  const sibs = seoClientsInFolder(c.folderId || null);
+  const pos = sibs.findIndex(x => x.id === c.id);
+  const addStep = (label, fn) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = label;
+    b.addEventListener('click', () => { seoCloseRailMenu(); fn(); });
+    menu.appendChild(b);
+  };
+  if (pos > 0) addStep('↑ Move up', () => seoPlaceClient(c.id, c.folderId || null, sibs[pos - 1].id, null));
+  if (pos >= 0 && pos < sibs.length - 1) addStep('↓ Move down', () => seoPlaceClient(c.id, c.folderId || null, null, sibs[pos + 1].id));
+  if (pos > 0 || (pos >= 0 && pos < sibs.length - 1)){
+    const sepUp = document.createElement('div'); sepUp.className = 'sep'; menu.appendChild(sepUp);
+  }
 
   const addOpt = (label, folderId, isNew) => {
     const b = document.createElement('button');
@@ -22296,11 +22383,8 @@ function seoMoveClientToFolder(clientId, folderId){
   const c = state.seoClients.find(x => x.id === clientId);
   if (!c) return;
   if ((c.folderId || null) === (folderId || null)) return;
-  c.folderId = folderId || null;
-  const f = folderId ? seoFolderById(folderId) : null;
-  if (f) f.collapsed = false;
-  save(); renderSeoTree();
-  toast(f ? 'Moved to ' + f.name : 'Moved out of the folder');
+  /* Into a folder: at the bottom of it. */
+  seoPlaceClient(clientId, folderId, null, null);
 }
 async function seoAddFolder(){
   const name = await ask('New folder', 'What should this folder be called?', 'Folder name');
@@ -22400,6 +22484,25 @@ function seoClientRowEl(c, folderHint){
     document.body.classList.remove('seo-dragging');
     Array.prototype.forEach.call(document.querySelectorAll('.drop-on'), el => el.classList.remove('drop-on'));
   });
+  /* Dropping another client on this row places it just above or below. */
+  row.addEventListener('dragover', e => {
+    if (!seoDragClientId || seoDragClientId === c.id || seoRailFiltered()) return;
+    e.preventDefault(); e.stopPropagation();
+    try{ e.dataTransfer.dropEffect = 'move'; }catch(err){}
+    const after = seoDropAfter(row, e);
+    row.classList.toggle('drop-before', !after);
+    row.classList.toggle('drop-after', after);
+  });
+  row.addEventListener('dragleave', () => row.classList.remove('drop-before', 'drop-after'));
+  row.addEventListener('drop', e => {
+    if (!seoDragClientId || seoDragClientId === c.id || seoRailFiltered()) return;
+    e.preventDefault(); e.stopPropagation();
+    const after = seoDropAfter(row, e);
+    const id = seoDragClientId;
+    seoClearDropLines();
+    seoPlaceClient(id, c.folderId || null, after ? null : c.id, after ? c.id : null);
+  });
+  row.addEventListener('dragend', seoClearDropLines);
   return row;
 }
 
@@ -22456,6 +22559,35 @@ function renderSeoTree(){
     row.querySelector('.rename').addEventListener('click', e => { e.stopPropagation(); seoRenameFolder(f); });
     row.querySelector('.kill').addEventListener('click', e => { e.stopPropagation(); seoDeleteFolder(f); });
     seoWireDropTarget(row, f.id);
+    /* Folders reorder by dragging the folder row itself. */
+    row.draggable = true;
+    row.addEventListener('dragstart', e => {
+      seoDragFolderId = f.id;
+      row.classList.add('dragging');
+      try{ e.dataTransfer.setData('text/plain', 'folder:' + f.id); e.dataTransfer.effectAllowed = 'move'; }catch(err){}
+    });
+    row.addEventListener('dragend', () => {
+      seoDragFolderId = null;
+      row.classList.remove('dragging');
+      seoClearDropLines();
+    });
+    row.addEventListener('dragover', e => {
+      if (!seoDragFolderId || seoDragFolderId === f.id) return;
+      e.preventDefault();
+      try{ e.dataTransfer.dropEffect = 'move'; }catch(err){}
+      const after = seoDropAfter(row, e);
+      row.classList.toggle('drop-before', !after);
+      row.classList.toggle('drop-after', after);
+    });
+    row.addEventListener('dragleave', () => row.classList.remove('drop-before', 'drop-after'));
+    row.addEventListener('drop', e => {
+      if (!seoDragFolderId || seoDragFolderId === f.id) return;
+      e.preventDefault(); e.stopPropagation();
+      const after = seoDropAfter(row, e);
+      const id = seoDragFolderId;
+      seoClearDropLines();
+      seoPlaceFolder(id, after ? null : f.id, after ? f.id : null);
+    });
     wrap.appendChild(row);
 
     const kidWrap = document.createElement('div');
