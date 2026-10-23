@@ -11913,6 +11913,9 @@ $('signOutBtn').addEventListener('click', async () => {
     if (warned) hide();
     if (last - lastWrite > 5000){ lastWrite = last; try{ localStorage.setItem(KEY, String(last)); }catch(e){} }
   };
+  /* A long job the user started (Refresh all clients) calls this so the session
+     isn’t ended underneath it. */
+  window.edgeIdleBusy = touch;
   /* Real clicks, taps, wheel or touch scrolling and typing only: the page scrolling itself doesn't count. */
   ['pointerdown', 'mousedown', 'touchstart', 'wheel', 'touchmove', 'keydown'].forEach(ev => window.addEventListener(ev, e => { if (e.isTrusted !== false) touch(); }, {passive: true, capture: true}));
   window.addEventListener('storage', e => { if (e.key === KEY){ const t = Number(e.newValue) || 0; if (t > last){ last = t; if (warned) hide(); } } });
@@ -23087,19 +23090,31 @@ $('seoMatchRefresh').addEventListener('click', async () => {
    skipped; pages edited by hand are kept, as with a single refresh. */
 $('seoMatchRefreshAll').addEventListener('click', async () => {
   const all = state.seoClients || [];
-  const list = all.filter(c => cleanDomain(c.website));
-  const skipped = all.length - list.length;
+  const withSite = all.filter(c => cleanDomain(c.website));
+  const skipped = all.length - withSite.length;
+  /* Pressing it again carries on where it stopped: clients read in the last
+     day are skipped. When every client is that fresh, all are read again. */
+  const recent = c => !!(c.matchProfile && c.matchProfile.pulledAt && Date.now() - c.matchProfile.pulledAt < 24 * 3600 * 1000);
+  let list = withSite.filter(c => !recent(c));
+  const upToDate = withSite.length - list.length;
+  if (!list.length) list = withSite;
   const btn = $('seoMatchRefreshAll'), one = $('seoMatchRefresh');
   if (!list.length){ setStatus('seoMatchStatus', 'No client has a website set yet.', 'err'); return; }
+  if (!seoDfsAuth()){ setStatus('seoMatchStatus', 'Add the DataForSEO login on step four first.', 'err'); return; }
+  /* The run keeps the session signed in while it works - it can take half
+     an hour, and signing out mid-run would take the DataForSEO login with it. */
+  const busy = () => { try{ if (window.edgeIdleBusy) window.edgeIdleBusy(); }catch(e){} };
   btn.disabled = true; one.disabled = true;
-  let ok = 0, pages = 0, cost = 0;
+  let ok = 0, pages = 0, cost = 0, stopped = false;
   const failed = [];
   for (let i = 0; i < list.length; i++){
     const c = list[i];
+    if (!seoDfsAuth()){ stopped = true; break; }
+    busy();
     const head = 'Client ' + (i + 1) + ' of ' + list.length + ': ' + (c.name || cleanDomain(c.website));
     setStatus('seoMatchStatus', head + '…', 'busy');
     try{
-      const r = await seoPullSiteMeta(c, (d, t) => setStatus('seoMatchStatus', head + ' · page ' + d + ' of ' + t + '…', 'busy'));
+      const r = await seoPullSiteMeta(c, (d, t) => { busy(); setStatus('seoMatchStatus', head + ' · page ' + d + ' of ' + t + '…', 'busy'); });
       ok++; pages += r.ok; cost += r.cost || 0;
       save();
     }catch(e){
@@ -23109,11 +23124,13 @@ $('seoMatchRefreshAll').addEventListener('click', async () => {
   btn.disabled = false; one.disabled = false;
   const cur = activeSeoClient();
   if (cur) seoRenderMatchPages(cur);
-  const msg = 'Updated ' + ok + ' of ' + list.length + ' clients, ' + pages + ' pages' +
+  const msg = (stopped ? 'Stopped - you were signed out. Sign in and press Refresh all clients to carry on. ' : '') +
+    'Updated ' + ok + ' of ' + list.length + ' clients, ' + pages + ' pages' +
     (cost ? ' · DataForSEO cost $' + cost.toFixed(4) : '') +
+    (upToDate && list !== withSite ? ' · ' + upToDate + ' already read today were skipped' : '') +
     (skipped ? ' · ' + skipped + ' without a website skipped' : '') +
     (failed.length ? ' · couldn’t read: ' + failed.join('; ') : '') + '.';
-  setStatus('seoMatchStatus', msg, failed.length ? 'err' : 'ok');
+  setStatus('seoMatchStatus', msg, failed.length || stopped ? 'err' : 'ok');
   toast('Ranking match updated for ' + ok + ' client' + (ok === 1 ? '' : 's'));
   window.__seoRefreshAllResult = msg;
 });
