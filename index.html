@@ -1527,6 +1527,29 @@ body.embed-mode .hub{display:none !important;}
 .seo-match-lo{background:var(--line-2); color:var(--ink-2);}
 .seo-loc-adv-target{display:flex; align-items:center; gap:9px; font-size:11.5px; color:var(--ink-2); border-top:1px dashed var(--line); padding-top:9px;}
 .seo-loc-adv-target input{flex:1; min-width:0; padding:6px 8px; border-radius:7px; border:1px solid var(--line); font-family:var(--mono); font-size:11px; background:var(--card);}
+/* "view the search" snapshot panel */
+.seo-snap-ov{position:fixed;inset:0;z-index:9000;background:rgba(15,20,26,.45);display:flex;align-items:center;justify-content:center;padding:16px;}
+.seo-snap{background:var(--card);border-radius:var(--r-lg);box-shadow:var(--sh-3);width:min(580px,100%);max-height:calc(100vh - 32px);overflow:auto;padding:18px 20px;}
+.seo-snap header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}
+.seo-snap-k{font-family:var(--display);font-size:16px;font-weight:600;color:var(--ink);}
+.seo-snap-sub{font-size:12px;color:var(--ink-3);margin-top:3px;}
+.seo-snap-x{border:none;background:none;font-size:22px;line-height:1;color:var(--ink-3);cursor:pointer;padding:0 4px;}
+.seo-snap-x:hover{color:var(--ink);}
+.seo-snap-h{font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);font-weight:700;margin:16px 0 6px;}
+.seo-snap-h span{text-transform:none;letter-spacing:0;font-weight:500;}
+.seo-snap-list{list-style:none;margin:0;padding:0;border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden;}
+.seo-snap-list li{display:flex;align-items:center;gap:12px;padding:9px 12px;border-bottom:1px solid var(--line-2);font-size:13px;color:var(--ink-2);}
+.seo-snap-list li:last-child{border-bottom:none;}
+.seo-snap-list .pos{font-family:var(--mono);font-size:11.5px;color:var(--ink-3);min-width:34px;flex:none;}
+.seo-snap-list .what{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.seo-snap-list .what small{display:block;font-family:var(--mono);font-size:11px;color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;}
+.seo-snap-list li.me{background:linear-gradient(90deg,rgba(232,119,34,.24),rgba(232,119,34,.08));box-shadow:inset 4px 0 0 var(--brand);color:var(--ink);}
+.seo-snap-list li.me .pos{color:var(--brand-deep);font-weight:700;}
+.seo-snap-list li.me b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;}
+.seo-snap-list .tag{flex:none;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#fff;background:var(--brand);border-radius:10px;padding:2px 8px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.seo-snap-list li.gap{justify-content:center;color:var(--ink-3);padding:3px;}
+.seo-snap-note{font-size:12px;color:var(--ink-3);line-height:1.6;margin:14px 0 0;}
+.seo-snap footer{display:flex;justify-content:flex-end;gap:8px;margin-top:14px;}
 
 .seo-loc-add-btn{border:1px dashed var(--line); background:none; border-radius:9px; color:var(--ink-2); font-size:12px; padding:9px 12px; cursor:pointer; margin-top:6px; width:100%; text-align:center; transition:all .12s var(--ease);}
 .seo-loc-add-btn:hover{border-color:var(--brand); color:var(--brand-deep); background:var(--brand-wash);}
@@ -21489,6 +21512,47 @@ function seoPackIsClient(it, client){
   if (dom && seoClientDomains(client).some(d => domainMatches(dom, d))) return true;
   return seoClientNames(client).some((n, i) => seoNameIn(it.title || '', n, i > 0));
 }
+/* The results one scan saw, shown in a panel: the map pack, then the
+   website results around the client, the client's own rows highlighted. */
+function seoOpenSnapshot(loc, k, c){
+  const s = loc && loc.snap;
+  if (!s) return;
+  const old = document.getElementById('seoSnap');
+  if (old) old.remove();
+  const live = seoRankPageUrl(loc) || loc.sourceUrl || '';
+  const who = esc(c && c.name ? c.name : 'Client');
+  const rows = Array.isArray(s.r) ? s.r : [];
+  const first = rows.length ? rows[0][0] : 1, last = rows.length ? rows[rows.length - 1][0] : 0;
+  const rowHtml = r => r[2]
+    ? '<li class="me"><span class="pos">#' + esc(String(r[0])) + '</span><span class="what"><b>' + esc(r[3] || '') + '</b><small>' + esc(r[1] || '') + '</small></span><span class="tag">' + who + '</span></li>'
+    : '<li><span class="pos">#' + esc(String(r[0])) + '</span><span class="what">' + esc(r[1] || '') + '</span></li>';
+  const packHtml = Array.isArray(s.m) && s.m.length
+    ? '<div class="seo-snap-h">Map pack</div><ol class="seo-snap-list">' + s.m.map(m =>
+        '<li' + (m[2] ? ' class="me"' : '') + '><span class="pos">' + esc(String(m[0])) + '</span><span class="what">' + esc(m[1] || '') + '</span>' + (m[2] ? '<span class="tag">' + who + '</span>' : '') + '</li>').join('') + '</ol>'
+    : '';
+  const ov = document.createElement('div');
+  ov.id = 'seoSnap';
+  ov.className = 'seo-snap-ov';
+  ov.innerHTML = '<div class="seo-snap" role="dialog" aria-label="What the scan saw">' +
+    '<header><div><div class="seo-snap-k">' + esc(k && k.text ? k.text : '') + '</div><div class="seo-snap-sub">' +
+      esc(loc.label || '') + (s.at ? ' · scanned ' + esc(fmtWhen(s.at)) : '') + (loc.rank > 0 ? ' · ranked #' + esc(String(loc.rank)) : ' · not found') +
+    '</div></div><button type="button" class="seo-snap-x" aria-label="Close">×</button></header>' +
+    packHtml +
+    '<div class="seo-snap-h">Website results' + (rows.length ? ' #' + first + '–' + last : '') + (s.n ? ' <span>(' + s.n + ' read)</span>' : '') + '</div>' +
+    '<ol class="seo-snap-list">' + (first > 1 ? '<li class="gap">…</li>' : '') + rows.map(rowHtml).join('') + (last && s.n && last < s.n ? '<li class="gap">…</li>' : '') + '</ol>' +
+    '<p class="seo-snap-note">This is exactly what Google returned to the scan. A live search moves results around from one search to the next and for people signed in to Google, so today’s live page can show them a few places higher or lower.</p>' +
+    '<footer>' + (live ? '<a class="btn btn-sm" target="_blank" rel="noopener" href="' + esc(live) + '">Open live Google</a>' : '') +
+    '<button type="button" class="btn btn-sm btn-go seo-snap-done">Done</button></footer></div>';
+  const onKey = e => { if (e.key === 'Escape') close(); };
+  const close = () => { ov.remove(); document.removeEventListener('keydown', onKey, true); };
+  ov.addEventListener('click', e => {
+    if (e.target === ov || e.target.closest('.seo-snap-x') || e.target.closest('.seo-snap-done')) close();
+  });
+  document.addEventListener('keydown', onKey, true);
+  document.body.appendChild(ov);
+  const me = ov.querySelector('.seo-snap-list li.me');
+  if (me && me.scrollIntoView) me.scrollIntoView({block: 'nearest'});
+}
 
 /* Posts one shaped task and hands back the raw response. Deliberately its
    own function rather than a change to dfsQuery(), which the whole GBP grid
@@ -22016,6 +22080,22 @@ async function seoScanOne(client, kw, loc, hooks){
     loc.possible = found ? null : possible;
     /* Best map-pack position the client had in any read of this search. */
     loc.mapPack = packBest;
+    /* What this search showed around the client, kept so "view the search" can
+       show the very results the rank came from (see seoOpenSnapshot). Kept
+       small: three results either side, domains only for everyone else. */
+    try{
+      const short = u => String(u || '').replace(/^[a-z]+:\/\//i, '').replace(/^www\./, '').replace(/[?#].*$/, '').replace(/\/$/, '');
+      const row = (r, j) => scored[j] && scored[j].counts
+        ? [r.position != null ? r.position : j + 1, short(r.url).slice(0, 90), 1, String(r.title || '').slice(0, 70)]
+        : [r.position != null ? r.position : j + 1, cleanDomain(r.domain || r.url).slice(0, 40)];
+      const lo = found ? Math.max(0, idx - 3) : 0, hi = found ? Math.min(organic.length, idx + 4) : Math.min(organic.length, 5);
+      const rows = [];
+      for (let j = lo; j < hi; j++) rows.push(row(organic[j], j));
+      const pack = Array.isArray(data.localPack) && data.localPack.length
+        ? data.localPack.slice(0, 3).map(it => [it.rank, String(it.title || '').slice(0, 45), seoPackIsClient(it, client) ? 1 : 0])
+        : null;
+      loc.snap = {at: Date.now(), n: organic.length, r: rows, m: pack};
+    }catch(e){ loc.snap = null; }
     /* Which shape of request actually answered. 'country' means the pin was
        refused and this is a nationwide reading, not a local one. */
     loc.precision = data.precision || 'coordinate';
@@ -23758,7 +23838,17 @@ function seoLocGroupRow(c, k, loc){
     statusEl.innerHTML = esc(fmtWhen(loc.checkedAt)) +
       (loc.precision === 'country' ? ' \u00b7 <b title="The pinned search was refused, so this position was read for the whole country instead of from this city.">country-wide reading</b>' : '') +
       via + score + miss + reads +
-      ' \u00b7 <a href="' + esc(seoRankPageUrl(loc) || loc.sourceUrl) + '" target="_blank" rel="noopener">view the search' + (seoRankPage(loc) > 1 ? ' (page ' + seoRankPage(loc) + ')' : '') + '</a>';
+      ' \u00b7 <a href="' + esc(seoRankPageUrl(loc) || loc.sourceUrl) + '" target="_blank" rel="noopener" data-view-search="1" title="Shows the results this rank came from. Ctrl-click opens live Google.">view the search' + (seoRankPage(loc) > 1 ? ' (page ' + seoRankPage(loc) + ')' : '') + '</a>';
+    /* "view the search" shows the results this rank came from. Live Google moves
+       results around between searches and for signed-in users, so a live page
+       can miss the client even when the rank is right. A modified click (Ctrl,
+       Cmd, Shift, middle button) still opens live Google. */
+    const viewA = statusEl.querySelector('a[data-view-search]');
+    if (viewA && loc.snap) viewA.addEventListener('click', e => {
+      if (e.ctrlKey || e.metaKey || e.shiftKey || e.button === 1) return;
+      e.preventDefault();
+      seoOpenSnapshot(loc, k, c);
+    });
     const copyLinkBtn = document.createElement('button');
     copyLinkBtn.type = 'button';
     copyLinkBtn.className = 'seo-copy-link-btn';
@@ -24068,7 +24158,7 @@ function seoMergeLocInto(keep, drop){
   if ((drop.checkedAt || 0) > (keep.checkedAt || 0)){
     ['rank','prevRank','matchedTitle','matchedDomain','sourceUrl','checkedAt','manual','error','precision',
      'matchedBy','readCount','topDomains','partial','depthRead','exhausted',
-     'reads','readsMax','failedReads','gsc','depthAsked','page','confirm','matchScore','matchFactors','matchUrl','titleRewritten','offTarget','possible','mapPack'].forEach(f => { keep[f] = drop[f]; });
+     'reads','readsMax','failedReads','gsc','depthAsked','page','confirm','matchScore','matchFactors','matchUrl','titleRewritten','offTarget','possible','mapPack','snap'].forEach(f => { keep[f] = drop[f]; });
   }
   if (keep.lat == null && drop.lat != null){ keep.lat = drop.lat; keep.lng = drop.lng; }
   keep.history = Array.from(hist.values()).sort((x, y) => (x.checkedAt || 0) - (y.checkedAt || 0)).slice(-60);
