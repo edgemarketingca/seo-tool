@@ -1491,6 +1491,36 @@ body.embed-mode .hub{display:none !important;}
 .seo-loc-adv-coords input[type=text]{padding:7px 9px; border-radius:7px; border:1px solid var(--line); font-family:var(--mono); font-size:11px; background:var(--card); width:100%;}
 .seo-loc-adv-manual{display:flex; align-items:center; gap:9px; font-size:11.5px; color:var(--ink-2); border-top:1px dashed var(--line); padding-top:9px;}
 .seo-loc-adv-manual input{width:64px; padding:6px 8px; border-radius:7px; border:1px solid var(--line); font-family:var(--mono); font-size:11px; background:var(--card);}
+/* Ranking match card + verified badge */
+.seo-match-card .g2 textarea{font-family:var(--mono); font-size:12px; line-height:1.55;}
+.seo-match-intro{margin:0 0 16px; font-size:12.5px; color:var(--ink-2); line-height:1.6;}
+.seo-match-pages-h{display:flex; align-items:center; justify-content:space-between; gap:12px; margin:4px 0 10px; flex-wrap:wrap;}
+.seo-match-pages-h b{font-size:13px; color:var(--ink);}
+.seo-match-pages-h .hint{display:block; margin:2px 0 0;}
+.seo-match-actions{display:flex; gap:8px;}
+.seo-match-pages{max-height:460px; overflow:auto; border:1px solid var(--line); border-radius:var(--r-md); margin-top:8px;}
+.seo-match-table{width:100%; border-collapse:collapse; font-size:12px;}
+.seo-match-table th{position:sticky; top:0; z-index:1; background:var(--card-2); text-align:left; font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-3); font-weight:700; padding:9px 10px; border-bottom:1px solid var(--line);}
+.seo-match-table td{padding:6px 8px; border-bottom:1px solid var(--line-2); vertical-align:top;}
+.seo-match-table tr:last-child td{border-bottom:none;}
+.seo-match-table td:first-child{width:21%; max-width:200px; word-break:break-all; font-family:var(--mono); font-size:11px; padding-top:11px;}
+.seo-match-table td:first-child a{color:var(--brand-deep);}
+.seo-match-table td:last-child{width:30px;}
+.seo-match-table textarea, .seo-match-table input{width:100%; box-sizing:border-box; border:1px solid transparent; background:transparent; border-radius:7px; padding:5px 7px; font:inherit; color:var(--ink); resize:vertical;}
+.seo-match-table input{font-family:var(--mono); font-size:11px;}
+.seo-match-table textarea:hover, .seo-match-table input:hover{border-color:var(--line);}
+.seo-match-table textarea:focus, .seo-match-table input:focus{border-color:var(--brand); background:var(--card); outline:none; box-shadow:var(--ring);}
+.seo-match-del{border:none; background:none; color:var(--ink-3); cursor:pointer; font-size:17px; line-height:1; padding:6px 4px;}
+.seo-match-del:hover{color:var(--alert);}
+.seo-match-tag{display:inline-block; font-family:var(--ui); font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--brand-deep); background:var(--brand-wash); border-radius:10px; padding:1px 6px; margin:4px 4px 0 0;}
+.seo-match-tag-warn{color:var(--alert); background:var(--line-2);}
+.seo-match-empty{padding:26px 20px; text-align:center; color:var(--ink-3); font-size:12.5px; line-height:1.6;}
+.seo-match-badge{display:inline-block; font-weight:700; font-size:10.5px; padding:1px 8px; border-radius:10px; cursor:help;}
+.seo-match-hi{background:var(--good-wash); color:var(--good);}
+.seo-match-ok{background:var(--brand-wash); color:var(--brand-deep);}
+.seo-match-lo{background:var(--line-2); color:var(--ink-2);}
+.seo-loc-adv-target{display:flex; align-items:center; gap:9px; font-size:11.5px; color:var(--ink-2); border-top:1px dashed var(--line); padding-top:9px;}
+.seo-loc-adv-target input{flex:1; min-width:0; padding:6px 8px; border-radius:7px; border:1px solid var(--line); font-family:var(--mono); font-size:11px; background:var(--card);}
 
 .seo-loc-add-btn{border:1px dashed var(--line); background:none; border-radius:9px; color:var(--ink-2); font-size:12px; padding:9px 12px; cursor:pointer; margin-top:6px; width:100%; text-align:center; transition:all .12s var(--ease);}
 .seo-loc-add-btn:hover{border-color:var(--brand); color:var(--brand-deep); background:var(--brand-wash);}
@@ -6079,6 +6109,38 @@ body.embed-clean .rank-dot.wide{box-shadow:0 0 0 2px #fff,0 0 0 3.5px rgba(212,6
                   <button class="btn" id="seoDeleteClientBtn" style="color:var(--alert)">Delete client</button>
                 </div>
               </div>
+            <!-- ============ RANKING MATCH — shown in both modes ============ -->
+            <section class="card seo-panel seo-match-card" id="seoMatchCard">
+              <header class="seo-panel-h">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6l8-3z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg>
+                <h3>Ranking match</h3>
+                <span class="seo-panel-state" id="seoMatchState">Not set up</span>
+              </header>
+              <div class="seo-panel-body">
+                <p class="seo-match-intro">How the scan recognises this client on Google. Every result is checked on five things: <b>domain</b>, <b>exact page</b>, <b>title</b>, <b>snippet</b> and <b>name</b>. Results on their own domains always count and show their score; anything else counts only when it is on a domain that reads as theirs and lines up on at least 3 of the 5.</p>
+                <div class="g2">
+                  <div class="f">
+                    <label for="seoMatchDomains">Domains &amp; listings that count as them <span class="opt">one per line</span></label>
+                    <textarea id="seoMatchDomains" rows="4" placeholder="oldbrand.ca&#10;psychologytoday.com/ca/therapists/their-profile/123456"></textarea>
+                    <div class="hint">The website on their profile is always included. A full URL counts only that page or profile, never the whole site it is on.</div>
+                  </div>
+                  <div class="f">
+                    <label for="seoMatchNames">Names <span class="opt">one per line</span></label>
+                    <textarea id="seoMatchNames" rows="4" placeholder="Short brand name&#10;Practitioner's full name"></textarea>
+                    <div class="hint">Business name variations and practitioner names, as they appear in titles and snippets.</div>
+                  </div>
+                </div>
+                <div class="seo-match-pages-h">
+                  <div><b>Pages &amp; metadata</b><span class="hint" id="seoMatchPulled"></span></div>
+                  <div class="seo-match-actions">
+                    <button class="btn btn-sm" id="seoMatchAddPage" type="button">Add page</button>
+                    <button class="btn btn-sm btn-go" id="seoMatchRefresh" type="button">Refresh from site</button>
+                  </div>
+                </div>
+                <div class="status" id="seoMatchStatus"></div>
+                <div class="seo-match-pages" id="seoMatchPages"></div>
+              </div>
+            </section>
 
             </div>
 
@@ -20764,7 +20826,7 @@ function blankSeoClient(name){
     id: uid(), name: name || 'New client', projectLead:'', cms:'', status:'Active',
     allocatedHours:'', monthlyProgress:'', lastMonthlyCall:'', website:'', basecampLink:'',
     reportLink:'', notes:'', logoUrl:'', activeKeywordId:null, locationCache:{}, keywords:[], autoScan: blankAutoScan(),
-    folderId: null, dashboards: [], activeDashboardId: null
+    folderId: null, dashboards: [], activeDashboardId: null, matchProfile: blankMatchProfile()
   };
 }
 function blankSeoLocation(label, regionIdx){
@@ -20826,6 +20888,11 @@ function migrateSeoClient(c){
     d.url = String(d.url || '').trim();
   });
   if (c.activeDashboardId && !c.dashboards.some(d => d.id === c.activeDashboardId)) c.activeDashboardId = null;
+  /* Ranking match fingerprint (see seoMatchResult). A client without one
+     still has its website counted; it just has no pages or names to score
+     against until the Ranking match card is filled in. */
+  if (!c.matchProfile || typeof c.matchProfile !== 'object') c.matchProfile = blankMatchProfile();
+  ['domains', 'names', 'pages', 'ignored'].forEach(k => { if (!Array.isArray(c.matchProfile[k])) c.matchProfile[k] = []; });
   if (!c.autoScan || typeof c.autoScan !== 'object') c.autoScan = blankAutoScan();
   else {
     const d = blankAutoScan();
@@ -21104,6 +21171,7 @@ function seoNormalizeDfsOrganic(data){
     title: it.title || '',
     domain: it.domain || (it.url ? cleanDomain(it.url) : null),
     url: it.url || null,
+    snippet: it.description || '',
     position: (typeof it.rank_group === 'number' ? it.rank_group : null),
     /* The Google results page this result was actually on. Page one rarely
        holds ten organic results (ads, the map pack and "People also ask"
@@ -21257,6 +21325,143 @@ function seoTitleMatchesResult(r, client){
   if (toks.length < 2) return false;
   const title = normName(r.title);
   return toks.every(t => title.indexOf(t) !== -1) && nameMatches(r.title, client.name);
+}
+/* ==========================================================================
+   RANKING MATCH - the five-factor check
+   Every organic result is held up against what is known about the client:
+     domain   - it is on one of their domains, or a listing they declared
+     page     - its URL is a page we know of on their site (or the keyword's
+                target page)
+     title    - its title lines up with that page's real meta title
+     snippet  - the text under it lines up with that page's meta description
+     name     - a business or practitioner name of theirs appears in it
+   A result on the client's own domain (or a listing they declared) always
+   counts - nobody else can own a page there - and carries its score so you
+   can see how well it lines up. Anything else counts only when it is on a
+   domain that reads as theirs AND lines up on at least three of the five.
+   Below that it is kept as a "possible match" and never becomes a rank.
+   -------------------------------------------------------------------------- */
+function blankMatchProfile(){
+  return {domains: [], names: [], pages: [], ignored: [], pulledAt: null, pullNote: ''};
+}
+function seoNormUrl(u){
+  return String(u || '').trim().toLowerCase()
+    .replace(/^[a-z][a-z0-9+.-]*:\/\//, '')
+    .replace(/^www\./, '')
+    .replace(/[?#].*$/, '')
+    .replace(/\/+$/, '');
+}
+function seoPathOf(u){
+  const n = seoNormUrl(u);
+  const i = n.indexOf('/');
+  return i === -1 ? '/' : n.slice(i);
+}
+const SEO_MATCH_STOP = new Set(['the','and','for','with','your','our','you','are','from','that','this','into','near','best','top','more','about','home','page','inc','ltd','llc','www','com','org','net']);
+function seoMatchTokens(s, min){
+  const m = min || 3;
+  return normName(s).split(' ').filter(t => t && t.length >= m && !SEO_MATCH_STOP.has(t));
+}
+/* Shared distinctive words, and that count as a share of the shorter side,
+   so a title Google cut short still lines up with the full meta title. */
+function seoOverlap(a, b, min){
+  const A = new Set(seoMatchTokens(a, min)), B = new Set(seoMatchTokens(b, min));
+  if (!A.size || !B.size) return {shared: 0, ratio: 0};
+  let s = 0;
+  A.forEach(t => { if (B.has(t)) s++; });
+  return {shared: s, ratio: s / Math.min(A.size, B.size)};
+}
+function seoMatchProfileOf(client){
+  const mp = client && client.matchProfile;
+  return (mp && typeof mp === 'object') ? mp : blankMatchProfile();
+}
+/* Whole domains: the website plus any bare domain on the list. */
+function seoClientDomains(client){
+  const out = [];
+  [client.website].concat(seoMatchProfileOf(client).domains || []).forEach(d => {
+    const n = seoNormUrl(d);
+    if (!n || n.indexOf('/') !== -1) return;
+    const cd = cleanDomain(n);
+    if (cd && out.indexOf(cd) === -1) out.push(cd);
+  });
+  return out;
+}
+/* Single pages or profiles elsewhere (a directory listing, say): an entry
+   with a path counts only that page and what sits under it, never the
+   whole host. */
+function seoClientListings(client){
+  return (seoMatchProfileOf(client).domains || []).map(seoNormUrl).filter(n => n && n.indexOf('/') !== -1);
+}
+function seoClientNames(client){
+  return [client.name].concat(seoMatchProfileOf(client).names || [])
+    .map(n => String(n || '').trim()).filter(Boolean);
+}
+/* Every word of the name present as a whole word. The client's own name
+   needs two distinctive words, as before; a name added by hand to the list
+   was declared on purpose, so one long word is allowed. */
+function seoNameIn(text, name, declared){
+  const toks = nameTokens(name);
+  if (!toks.length) return false;
+  if (toks.length < 2 && (!declared || toks[0].length < 4)) return false;
+  const t = ' ' + normName(text) + ' ';
+  return toks.every(x => t.indexOf(' ' + x + ' ') !== -1);
+}
+function seoTargetUrl(kw, client){
+  const t = String((kw && kw.targetPage) || '').trim();
+  if (!t) return '';
+  if (t.charAt(0) === '/') return seoNormUrl(cleanDomain(client.website) + t);
+  return seoNormUrl(t);
+}
+const SEO_MATCH_FACTORS = ['domain', 'page', 'title', 'snippet', 'name'];
+function seoMatchResult(r, client, kw){
+  const mp = seoMatchProfileOf(client);
+  const url = seoNormUrl(r.url);
+  const dom = cleanDomain(r.domain || r.url);
+  const ownDomain = !!dom && seoClientDomains(client).some(d => domainMatches(dom, d));
+  const listing = !ownDomain && !!url && seoClientListings(client).some(p => url === p || url.indexOf(p + '/') === 0);
+  const lookalike = !ownDomain && !listing && !!client.name && !!dom && seoBrandMatchesDomain(client.name, dom);
+  const own = ownDomain || listing;
+  const pages = Array.isArray(mp.pages) ? mp.pages.filter(p => p && p.url) : [];
+  const target = seoTargetUrl(kw, client);
+  const page = url ? pages.find(p => seoNormUrl(p.url) === url) || null : null;
+  const f = {domain: own || lookalike, page: !!page || listing || (!!target && url === target),
+             title: false, snippet: false, name: false};
+  /* Title and snippet are read against the page itself when we know it,
+     otherwise against whichever of their pages the title is closest to. */
+  let cmp = page;
+  if (!cmp && pages.length && r.title){
+    let best = 0;
+    pages.forEach(p => {
+      const o = seoOverlap(r.title, p.title);
+      if (o.shared >= 2 && o.ratio > best){ best = o.ratio; cmp = p; }
+    });
+  }
+  if (cmp){
+    const t = seoOverlap(r.title, cmp.title);
+    /* At least three shared words (or every word of a very short title):
+       two common words like "trauma" and the brand are not a title match. */
+    f.title = page
+      ? t.shared >= Math.min(3, seoMatchTokens(r.title).length) && t.shared >= 2 && t.ratio >= 0.6
+      /* Not one of their URLs: titles in one niche share most of their words
+         ("PTSD", "trauma", "Edmonton"), so only a near-copy counts. */
+      : t.shared >= 4 && t.ratio >= 0.8;
+    const s = seoOverlap(r.snippet, cmp.description, 4);
+    f.snippet = s.shared >= 3 && s.ratio >= 0.4;
+  }
+  const hay = [r.title, r.snippet].filter(Boolean).join(' ');
+  f.name = seoClientNames(client).some((n, i) => seoNameIn(hay, n, i > 0));
+  const score = SEO_MATCH_FACTORS.filter(k => f[k]).length;
+  return {
+    counts: own || (f.domain && score >= 3),
+    own, score, factors: f,
+    how: ownDomain ? 'site' : listing ? 'listing' : lookalike ? 'brand' : 'name',
+    /* Their own page, but Google is showing a title that isn't its meta title. */
+    titleRewritten: !!page && !!page.title && !f.title,
+    /* Ranking, but not with the page meant to rank for this keyword. */
+    offTarget: !!target && own && url !== target
+  };
+}
+function seoFactorList(f, want){
+  return SEO_MATCH_FACTORS.filter(k => !!(f && f[k]) === want);
 }
 
 /* Posts one shaped task and hands back the raw response. Deliberately its
@@ -21423,7 +21628,7 @@ async function seoSerperRead(keyword, p, region, o){
       if (link) seen.add(link);
       /* Counted across pages rather than trusting the per-page position,
          which restarts at 1 on every page. */
-      organic.push({title: x.title || '', domain: link ? cleanDomain(link) : null, url: link || null, position: organic.length + 1, page: page});
+      organic.push({title: x.title || '', domain: link ? cleanDomain(link) : null, url: link || null, snippet: x.snippet || '', position: organic.length + 1, page: page});
     });
     if (o.match && organic.some(o.match)) break;
   }
@@ -21662,7 +21867,7 @@ async function seoScanOne(client, kw, loc, hooks){
         maxReads: seoMaxReads(),
         target: seoStopTarget(client),
         countryCode: seoCountryLocationCode(region),
-        match: r => !!seoIdentifyResult(r, client) || seoTitleMatchesResult(r, client),
+        match: r => seoMatchResult(r, client, kw).counts,
         confirm: state.settings.seoConfirmFound !== false,
         onRead: h.onRead, shouldStop: h.shouldStop, meter: h.meter
       });
@@ -21690,17 +21895,28 @@ async function seoScanOne(client, kw, loc, hooks){
     if (!data) throw liveErr;
 
     const organic = data.organic || [];
-    let found = null, idx = -1, how = null;
-    /* Domain first, across the whole set - a real match further down beats a
-       name that happens to appear near the top. */
-    for (let i = 0; i < organic.length; i++){
-      const m = seoIdentifyResult(organic[i], client);
-      if (m){ found = organic[i]; idx = i; how = m; break; }
+    let found = null, idx = -1, how = null, fm = null, possible = null;
+    /* Their own domains first, across the whole set - a real match further
+       down beats a lookalike near the top - then anything else that clears
+       the five-factor bar (see seoMatchResult). */
+    const scored = organic.map(r => seoMatchResult(r, client, kw));
+    for (let pass = 0; pass < 2 && !found; pass++){
+      for (let i = 0; i < organic.length; i++){
+        const m = scored[i];
+        if (m.counts && (pass === 1 || m.own)){ found = organic[i]; idx = i; how = m.how; fm = m; break; }
+      }
     }
-    /* Only if nothing on this client's own domain was found anywhere. */
+    /* Nothing counted: the closest near-miss is kept for the row to show, but
+       it never becomes a rank. */
     if (!found){
       for (let i = 0; i < organic.length; i++){
-        if (seoTitleMatchesResult(organic[i], client)){ found = organic[i]; idx = i; how = 'name'; break; }
+        const m = scored[i];
+        if (m.score >= 2 && (m.factors.name || m.factors.title)){
+          const r = organic[i];
+          possible = {position: r.position != null ? r.position : i + 1, domain: r.domain || null, url: r.url || null,
+                      title: r.title || '', score: m.score, factors: seoFactorList(m.factors, true)};
+          break;
+        }
       }
     }
     /* A position that was there last time is not taken away by a check that
@@ -21722,6 +21938,13 @@ async function seoScanOne(client, kw, loc, hooks){
     /* 'site' needs no explanation. Anything else does, and the row gives it
        one rather than presenting a guess as a measurement. */
     loc.matchedBy = found ? how : null;
+    /* The five-factor score behind the match, and what it noticed. */
+    loc.matchScore = fm ? fm.score : null;
+    loc.matchFactors = fm ? seoFactorList(fm.factors, true) : null;
+    loc.matchUrl = found ? (found.url || null) : null;
+    loc.titleRewritten = !!(fm && fm.titleRewritten);
+    loc.offTarget = !!(fm && fm.offTarget);
+    loc.possible = found ? null : possible;
     /* Which shape of request actually answered. 'country' means the pin was
        refused and this is a nationwide reading, not a local one. */
     loc.precision = data.precision || 'coordinate';
@@ -22558,6 +22781,7 @@ function seoLoadDashboard(){
   $('seoReportLink').value = c.reportLink || '';
   $('seoNotes').value = c.notes || '';
   seoLoadAutoScan(c);
+  seoRenderMatchCard(c);
 }
 const SEO_FIELD_MAP = [
   ['seoName','name','input'], ['seoStatus','status','change'], ['seoLead','projectLead','input'],
@@ -22576,6 +22800,254 @@ SEO_FIELD_MAP.forEach(([id, key, evt]) => {
     save();
   });
 });
+/* ---------- Ranking match card (Dashboard) ----------
+   The client's fingerprint: the domains and names that count as them, and
+   every page on their site with its real meta title and description, read
+   from their sitemap. The scan scores each result against it. */
+function seoMatchLines(v){
+  const out = [];
+  String(v || '').split(/[\n,]+/).map(s => s.trim()).filter(Boolean).forEach(s => {
+    if (out.map(x => x.toLowerCase()).indexOf(s.toLowerCase()) === -1) out.push(s);
+  });
+  return out;
+}
+function seoRenderMatchCard(c){
+  if (!$('seoMatchCard')) return;
+  if (!c.matchProfile || typeof c.matchProfile !== 'object') c.matchProfile = blankMatchProfile();
+  const mp = c.matchProfile;
+  $('seoMatchDomains').value = (mp.domains || []).join('\n');
+  $('seoMatchNames').value = (mp.names || []).join('\n');
+  setStatus('seoMatchStatus', '', '');
+  seoRenderMatchPages(c);
+}
+function seoRenderMatchPages(c){
+  const mp = c.matchProfile || blankMatchProfile();
+  const pages = Array.isArray(mp.pages) ? mp.pages : [];
+  const n = pages.filter(p => p && p.url).length;
+  $('seoMatchState').textContent = n ? n + ' page' + (n === 1 ? '' : 's') : 'Not set up';
+  $('seoMatchPulled').textContent = mp.pulledAt
+    ? 'Pulled from the site ' + fmtWhen(mp.pulledAt) + (mp.pullNote ? ' · ' + mp.pullNote : '')
+    : '';
+  const box = $('seoMatchPages');
+  if (!pages.length){
+    box.innerHTML = '<div class="seo-match-empty">No pages yet. Press <b>Refresh from site</b> to read every page’s meta title and description from ' +
+      esc(cleanDomain(c.website) || 'their website') + '’s sitemap, or add pages by hand.</div>';
+    return;
+  }
+  box.innerHTML = '<table class="seo-match-table"><thead><tr><th>Page</th><th>Meta title</th><th>Meta description</th><th></th></tr></thead><tbody>' +
+    pages.map((p, i) => '<tr data-i="' + i + '"><td>' +
+      (p.manualUrl || !p.url
+        ? '<input data-f="url" placeholder="/page or https://…" value="' + esc(p.url || '') + '"/>'
+        : '<a href="' + esc(p.url) + '" target="_blank" rel="noopener" title="' + esc(p.url) + '">' + esc(seoPathOf(p.url)) + '</a>') +
+      (p.manual ? '<span class="seo-match-tag" title="Edited by hand — a refresh won’t overwrite it">edited</span>' : '') +
+      (p.noindex ? '<span class="seo-match-tag seo-match-tag-warn" title="This page tells search engines not to index it, so it shouldn’t rank">noindex</span>' : '') +
+      '</td><td><textarea data-f="title" rows="2" placeholder="No meta title">' + esc(p.title || '') + '</textarea></td>' +
+      '<td><textarea data-f="description" rows="2" placeholder="No meta description">' + esc(p.description || '') + '</textarea></td>' +
+      '<td><button type="button" class="seo-match-del" title="Remove this page">×</button></td></tr>').join('') +
+    '</tbody></table>';
+}
+['seoMatchDomains', 'seoMatchNames'].forEach(id => {
+  $(id).addEventListener('change', () => {
+    const c = activeSeoClient(); if (!c) return;
+    if (!c.matchProfile || typeof c.matchProfile !== 'object') c.matchProfile = blankMatchProfile();
+    const list = seoMatchLines($(id).value);
+    c.matchProfile[id === 'seoMatchDomains' ? 'domains' : 'names'] = list;
+    $(id).value = list.join('\n');
+    save();
+  });
+});
+$('seoMatchPages').addEventListener('change', e => {
+  const el = e.target, f = el && el.dataset ? el.dataset.f : null;
+  const tr = el && el.closest ? el.closest('tr[data-i]') : null;
+  const c = activeSeoClient();
+  if (!f || !tr || !c || !c.matchProfile) return;
+  const p = c.matchProfile.pages[+tr.dataset.i]; if (!p) return;
+  let v = el.value.trim();
+  if (f === 'url' && v){
+    if (v.charAt(0) === '/') v = 'https://' + cleanDomain(c.website) + v;
+    else if (!/^https?:\/\//i.test(v)) v = 'https://' + v;
+  }
+  p[f] = f === 'description' ? v.slice(0, 300) : v.slice(0, 200);
+  p.manual = true;
+  save();
+  if (f === 'url') seoRenderMatchPages(c);
+});
+$('seoMatchPages').addEventListener('click', e => {
+  const b = e.target && e.target.closest ? e.target.closest('.seo-match-del') : null;
+  if (!b) return;
+  const tr = b.closest('tr[data-i]');
+  const c = activeSeoClient();
+  if (!tr || !c || !c.matchProfile) return;
+  const mp = c.matchProfile;
+  const p = mp.pages[+tr.dataset.i];
+  /* A page removed by hand stays removed: the next refresh skips it. */
+  if (p && p.url){
+    if (!Array.isArray(mp.ignored)) mp.ignored = [];
+    const k = seoNormUrl(p.url);
+    if (mp.ignored.indexOf(k) === -1) mp.ignored.push(k);
+  }
+  mp.pages.splice(+tr.dataset.i, 1);
+  save(); seoRenderMatchPages(c);
+});
+$('seoMatchAddPage').addEventListener('click', () => {
+  const c = activeSeoClient(); if (!c) return;
+  if (!c.matchProfile || typeof c.matchProfile !== 'object') c.matchProfile = blankMatchProfile();
+  c.matchProfile.pages.unshift({url: '', title: '', description: '', manual: true, manualUrl: true});
+  save(); seoRenderMatchPages(c);
+  const first = $('seoMatchPages').querySelector('input[data-f="url"]');
+  if (first) first.focus();
+});
+$('seoMatchRefresh').addEventListener('click', async () => {
+  const c = activeSeoClient(); if (!c) return;
+  const btn = $('seoMatchRefresh');
+  btn.disabled = true;
+  setStatus('seoMatchStatus', 'Looking for the sitemap…', 'busy');
+  try{
+    const r = await seoPullSiteMeta(c, (done, total) => {
+      if (activeSeoClient() === c) setStatus('seoMatchStatus', 'Reading page ' + done + ' of ' + total + '…', 'busy');
+    });
+    save();
+    if (activeSeoClient() === c){
+      seoRenderMatchPages(c);
+      setStatus('seoMatchStatus', 'Read ' + r.ok + ' page' + (r.ok === 1 ? '' : 's') +
+        (r.failed ? ' · ' + r.failed + ' couldn’t be read and kept what they had' : '') +
+        '. Rescan keywords to score them against it.', r.ok ? 'ok' : 'err');
+    }
+  }catch(err){
+    if (activeSeoClient() === c) setStatus('seoMatchStatus', (err && err.message) || 'The site could not be read.', 'err');
+  }finally{
+    btn.disabled = false;
+  }
+});
+
+/* Reading the client's site. A browser can't fetch another site's pages
+   directly, so this goes through the CORS proxy from step four when one is
+   set, then the two public relays the tool already uses. */
+async function seoFetchText(url, ms){
+  const tries = [];
+  const pre = (state.settings.proxyPrefix || '').trim();
+  if (pre) tries.push(pre + url);
+  tries.push('https://api.allorigins.win/raw?url=' + encodeURIComponent(url));
+  tries.push('https://corsproxy.io/?url=' + encodeURIComponent(url));
+  let last = null;
+  for (const u of tries){
+    const ctl = typeof AbortController === 'function' ? new AbortController() : null;
+    const tm = ctl ? setTimeout(() => ctl.abort(), ms || 15000) : null;
+    try{
+      const res = await fetch(u, ctl ? {signal: ctl.signal} : {});
+      if (res.ok){
+        const t = await res.text();
+        if (t && t.length > 20) return t;
+        last = new Error('empty response');
+      } else last = new Error('HTTP ' + res.status);
+    }catch(e){ last = e; }
+    finally{ if (tm) clearTimeout(tm); }
+  }
+  throw last || new Error('could not be fetched');
+}
+function seoReadMeta(html){
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const meta = sel => { const el = doc.querySelector(sel); return el ? String(el.getAttribute('content') || '').replace(/\s+/g, ' ').trim() : ''; };
+  const t = doc.querySelector('title');
+  return {
+    title: ((t && t.textContent) || '').replace(/\s+/g, ' ').trim() || meta('meta[property="og:title"]'),
+    description: meta('meta[name="description"]') || meta('meta[property="og:description"]') || meta('meta[name="twitter:description"]'),
+    noindex: /noindex/i.test(meta('meta[name="robots"]')),
+    links: Array.from(doc.querySelectorAll('a[href]')).map(a => a.getAttribute('href') || '')
+  };
+}
+async function seoSitemapPages(site){
+  const base = 'https://' + site;
+  let maps = [];
+  try{
+    const robots = await seoFetchText(base + '/robots.txt', 10000);
+    maps = (robots.match(/^\s*sitemap:\s*\S+/gim) || []).map(l => l.replace(/^\s*sitemap:\s*/i, '').trim());
+  }catch(e){}
+  if (!maps.length) maps = [base + '/sitemap.xml', base + '/sitemap_index.xml', base + '/wp-sitemap.xml', base + '/page-sitemap.xml'];
+  const pages = new Set(), seen = new Set(), queue = maps.slice(0, 8);
+  while (queue.length && seen.size < 14 && pages.size < 500){
+    const m = queue.shift();
+    if (seen.has(m)) continue;
+    seen.add(m);
+    let xml;
+    try{ xml = await seoFetchText(m, 15000); }catch(e){ continue; }
+    if (!/<(urlset|sitemapindex)/i.test(xml)) continue;
+    const isIndex = /<sitemapindex/i.test(xml);
+    Array.from(xml.matchAll(/<loc>\s*(?:<!\[CDATA\[)?\s*([^<\]\s]+)/gi)).forEach(x => {
+      const u = x[1].replace(/&amp;/g, '&');
+      if (isIndex || /\.xml(\.gz)?$/i.test(u)){
+        /* Pages and posts are what rank; image, tag and author maps aren't. */
+        if (!/image|video|tag|author|category/i.test(u)) queue.push(u);
+      } else pages.add(u);
+    });
+  }
+  return Array.from(pages).filter(u =>
+    !/\.(jpe?g|png|gif|webp|svg|pdf|mp4|zip)$/i.test(u) && domainMatches(cleanDomain(u), site));
+}
+const SEO_META_MAX_PAGES = 60;
+async function seoPullSiteMeta(c, onProgress){
+  const site = cleanDomain(c.website);
+  if (!site) throw new Error('Add the client’s website (Edit → Tracking) first.');
+  if (!c.matchProfile || typeof c.matchProfile !== 'object') c.matchProfile = blankMatchProfile();
+  const mp = c.matchProfile;
+  const ignored = new Set(Array.isArray(mp.ignored) ? mp.ignored : []);
+  let urls = await seoSitemapPages(site);
+  let note = '';
+  const home = 'https://' + site + '/';
+  if (!urls.length){
+    /* No sitemap: the home page and the pages its menu links to. */
+    note = 'no sitemap found, so the home page and the pages it links to were read';
+    urls = [home];
+    try{
+      const m = seoReadMeta(await seoFetchText(home, 15000));
+      m.links.forEach(h => {
+        let u;
+        try{ u = new URL(h, home).href.split('#')[0]; }catch(e){ return; }
+        if (domainMatches(cleanDomain(u), site) && urls.indexOf(u) === -1) urls.push(u);
+      });
+    }catch(e){}
+  }
+  if (!urls.some(u => seoNormUrl(u) === site)) urls.unshift(home);
+  /* Shallow pages first - the home page and main service pages are the ones
+     that rank - and a cap so a 2,000-post blog doesn't take an hour. */
+  urls = urls.filter(u => !ignored.has(seoNormUrl(u)))
+    .sort((a, b) => seoPathOf(a).split('/').length - seoPathOf(b).split('/').length || a.length - b.length);
+  if (urls.length > SEO_META_MAX_PAGES){
+    note = (note ? note + '; ' : '') + 'first ' + SEO_META_MAX_PAGES + ' of ' + urls.length + ' pages, shallowest first';
+    urls = urls.slice(0, SEO_META_MAX_PAGES);
+  }
+  const old = new Map();
+  (mp.pages || []).forEach(p => { if (p && p.url) old.set(seoNormUrl(p.url), p); });
+  const fresh = new Map();
+  let done = 0, ok = 0, failed = 0, next = 0;
+  const worker = async () => {
+    while (next < urls.length){
+      const u = urls[next++];
+      const k = seoNormUrl(u);
+      try{
+        const m = seoReadMeta(await seoFetchText(u, 15000));
+        fresh.set(k, {url: u, title: m.title.slice(0, 200), description: m.description.slice(0, 300), noindex: m.noindex});
+        ok++;
+      }catch(e){
+        failed++;
+        if (old.has(k)) fresh.set(k, old.get(k));
+      }
+      done++;
+      if (onProgress){ try{ onProgress(done, urls.length); }catch(e){} }
+    }
+  };
+  await Promise.all([worker(), worker(), worker(), worker()]);
+  if (!ok) throw new Error('None of ' + site + '’s pages could be read through the relays. Set a CORS proxy prefix on step four and try again, or add pages by hand.');
+  /* Pages edited or added by hand win over what was read. */
+  const merged = [];
+  (mp.pages || []).forEach(p => { if (p && p.manual) merged.push(p); });
+  const manualKeys = new Set(merged.map(p => seoNormUrl(p.url)));
+  urls.forEach(u => { const k = seoNormUrl(u); if (fresh.has(k) && !manualKeys.has(k)) merged.push(fresh.get(k)); });
+  mp.pages = merged;
+  mp.pulledAt = Date.now();
+  mp.pullNote = note;
+  return {ok, failed, total: urls.length};
+}
 $('seoDeleteClientBtn').addEventListener('click', () => {
   const c = activeSeoClient(); if (!c) return;
   if (!confirm('Delete \u201c' + (c.name || 'this client') + '\u201d and all of its keywords? This can\u2019t be undone.')) return;
@@ -22870,6 +23342,25 @@ function seoLocGroupRow(c, k, loc){
       via = ' \u00b7 <b title="Nothing on this client\u2019s own domain was in the results, but this page carries their name. Check it is actually theirs before reporting this position.">matched by page title on ' +
         esc(loc.matchedDomain || 'another domain') + ' \u2014 worth confirming</b>';
     }
+    else if (loc.rank > 0 && loc.matchedBy === 'listing'){
+      via = ' · <b title="One of the listings on this client’s Ranking match list, not their own website.">their listing on ' + esc(loc.matchedDomain || 'another site') + '</b>';
+    }
+    /* The five-factor score, and what it noticed along the way. */
+    let score = '';
+    if (loc.rank > 0 && loc.matchScore != null){
+      const yes = loc.matchFactors || [];
+      const no = ['domain', 'page', 'title', 'snippet', 'name'].filter(f => yes.indexOf(f) === -1);
+      score = ' · <span class="seo-match-badge ' + (loc.matchScore >= 4 ? 'seo-match-hi' : loc.matchScore >= 3 ? 'seo-match-ok' : 'seo-match-lo') +
+        '" title="Lined up on: ' + esc(yes.join(', ') || 'nothing') + (no.length ? ' · didn’t line up on: ' + esc(no.join(', ')) : '') +
+        '. Results on the client’s own domains always count; anything else needs 3 of 5.">Verified ' + loc.matchScore + '/5</span>';
+      if (loc.titleRewritten) score += ' · <span title="Google is showing a different title from this page’s meta title.">Google rewrote the title</span>';
+      if (loc.offTarget && loc.matchUrl) score += ' · <b title="This keyword has a target page, and Google is ranking a different page for it.">ranking ' + esc(seoPathOf(loc.matchUrl)) + ', not the target page</b>';
+    }
+    if (loc.rank === 0 && loc.possible){
+      const pm = loc.possible;
+      miss += ' · <b title="This result mentions the client but didn’t line up on enough checks to count: it needs one of their domains or listings plus 3 of 5. If it is theirs, add it under Ranking match on the Dashboard.">possible match, not counted: #' +
+        esc(String(pm.position)) + ' ' + esc(pm.domain || '') + ' (' + esc(String(pm.score)) + '/5 — ' + esc((pm.factors || []).join(', ')) + ')</b>';
+    }
     /* How many reads it took, and what Search Console said. */
     let reads = '';
     if (loc.precision === 'gsc' && loc.gsc){
@@ -22904,7 +23395,7 @@ function seoLocGroupRow(c, k, loc){
     }
     statusEl.innerHTML = esc(fmtWhen(loc.checkedAt)) +
       (loc.precision === 'country' ? ' \u00b7 <b title="The pinned search was refused, so this position was read for the whole country instead of from this city.">country-wide reading</b>' : '') +
-      via + miss + reads +
+      via + score + miss + reads +
       ' \u00b7 <a href="' + esc(seoRankPageUrl(loc) || loc.sourceUrl) + '" target="_blank" rel="noopener">view the search' + (seoRankPage(loc) > 1 ? ' (page ' + seoRankPage(loc) + ')' : '') + '</a>';
     const copyLinkBtn = document.createElement('button');
     copyLinkBtn.type = 'button';
@@ -23062,10 +23553,22 @@ function seoLocGroupRow(c, k, loc){
     toast('Rank set manually');
   });
   manualRow.appendChild(manualLabel); manualRow.appendChild(rankInput);
+  /* The page meant to rank for this keyword, in every location. */
+  const targetRow = document.createElement('div');
+  targetRow.className = 'seo-loc-adv-target';
+  const targetLabel = document.createElement('span');
+  targetLabel.textContent = 'Target page:';
+  const targetInput = document.createElement('input');
+  targetInput.type = 'text'; targetInput.placeholder = '/emdr or a full URL — optional';
+  targetInput.value = k.targetPage || '';
+  targetInput.title = 'The page that should rank for this keyword (in every location). It counts toward the page check, and the row flags it when Google ranks a different page instead.';
+  targetInput.addEventListener('change', () => { k.targetPage = targetInput.value.trim(); save(); });
+  targetRow.appendChild(targetLabel); targetRow.appendChild(targetInput);
 
   advBody.appendChild(labelRow);
   advBody.appendChild(coordsRow);
   advBody.appendChild(manualRow);
+  advBody.appendChild(targetRow);
   details.appendChild(advBody);
 
   bottom.appendChild(statusEl);
@@ -23203,7 +23706,7 @@ function seoMergeLocInto(keep, drop){
   if ((drop.checkedAt || 0) > (keep.checkedAt || 0)){
     ['rank','prevRank','matchedTitle','matchedDomain','sourceUrl','checkedAt','manual','error','precision',
      'matchedBy','readCount','topDomains','partial','depthRead','exhausted',
-     'reads','readsMax','failedReads','gsc','depthAsked','page','confirm'].forEach(f => { keep[f] = drop[f]; });
+     'reads','readsMax','failedReads','gsc','depthAsked','page','confirm','matchScore','matchFactors','matchUrl','titleRewritten','offTarget','possible'].forEach(f => { keep[f] = drop[f]; });
   }
   if (keep.lat == null && drop.lat != null){ keep.lat = drop.lat; keep.lng = drop.lng; }
   keep.history = Array.from(hist.values()).sort((x, y) => (x.checkedAt || 0) - (y.checkedAt || 0)).slice(-60);
