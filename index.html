@@ -22265,10 +22265,11 @@ function seoRailFiltered(){
   return !!(el && (el.value || '').trim());
 }
 /* The top level is one list: folders and the clients that aren't in a
-   folder, interleaved however you arrange them. Folders never arranged sit
-   first (A-Z) and clients never arranged follow, as the rail always looked. */
+   folder, interleaved however you arrange them. Folders never moved stay at
+   the top (A-Z) and clients never moved sit at the bottom, so the rail looks
+   the way it always did until you drag something. */
 function seoTopItems(){
-  const folders = seoSortedFolders().map((f, i) => ({kind: 'folder', rec: f, k: seoHandOrder(f) != null ? seoHandOrder(f) : 1e9 + i}));
+  const folders = seoSortedFolders().map((f, i) => ({kind: 'folder', rec: f, k: seoHandOrder(f) != null ? seoHandOrder(f) : -1e9 + i}));
   const clients = seoClientsInFolder(null).map((c, i) => ({kind: 'client', rec: c, k: seoHandOrder(c) != null ? seoHandOrder(c) : 2e9 + i}));
   return folders.concat(clients).sort((a, b) => a.k - b.k);
 }
