@@ -22911,7 +22911,7 @@ $('seoMatchRefresh').addEventListener('click', async () => {
       seoRenderMatchPages(c);
       setStatus('seoMatchStatus', 'Read ' + r.ok + ' page' + (r.ok === 1 ? '' : 's') +
         (r.failed ? ' · ' + r.failed + ' couldn’t be read and kept what they had' : '') +
-        '. Rescan keywords to score them against it.', r.ok ? 'ok' : 'err');
+        (r.cost ? ' \u00b7 DataForSEO cost $' + r.cost.toFixed(4) : '') + '. Rescan keywords to score them against it.', r.ok ? 'ok' : 'err');
     }
   }catch(err){
     if (activeSeoClient() === c) setStatus('seoMatchStatus', (err && err.message) || 'The site could not be read.', 'err');
@@ -22921,9 +22921,60 @@ $('seoMatchRefresh').addEventListener('click', async () => {
 });
 
 /* Reading the client's site. A browser can't fetch another site's pages
-   directly, so this goes through the CORS proxy from step four when one is
-   set, then the two public relays the tool already uses. */
+   directly. The tool's DataForSEO account can - its On-Page reader fetches
+   any page, sitemap or robots.txt for a fraction of a cent - so that is
+   tried first. Without DataForSEO it falls back to the CORS proxy from step
+   four, then the public relays (which are often down or rate-limited). */
+let seoMetaSpent = 0;
+function seoDfsAuth(){
+  const l = (state.settings.dfsLogin || '').trim(), p = (state.settings.dfsPassword || '').trim();
+  return l && p ? 'Basic ' + btoa(l + ':' + p) : null;
+}
+async function seoDfsPost(ep, body){
+  const auth = seoDfsAuth();
+  if (!auth) throw new Error('No DataForSEO login is set on step four.');
+  const res = await fetch((state.settings.proxyPrefix || '').trim() + 'https://api.dataforseo.com/v3/' + ep, {
+    method: 'POST', headers: {'Authorization': auth, 'Content-Type': 'application/json'}, body: JSON.stringify(body)
+  });
+  if (res.status === 401 || res.status === 403) throw new Error('DataForSEO rejected those credentials');
+  if (!res.ok) throw new Error('DataForSEO answered HTTP ' + res.status);
+  const d = await res.json();
+  if (typeof d.cost === 'number' && isFinite(d.cost)) seoMetaSpent += d.cost;
+  if (d.status_code && d.status_code !== 20000) throw new Error(d.status_message || ('DataForSEO status ' + d.status_code));
+  return d;
+}
+/* Up to 20 pages per call. Answers url -> {id, status, type, url, title, description}. */
+async function seoDfsPages(urls, raw){
+  const out = new Map();
+  for (let i = 0; i < urls.length; i += 20){
+    const chunk = urls.slice(i, i + 20);
+    const d = await seoDfsPost('on_page/instant_pages', chunk.map(u => raw ? {url: u, store_raw_html: true} : {url: u}));
+    (d.tasks || []).forEach((t, j) => {
+      const u = chunk[j];
+      const it = ((((t.result || [])[0]) || {}).items || [])[0] || null;
+      if (!it){ out.set(u, null); return; }
+      const m = it.meta || {};
+      out.set(u, {id: t.id, status: it.status_code, type: it.resource_type, url: it.url || u,
+                  title: String(m.title || '').replace(/\s+/g, ' ').trim(),
+                  description: String(m.description || '').replace(/\s+/g, ' ').trim()});
+    });
+  }
+  return out;
+}
 async function seoFetchText(url, ms){
+  if (seoDfsAuth()){
+    let info = null;
+    try{
+      info = (await seoDfsPages([url], true)).get(url);
+      if (info && info.status === 200){
+        const d = await seoDfsPost('on_page/raw_html', [{id: info.id, url: info.url}]);
+        const it = (((((d.tasks || [])[0]) || {}).result || [])[0] || {}).items;
+        if (it && it.html && it.html.length > 20) return it.html;
+      }
+    }catch(e){}
+    /* DataForSEO reached the site and it said "not here": no relay will do better. */
+    if (info && info.status >= 400) throw new Error('HTTP ' + info.status);
+  }
   const tries = [];
   const pre = (state.settings.proxyPrefix || '').trim();
   if (pre) tries.push(pre + url);
@@ -22991,6 +23042,7 @@ async function seoPullSiteMeta(c, onProgress){
   if (!c.matchProfile || typeof c.matchProfile !== 'object') c.matchProfile = blankMatchProfile();
   const mp = c.matchProfile;
   const ignored = new Set(Array.isArray(mp.ignored) ? mp.ignored : []);
+  seoMetaSpent = 0;
   let urls = await seoSitemapPages(site);
   let note = '';
   const home = 'https://' + site + '/';
@@ -23020,24 +23072,46 @@ async function seoPullSiteMeta(c, onProgress){
   (mp.pages || []).forEach(p => { if (p && p.url) old.set(seoNormUrl(p.url), p); });
   const fresh = new Map();
   let done = 0, ok = 0, failed = 0, next = 0;
-  const worker = async () => {
-    while (next < urls.length){
-      const u = urls[next++];
-      const k = seoNormUrl(u);
-      try{
-        const m = seoReadMeta(await seoFetchText(u, 15000));
-        fresh.set(k, {url: u, title: m.title.slice(0, 200), description: m.description.slice(0, 300), noindex: m.noindex});
-        ok++;
-      }catch(e){
-        failed++;
-        if (old.has(k)) fresh.set(k, old.get(k));
-      }
-      done++;
+  if (seoDfsAuth()){
+    /* Twenty pages a call through DataForSEO's page reader. */
+    for (let i = 0; i < urls.length; i += 20){
+      const chunk = urls.slice(i, i + 20);
+      let got = null;
+      try{ got = await seoDfsPages(chunk, false); }
+      catch(e){ if (!ok && i === 0) throw e; }
+      chunk.forEach(u => {
+        const k = seoNormUrl(u), info = got ? got.get(u) : null;
+        if (info && info.status === 200 && info.type === 'html'){
+          fresh.set(k, {url: info.url || u, title: info.title.slice(0, 200), description: info.description.slice(0, 300), noindex: false});
+          ok++;
+        } else {
+          failed++;
+          if (old.has(k)) fresh.set(k, old.get(k));
+        }
+      });
+      done += chunk.length;
       if (onProgress){ try{ onProgress(done, urls.length); }catch(e){} }
     }
-  };
-  await Promise.all([worker(), worker(), worker(), worker()]);
-  if (!ok) throw new Error('None of ' + site + '’s pages could be read through the relays. Set a CORS proxy prefix on step four and try again, or add pages by hand.');
+  } else {
+    const worker = async () => {
+      while (next < urls.length){
+        const u = urls[next++];
+        const k = seoNormUrl(u);
+        try{
+          const m = seoReadMeta(await seoFetchText(u, 15000));
+          fresh.set(k, {url: u, title: m.title.slice(0, 200), description: m.description.slice(0, 300), noindex: m.noindex});
+          ok++;
+        }catch(e){
+          failed++;
+          if (old.has(k)) fresh.set(k, old.get(k));
+        }
+        done++;
+        if (onProgress){ try{ onProgress(done, urls.length); }catch(e){} }
+      }
+    };
+    await Promise.all([worker(), worker(), worker(), worker()]);
+  }
+  if (!ok) throw new Error('None of ' + site + '’s pages could be read' + (seoDfsAuth() ? '' : ' through the public relays. Add your DataForSEO login (or a CORS proxy prefix) on step four and try again') + ', or add pages by hand.');
   /* Pages edited or added by hand win over what was read. */
   const merged = [];
   (mp.pages || []).forEach(p => { if (p && p.manual) merged.push(p); });
@@ -23046,7 +23120,7 @@ async function seoPullSiteMeta(c, onProgress){
   mp.pages = merged;
   mp.pulledAt = Date.now();
   mp.pullNote = note;
-  return {ok, failed, total: urls.length};
+  return {ok, failed, total: urls.length, cost: seoMetaSpent};
 }
 $('seoDeleteClientBtn').addEventListener('click', () => {
   const c = activeSeoClient(); if (!c) return;
