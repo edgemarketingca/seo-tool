@@ -23337,6 +23337,11 @@ async function seoPullSiteMeta(c, onProgress){
   mp.pages = merged;
   mp.pulledAt = Date.now();
   mp.pullNote = note;
+  /* A long run can outlast the record it started with: a sync from another
+     computer may swap in a fresh copy of this client meanwhile. The result
+     goes onto whichever copy is current, so it is never written to a stale one. */
+  const live = (state.seoClients || []).find(x => x && x.id === c.id);
+  if (live && live !== c) live.matchProfile = mp;
   return {ok, failed, total: urls.length, cost: seoMetaSpent};
 }
 $('seoDeleteClientBtn').addEventListener('click', () => {
