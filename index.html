@@ -21198,7 +21198,16 @@ function seoNormalizeDfsOrganic(data){
   });
   const deduped = Array.from(seen.values())
     .sort((a, b) => (a.position == null ? 999 : a.position) - (b.position == null ? 999 : b.position));
-  return {organic: deduped};
+  /* Map-pack listings, kept apart from the organic list: they are never a
+     website rank, but whether the client is in the pack is worth knowing. */
+  const localPack = [];
+  items.filter(i => i.type === 'local_pack').forEach(it => localPack.push({
+    title: it.title || '',
+    domain: it.domain || (it.url ? cleanDomain(it.url) : null),
+    url: it.url || null,
+    rank: typeof it.rank_group === 'number' ? it.rank_group : localPack.length + 1
+  }));
+  return {organic: deduped, localPack};
 }
 function seoNormalizeSerperOrganic(data){
   const organic = (data.organic || []).map(x => ({
@@ -21473,6 +21482,13 @@ function seoMatchResult(r, client, kw){
 function seoFactorList(f, want){
   return SEO_MATCH_FACTORS.filter(k => !!(f && f[k]) === want);
 }
+/* Is this map-pack listing the client's? Their domain on its website link,
+   or one of their names as its title. */
+function seoPackIsClient(it, client){
+  const dom = cleanDomain(it.domain || it.url);
+  if (dom && seoClientDomains(client).some(d => domainMatches(dom, d))) return true;
+  return seoClientNames(client).some((n, i) => seoNameIn(it.title || '', n, i > 0));
+}
 
 /* Posts one shaped task and hands back the raw response. Deliberately its
    own function rather than a change to dfsQuery(), which the whole GBP grid
@@ -21665,41 +21681,64 @@ async function seoLiveCheck(keyword, p, region, opts){
   let best = null, lastErr = null, reads = 0, failed = 0, tries = 0;
 
   const readOnce = async (shape, d, where) => {
-    const out = prov === 'serper'
-      ? await seoSerperRead(keyword, p, region, {depth: Math.min(d, 100), match, meter: o.meter})
-      : await seoDfsRead(keyword, p, region, {endpoint: shape, depth: d, where, countryCode: o.countryCode, target: o.target, meter: o.meter});
-    /* A SERP with no organic results at all is a failed scrape, not an
-       answer. It is retried, never saved as a miss. */
-    if (!out.organic.length) throw new Error('Google returned no organic results on this read');
-    return out;
+    /* DataForSEO's "Internal SE Server Error" and similar hiccups on their side
+       are retried here, after a short pause, before the read counts as failed. */
+    for (let k = 0; ; k++){
+      try{
+        const out = prov === 'serper'
+          ? await seoSerperRead(keyword, p, region, {depth: Math.min(d, 100), match, meter: o.meter})
+          : await seoDfsRead(keyword, p, region, {endpoint: shape, depth: d, where, countryCode: o.countryCode, target: o.target, meter: o.meter});
+        /* A SERP with no organic results at all is a failed scrape, not an
+           answer. It is retried, never saved as a miss. */
+        if (!out.organic.length) throw new Error('Google returned no organic results on this read');
+        if (o.onPack && Array.isArray(out.localPack)){ try{ o.onPack(out.localPack); }catch(e){} }
+        return out;
+      }catch(err){
+        if ((err && err.fatal) || k >= 2 || !/internal|server error|timed? ?out|\b50\d\b/i.test(String(err && err.message))) throw err;
+        await seoDelay(2500 * (k + 1));
+      }
+    }
   };
   const keep = out => { if (!best || out.organic.length > best.organic.length) best = out; };
   const answer = (out, extra) => Object.assign(out, {reads, readsMax: maxReads, failedReads: failed}, extra);
 
-  /* SECOND-READ CONFIRMATION.
-     Live Google answers the same search slightly differently from one
-     request to the next (tested Oct 2026: the same keyword at the same pin
-     read #5, #5 and #33 in a row). Saving the first read that found the site
-     let one odd read stick, and that is the number a client then fails to
-     find when they open the link. So a found position is read again: if the
-     second read agrees within two places it stands; if not, a third read
-     decides and the middle position of the reads that found the site is
-     saved. The read that supplied the saved position is returned, so its
-     page (and the link built from it) matches the number shown. */
+  /* SECOND-READ CONFIRMATION, page by page.
+     Live Google answers the same search differently from one request to the
+     next, and not only by a place or two: a business's home page can drop in
+     and out of the organic list entirely (Google often hides it there while it
+     shows the business in the map pack), while a deeper page holds steady.
+     Comparing only "the best position this read found" mixed those pages -
+     reads of #11, #80 and #82 were the home page once and the services page
+     twice - and saved a number no single page had.
+     So each read records where every one of the client's pages sat, and the
+     page found in the most reads decides: its middle position is saved. Reads
+     continue (up to five) until one page has been seen at least twice. A page
+     seen in fewer reads is noted on the row instead of becoming the rank. */
+  const posAt = (r, it) => it.position != null ? it.position : r.organic.indexOf(it) + 1;
+  const pageKey = it => seoNormUrl(it.url) || ('#' + (it.domain || ''));
+  const pagesOf = r => {
+    const m = new Map();
+    r.organic.forEach(it => {
+      if (!match(it)) return;
+      const u = pageKey(it), pp = posAt(r, it);
+      if (!m.has(u) || pp < m.get(u)) m.set(u, pp);
+    });
+    return m;
+  };
   const posOf = r => {
     const it = r.organic.find(match);
-    return it ? (it.position != null ? it.position : r.organic.indexOf(it) + 1) : 0;
+    return it ? posAt(r, it) : 0;
   };
   const confirmFound = async first => {
     if (!o.confirm) return first;
-    const runs = [{out: first, pos: posOf(first)}];
+    const runs = [{out: first, pages: pagesOf(first)}];
     const another = async () => {
       for (let attempt = 0; attempt < 2; attempt++){
         if (stopped()) return false;
         if (o.onRead){ try{ o.onRead(reads + 1, maxReads, 'confirm'); }catch(e){} }
         try{
           const r = await readOnce(shapes[tries++ % 2], depth, 'coordinate');
-          runs.push({out: r, pos: hit(r) ? posOf(r) : 0});
+          runs.push({out: r, pages: hit(r) ? pagesOf(r) : new Map()});
           return true;
         }catch(err){
           if (err && err.fatal) throw err;
@@ -21708,31 +21747,40 @@ async function seoLiveCheck(keyword, p, region, opts){
       }
       return false;
     };
+    const tally = () => {
+      const by = new Map();
+      runs.forEach((r, i) => r.pages.forEach((pp, u) => { if (!by.has(u)) by.set(u, []); by.get(u).push({p: pp, i}); }));
+      return Array.from(by.entries()).map(([u, hits]) => {
+        const ps = hits.map(h => h.p).sort((a, b) => a - b);
+        return {u, hits, n: hits.length, med: ps[Math.floor((ps.length - 1) / 2)], spread: ps[ps.length - 1] - ps[0]};
+      }).sort((a, b) => b.n - a.n || a.med - b.med);
+    };
     await seoDelay(800 + Math.round(Math.random() * 800));
     await another();
-    const a = runs[0].pos, b = runs[1] ? runs[1].pos : 0;
-    if (!(b > 0 && Math.abs(b - a) <= 2)){
-      await seoDelay(800 + Math.round(Math.random() * 800));
-      await another();
+    let t = tally();
+    /* Two reads that saw the same page within two places agree. Otherwise read
+       on until one page has been seen at least twice, five reads at most. */
+    if (!(t[0] && t[0].n >= 2 && t[0].spread <= 2)){
+      while (runs.length < 5){
+        await seoDelay(800 + Math.round(Math.random() * 800));
+        if (!(await another())) break;
+        t = tally();
+        if (t[0] && t[0].n >= 2 && runs.length >= 3) break;
+      }
     }
-    const found = runs.filter(r => r.pos > 0).sort((x, y) => x.pos - y.pos);
-    const median = found[Math.floor((found.length - 1) / 2)];
-    /* Two reads within two places of each other agree. Of the closest such
-       pair, the one nearer the overall middle is saved; with no agreeing
-       pair, the middle position of the reads that found the site is. */
-    let pair = null;
-    for (let i = 0; i + 1 < found.length; i++){
-      const gap = found[i + 1].pos - found[i].pos;
-      if (gap <= 2 && (!pair || gap < pair.gap)) pair = {gap, a: found[i], b: found[i + 1]};
-    }
-    const pick = pair
-      ? (Math.abs(pair.a.pos - median.pos) <= Math.abs(pair.b.pos - median.pos) ? pair.a : pair.b)
-      : median;
+    const top = t[0];
+    if (!top) return first;
+    /* The read whose position for that page is nearest the middle supplies the
+       row, so its page number and link match the rank shown. */
+    const pickHit = top.hits.slice().sort((a, b) => Math.abs(a.p - top.med) - Math.abs(b.p - top.med))[0];
+    const pick = runs[pickHit.i];
     pick.out.confirm = {
-      positions: runs.map(r => r.pos),
-      foundIn: found.length,
+      positions: runs.map(r => r.pages.get(top.u) || 0),
+      foundIn: top.n,
       of: runs.length,
-      agreed: !!pair
+      agreed: top.n >= 2 && top.spread <= 2,
+      url: top.u,
+      alsoSeen: t.slice(1).slice(0, 3).map(x => ({url: x.u, pos: Math.min.apply(null, x.hits.map(h => h.p)), n: x.n}))
     };
     return pick.out;
   };
@@ -21870,7 +21918,7 @@ async function seoScanOne(client, kw, loc, hooks){
     }
 
     /* ---- Live Google, re-read until found or every read has missed. */
-    let data = null, liveErr = null;
+    let data = null, liveErr = null, packBest = null;
     try{
       data = await seoLiveCheck(kw.text, {lat:g.lat, lng:g.lng}, region, {
         depth,
@@ -21878,6 +21926,7 @@ async function seoScanOne(client, kw, loc, hooks){
         target: seoStopTarget(client),
         countryCode: seoCountryLocationCode(region),
         match: r => seoMatchResult(r, client, kw).counts,
+        onPack: pack => { const pk = pack.find(it => seoPackIsClient(it, client)); if (pk && (packBest == null || pk.rank < packBest)) packBest = pk.rank; },
         confirm: state.settings.seoConfirmFound !== false,
         onRead: h.onRead, shouldStop: h.shouldStop, meter: h.meter
       });
@@ -21910,6 +21959,16 @@ async function seoScanOne(client, kw, loc, hooks){
        down beats a lookalike near the top - then anything else that clears
        the five-factor bar (see seoMatchResult). */
     const scored = organic.map(r => seoMatchResult(r, client, kw));
+    /* When the confirming reads settled on one of the client's pages, that page
+       is the rank - not whichever of their pages happens to sit highest in the
+       one read that supplied the row. */
+    const settled = data.confirm && data.confirm.url;
+    if (settled){
+      for (let i = 0; i < organic.length; i++){
+        const key = seoNormUrl(organic[i].url) || ('#' + (organic[i].domain || ''));
+        if (scored[i].counts && key === settled){ found = organic[i]; idx = i; how = scored[i].how; fm = scored[i]; break; }
+      }
+    }
     for (let pass = 0; pass < 2 && !found; pass++){
       for (let i = 0; i < organic.length; i++){
         const m = scored[i];
@@ -21955,6 +22014,8 @@ async function seoScanOne(client, kw, loc, hooks){
     loc.titleRewritten = !!(fm && fm.titleRewritten);
     loc.offTarget = !!(fm && fm.offTarget);
     loc.possible = found ? null : possible;
+    /* Best map-pack position the client had in any read of this search. */
+    loc.mapPack = packBest;
     /* Which shape of request actually answered. 'country' means the pin was
        refused and this is a nationwide reading, not a local one. */
     loc.precision = data.precision || 'coordinate';
@@ -23652,6 +23713,7 @@ function seoLocGroupRow(c, k, loc){
       if (loc.titleRewritten) score += ' · <span title="Google is showing a different title from this page’s meta title.">Google rewrote the title</span>';
       if (loc.offTarget && loc.matchUrl) score += ' · <b title="This keyword has a target page, and Google is ranking a different page for it.">ranking ' + esc(seoPathOf(loc.matchUrl)) + ', not the target page</b>';
     }
+    if (loc.mapPack) score += ' \u00b7 <span class="seo-match-badge seo-match-hi" title="The business also showed in Google\u2019s map pack (the local listings above the website results) at this position. That is a separate placement from the website rank.">Map pack #' + loc.mapPack + '</span>';
     if (loc.rank === 0 && loc.possible){
       const pm = loc.possible;
       miss += ' · <b title="This result mentions the client but didn’t line up on enough checks to count: it needs one of their domains or listings plus 3 of 5. If it is theirs, add it under Ranking match on the Dashboard.">possible match, not counted: #' +
@@ -23681,10 +23743,14 @@ function seoLocGroupRow(c, k, loc){
       if (cf && cf.positions && cf.positions.length > 1){
         const list = cf.positions.map(x => x > 0 ? '#' + x : 'not found').join(', ');
         reads += cf.agreed && cf.of === 2
-          ? ' \u00b7 <span title="A second read agreed within two places before this position was saved.">confirmed by 2 reads (' + list + ')</span>'
+          ? ' · <span title="A second read saw the same page within two places before this position was saved.">confirmed by 2 reads (' + list + ')</span>'
           : cf.agreed
-            ? ' \u00b7 <span title="The first two reads were more than two places apart, so a third read was taken and the middle position saved.">confirmed on a 3rd read (' + list + ')</span>'
-            : ' \u00b7 <b title="The reads did not agree. The middle position of the reads that found the site was saved. Google is shuffling this keyword, so what a client sees may differ from one search to the next.">reads differed (' + list + '), saved the middle one</b>';
+            ? ' · <span title="The first reads didn’t agree, so more were taken. This page was seen in ' + cf.foundIn + ' of ' + cf.of + ' reads, and its middle position was saved.">confirmed in ' + (cf.foundIn || '?') + ' of ' + cf.of + ' reads (' + list + ')</span>'
+            : ' · <b title="The reads did not agree. The page seen in the most reads was used and its middle position saved. Google is shuffling this keyword, so what a client sees may differ from one search to the next.">reads differed (' + list + '), saved the middle one</b>';
+        if (cf.alsoSeen && cf.alsoSeen.length){
+          reads += ' · <span title="Other pages of theirs that Google showed in only some of the reads. Google moves these in and out, so they are noted here rather than used as the rank.">also seen: ' +
+            cf.alsoSeen.map(x => esc(seoPathOf(x.url)) + ' at #' + x.pos + ' in ' + x.n + ' of ' + cf.of).join(', ') + '</span>';
+        }
       }
       if (loc.rank === 0 && loc.gsc && loc.gsc.none) reads += ' \u00b7 Search Console shows no impressions either';
       else if (loc.rank === 0 && loc.gsc && loc.gsc.error) reads += ' \u00b7 Search Console couldn\u2019t double-check: ' + esc(loc.gsc.error);
@@ -24002,7 +24068,7 @@ function seoMergeLocInto(keep, drop){
   if ((drop.checkedAt || 0) > (keep.checkedAt || 0)){
     ['rank','prevRank','matchedTitle','matchedDomain','sourceUrl','checkedAt','manual','error','precision',
      'matchedBy','readCount','topDomains','partial','depthRead','exhausted',
-     'reads','readsMax','failedReads','gsc','depthAsked','page','confirm','matchScore','matchFactors','matchUrl','titleRewritten','offTarget','possible'].forEach(f => { keep[f] = drop[f]; });
+     'reads','readsMax','failedReads','gsc','depthAsked','page','confirm','matchScore','matchFactors','matchUrl','titleRewritten','offTarget','possible','mapPack'].forEach(f => { keep[f] = drop[f]; });
   }
   if (keep.lat == null && drop.lat != null){ keep.lat = drop.lat; keep.lng = drop.lng; }
   keep.history = Array.from(hist.values()).sort((x, y) => (x.checkedAt || 0) - (y.checkedAt || 0)).slice(-60);
