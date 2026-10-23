@@ -22943,11 +22943,13 @@ async function seoDfsPost(ep, body){
   if (d.status_code && d.status_code !== 20000) throw new Error(d.status_message || ('DataForSEO status ' + d.status_code));
   return d;
 }
-/* Up to 20 pages per call. Answers url -> {id, status, type, url, title, description}. */
+/* Five pages per call: DataForSEO refuses more than five URLs from one host in a
+   single request ("duplicate crawl host"). Answers url -> {id, status, type, url,
+   title, description}. */
 async function seoDfsPages(urls, raw){
   const out = new Map();
-  for (let i = 0; i < urls.length; i += 20){
-    const chunk = urls.slice(i, i + 20);
+  for (let i = 0; i < urls.length; i += 5){
+    const chunk = urls.slice(i, i + 5);
     const d = await seoDfsPost('on_page/instant_pages', chunk.map(u => raw ? {url: u, store_raw_html: true} : {url: u}));
     (d.tasks || []).forEach((t, j) => {
       const u = chunk[j];
@@ -23073,7 +23075,7 @@ async function seoPullSiteMeta(c, onProgress){
   const fresh = new Map();
   let done = 0, ok = 0, failed = 0, next = 0;
   if (seoDfsAuth()){
-    /* Twenty pages a call through DataForSEO's page reader. */
+    /* Through DataForSEO's page reader, twenty at a time (five per call). */
     for (let i = 0; i < urls.length; i += 20){
       const chunk = urls.slice(i, i + 20);
       let got = null;
