@@ -5,7 +5,8 @@
      GA4               pick the property (likely match suggested), saved to the tracker
      Search Console    status, and who to share the property with if it's missing
      Website forms     copy the snippet for this domain, check it's on the live site,
-                       live / imported counts
+                       live / imported counts, and imports past
+                  submissions from the WordPress / Concrete admin
      Easyleads         connect a GoHighLevel sub-account (old + new submissions)
 
    Talks to the AI Visibility Tracker with the team key saved on the AI
@@ -111,6 +112,11 @@ function injectStyles(){
 #seoConnCard .conn-spin{display:inline-block;width:11px;height:11px;border:2px solid var(--line);border-top-color:var(--brand);border-radius:50%;animation:connspin .8s linear infinite;vertical-align:-1px;margin-right:6px;}
 @keyframes connspin{to{transform:rotate(360deg)}}
 #seoConnCard .seo-panel-h .btn{flex:none;}
+#seoConnCard .conn-imp{margin-top:12px;padding-top:10px;border-top:1px dashed var(--line);}
+#seoConnCard .conn-steps{margin:8px 0 0;padding-left:18px;font-size:12.5px;color:var(--ink-2);line-height:1.6;}
+#seoConnCard .conn-steps li{margin:0 0 6px;}
+#seoConnCard .conn-bm{display:inline-block;font-weight:600;font-size:12px;color:#fff;background:var(--brand);border-radius:8px;padding:3px 10px;text-decoration:none;cursor:grab;vertical-align:1px;}
+#seoConnCard .conn-file{cursor:pointer;}
 `;
   document.head.appendChild(st);
 }
@@ -279,7 +285,7 @@ function draw(c, domain, data){
     '<div class="conn-help">Paste it once — ' + where + '</div>' +
     (sn && sn.cms && cmsKind(c.cms) && cmsKind(c.cms) !== cmsKind(sn.cms)
       ? '<div class="conn-help">The site looks like <b>' + esc(sn.cms) + '</b>, but this client’s CMS field says “' + esc(c.cms) + '”.</div>' : '') +
-    '<div class="conn-help">Older submissions: Team report → <b>Form submissions</b> widget → Import past submissions.</div>' +
+    importHtml(domain, cms) +
     msgHtml(domain, 'forms');
 
   /* Easyleads */
@@ -287,7 +293,7 @@ function draw(c, domain, data){
   let elInner;
   if (el2.connected){
     elInner = '<div class="conn-line">Connected · <b>' + fmt(el2.count) + '</b> submissions' + (el2.lastSync ? ' · synced ' + esc(ago(el2.lastSync)) : '') + '</div>' +
-      '<div class="conn-help">New submissions are pulled every hour.</div>';
+      '<div class="conn-help">Every past submission was pulled in when it was connected; new ones are pulled every hour.</div>';
   } else if (u.elOpen){
     elInner = '<div class="conn-el">' +
       '<label>Location ID</label><input type="text" data-conn-elloc autocomplete="off" placeholder="GoHighLevel → Settings → Business Profile"/>' +
@@ -378,6 +384,8 @@ function wire(c, domain, data){
     u.busy.check = false; redraw(c, domain);
   });
 
+  wireImport(c, domain, root);
+
   on('[data-conn-elopen]', () => { u.elOpen = true; u.msg.el = null; redraw(c, domain); });
   on('[data-conn-elcancel]', () => { u.elOpen = false; u.msg.el = null; redraw(c, domain); });
   on('[data-conn-elsave]', async () => {
@@ -437,6 +445,113 @@ async function addToTracker(c, domain){
   u.busy.add = false;
   const h = cache[domain]; if (h) draw(c, domain, h.data);
 }
+
+/* ---------- past submissions (WordPress / Concrete admin) ----------
+   The "EDGE import" bookmark loads form-export.js inside the client's admin, in a
+   window opened from this card. It reads every stored submission the signed-in
+   admin can see and posts them back here (postMessage, checked against the
+   client's domain). They go to the tracker with the team key, 500 at a time;
+   submissions already on file are skipped. Easyleads needs none of this:
+   connecting it pulls every past submission. */
+const TOOL_ORIGIN = 'https://seo.edgemarketing.ca';
+const BOOKMARK = "javascript:(function(){var s=document.createElement('script');s.src='" + TOOL_ORIGIN + "/form-export.js?v='+Date.now();document.body.appendChild(s);})();";
+function adminLinks(domain, cms){
+  const wp = {label: 'Open WordPress admin', url: 'https://' + domain + '/wp-admin/'};
+  const cc = {label: 'Open Concrete dashboard', url: 'https://' + domain + '/index.php/dashboard'};
+  return cms === 'wp' ? [wp] : cms === 'concrete' ? [cc] : [cc, wp];
+}
+function importHtml(domain, cms){
+  const u = U(domain);
+  let h = '<div class="conn-imp"><div class="conn-line"><b>Past submissions</b> · stored in the site’s ' +
+    (cms === 'wp' ? 'WordPress admin' : cms === 'concrete' ? 'Concrete dashboard' : 'admin') + '</div>';
+  if (u.busy.imp){
+    h += '<div class="conn-line" style="margin-top:6px"><span class="conn-spin"></span>' + esc(u.impText || 'Importing…') + '</div>';
+  } else if (!u.impOpen){
+    h += '<div class="conn-act"><button class="btn btn-sm" type="button" data-conn-impopen>Import past submissions</button></div>';
+  } else {
+    h += '<ol class="conn-steps">' +
+      '<li>Once per browser, drag this to your bookmarks bar: <a class="conn-bm" href="' + esc(BOOKMARK) + '" data-conn-bm title="Drag me to the bookmarks bar">EDGE import</a></li>' +
+      '<li>' + adminLinks(domain, cms).map(a => '<button class="btn btn-sm btn-go" type="button" data-conn-impgo="' + esc(a.url) + '">' + esc(a.label) + '</button>').join(' ') +
+      ' and sign in if it asks.</li>' +
+      '<li>In that window, click the <b>EDGE import</b> bookmark, then <b>Send to EDGE SEO tool</b>. Keep this page open; the result shows here.</li>' +
+      '</ol>' +
+      '<div class="conn-help">Concrete: Express forms, the older Form block and Formidable. WordPress: Ninja Forms, Gravity Forms and Elementor Pro. Importing again is safe: submissions already on file are skipped.</div>' +
+      '<div class="conn-act"><label class="btn btn-sm conn-file">Import a downloaded file<input type="file" accept=".json,application/json" data-conn-impfile hidden/></label>' +
+      '<button class="btn btn-sm" type="button" data-conn-impcancel>Close</button></div>';
+  }
+  return h + msgHtml(domain, 'imp') + '</div>';
+}
+
+function wireImport(c, domain, root){
+  const u = U(domain);
+  const each = (sel, fn) => root.querySelectorAll(sel).forEach(b => b.addEventListener('click', e => fn(e, b)));
+  each('[data-conn-impopen]', () => { u.impOpen = true; u.msg.imp = null; redraw(c, domain); });
+  each('[data-conn-impcancel]', () => { u.impOpen = false; u.msg.imp = null; redraw(c, domain); });
+  each('[data-conn-bm]', e => {
+    e.preventDefault();
+    u.msg.imp = {text: 'Drag the EDGE import button to your bookmarks bar rather than clicking it here. (No bookmarks bar? Ctrl+Shift+B on Windows, ⌘+Shift+B on Mac.)', cls: 'err'};
+    redraw(c, domain);
+  });
+  each('[data-conn-impgo]', (e, b) => {
+    u.msg.imp = null;
+    /* Not noopener: the export in that window sends the submissions back through window.opener. */
+    const w = window.open(b.getAttribute('data-conn-impgo'), 'edgeImport_' + domain.replace(/[^a-z0-9]/g, '_'));
+    if (!w){ u.msg.imp = {text: 'Your browser blocked the new window. Allow pop-ups for this site and try again.', cls: 'err'}; redraw(c, domain); return; }
+    try{ w.focus(); }catch(err){}
+  });
+  const file = root.querySelector('[data-conn-impfile]');
+  if (file) file.addEventListener('change', async () => {
+    const f = file.files && file.files[0];
+    if (!f) return;
+    let p = null;
+    try{ p = JSON.parse(await f.text()); }catch(err){}
+    if (!p || p.type !== 'edge-forms-import' || !Array.isArray(p.rows)){ u.msg.imp = {text: 'That file isn’t an EDGE form export.', cls: 'err'}; redraw(c, domain); return; }
+    if (normDomain(p.domain) !== domain){ u.msg.imp = {text: 'That file is from ' + p.domain + ', not ' + domain + '.', cls: 'err'}; redraw(c, domain); return; }
+    try{ await importRows(c, domain, p.rows); }catch(err){ /* shown on the card */ }
+  });
+}
+
+async function importRows(c, domain, rows){
+  const u = U(domain);
+  if (u.busy.imp) throw new Error('An import for ' + domain + ' is already running.');
+  u.busy.imp = true; u.msg.imp = null;
+  let added = 0, skipped = 0;
+  try{
+    for (let i = 0; i < rows.length; i += 500){
+      u.impText = 'Importing ' + fmt(Math.min(i + 500, rows.length)) + ' of ' + fmt(rows.length) + ' submissions…';
+      redraw(c, domain);
+      const r = await post({action: 'formsImport', domain, rows: rows.slice(i, i + 500)});
+      added += Number(r.added || 0); skipped += Number(r.skipped || 0);
+    }
+    u.msg.imp = {text: 'Imported ' + fmt(added) + ' past submission' + (added === 1 ? '' : 's') +
+      (skipped ? ' (' + fmt(skipped) + ' already on file or empty)' : '') + '.', cls: 'ok'};
+    u.impOpen = false;
+    return {added, skipped};
+  }catch(err){
+    u.msg.imp = {text: 'Import stopped' + (added ? ' after ' + fmt(added) + ' new' : '') + ': ' + err.message, cls: 'err'};
+    throw err;
+  }finally{
+    u.busy.imp = false; u.impText = '';
+    /* Refresh the counts without switching the card to this client if another one is open now. */
+    try{ cache[domain] = {data: await get({action: 'connections', domain}), at: Date.now()}; }catch(err){}
+    redraw(c, domain);
+  }
+}
+
+/* The export window answers here. Only accepted from the client's own site, for that client. */
+window.addEventListener('message', async e => {
+  const d = e.data;
+  if (!d || d.type !== 'edge-forms-import' || !Array.isArray(d.rows)) return;
+  const reply = m => { try{ if (e.source) e.source.postMessage(Object.assign({type: 'edge-forms-import-result', domain: d.domain}, m), e.origin); }catch(err){} };
+  const domain = normDomain(d.domain);
+  if (!domain || normDomain(e.origin) !== domain) return reply({error: 'This window’s address doesn’t match ' + d.domain + '.'});
+  const c = (state.seoClients || []).find(x => normDomain(x.website) === domain);
+  if (!c) return reply({error: domain + ' isn’t one of the SEO tool’s clients. Check the client’s website address in the SEO tool.'});
+  const t = tracker();
+  if (!t.url || !t.key) return reply({error: 'The SEO tool isn’t connected to the tracker yet (AI Visibility tab → ⚙).'});
+  try{ reply(await importRows(c, domain, d.rows)); }
+  catch(err){ reply({error: err.message}); }
+});
 
 /* ---------- follow the selected client ---------- */
 function tick(){
