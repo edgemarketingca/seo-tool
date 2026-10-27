@@ -1216,6 +1216,48 @@ body.embed-mode .hub{display:none !important;}
 .tn-bell-pop span{font-size:12px; color:#c9d3dc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
 .tn-bell-pop-x{position:absolute; top:6px; right:8px; border:none; background:none; color:#8b98a3; font-size:17px; line-height:1; cursor:pointer; padding:2px 4px;}
 .tn-bell-pop-x:hover{color:#fff;}
+/* Bell rows: client logo, what came in (form or call), where from; plus Slow this week */
+.tn-bell-panel{width:384px; max-height:min(80vh, 640px);}
+.tn-bell-h{flex-wrap:wrap; row-gap:9px; z-index:2;}
+.tn-bell-tabs{display:flex; gap:5px; width:100%;}
+.tn-bell-tabs button{border:1px solid var(--line); background:var(--card); color:var(--ink-2); font:600 11.5px/1 var(--ui); padding:6px 11px; border-radius:999px; cursor:pointer; transition:all .14s var(--ease);}
+.tn-bell-tabs button:hover{border-color:var(--ink-3); color:var(--ink);}
+.tn-bell-tabs button.on{background:var(--ink); border-color:var(--ink); color:#fff;}
+.tn-bell-tabs button i{font-style:normal; opacity:.55; margin-left:5px; font-family:var(--mono); font-size:10.5px;}
+.tn-bell-panel li{display:flex; align-items:center; gap:12px; padding:11px 14px;}
+.tn-bell-panel li.tn-bell-day{display:block; cursor:default; padding:11px 14px 5px; font:700 10px/1 var(--ui); letter-spacing:.08em; text-transform:uppercase; color:var(--ink-3); background:var(--card-2); border-bottom:1px solid var(--line-2);}
+.tn-bell-panel li.tn-bell-day:hover{background:var(--card-2);}
+.tn-bell-panel li.new .tn-bell-c::after{content:''; display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--brand); margin-left:7px; vertical-align:1px;}
+.tn-bell-m{flex:1; min-width:0;}
+.tn-bell-c{white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.tn-bell-r{display:flex; flex-direction:column; align-items:flex-end; gap:6px; flex:0 0 auto;}
+.tn-bell-r .tn-bell-t{margin:0; white-space:nowrap; font-size:10.5px;}
+.tn-bell-av{position:relative; flex:0 0 auto; width:38px; height:38px; border-radius:11px; display:grid; place-items:center; background:hsl(var(--av,24) 72% 94%); color:hsl(var(--av,24) 52% 34%); font:700 13px/1 var(--display); box-shadow:inset 0 0 0 1px hsl(var(--av,24) 45% 86%);}
+.tn-bell-av img{position:absolute; inset:0; width:100%; height:100%; object-fit:contain; padding:6px; background:#fff; border-radius:inherit; box-shadow:inset 0 0 0 1px var(--line); opacity:0; transition:opacity .2s;}
+.tn-bell-k{position:absolute; right:-5px; bottom:-5px; width:18px; height:18px; border-radius:50%; display:grid; place-items:center; color:#fff; background:var(--ink-2); box-shadow:0 0 0 2px var(--card);}
+.tn-bell-k svg{width:10px; height:10px; fill:none; stroke:currentColor; stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round;}
+.tn-bell-k.call{background:var(--good);}
+.tn-bell-k.ads{background:#c98a0b;}
+.tn-bell-k.easyleads{background:#6d4aff;}
+.tn-bell-k.site{background:#1f7ae0;}
+.tn-bell-tag{font:700 9.5px/1 var(--ui); letter-spacing:.05em; text-transform:uppercase; padding:4px 7px; border-radius:999px; background:var(--line-2); color:var(--ink-2); white-space:nowrap;}
+.tn-bell-tag.call{background:var(--good-wash); color:var(--good);}
+.tn-bell-tag.ads{background:#fff3d6; color:#8a5a00;}
+.tn-bell-tag.easyleads{background:#efeaff; color:#5536d9;}
+.tn-bell-tag.site{background:#e7f0fc; color:#1a62b4;}
+.tn-bell-slow{margin:10px 12px 6px; padding:11px 12px; border-radius:var(--r-md); background:#fff7ee; border:1px solid #f5dbc0;}
+.tn-bell-slow-h{display:flex; align-items:center; gap:7px; font:700 12px/1.2 var(--ui); color:#8a4512;}
+.tn-bell-slow-h svg{width:15px; height:15px; fill:none; stroke:currentColor; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; flex:0 0 auto;}
+.tn-bell-slow-h span{margin-left:auto; font-weight:500; font-size:11px; color:#a8693a;}
+.tn-bell-slow-l{display:flex; flex-wrap:wrap; gap:5px; margin-top:9px;}
+.tn-bell-slow-l button{display:inline-flex; align-items:center; gap:6px; max-width:100%; padding:3px 10px 3px 3px; border:1px solid #f0d2b2; background:#fff; border-radius:999px; font:600 11.5px/1 var(--ui); color:var(--ink); cursor:pointer;}
+.tn-bell-slow-l button:hover{border-color:var(--brand); box-shadow:var(--ring);}
+.tn-bell-slow-l .tn-bell-av{width:20px; height:20px; border-radius:50%; font-size:8.5px;}
+.tn-bell-slow-l .tn-bell-av img{padding:2px;}
+.tn-bell-slow-l button.tn-bell-slow-more{padding:3px 9px; border-style:dashed; color:#a8693a; background:transparent;}
+.tn-sub-src-call{background:var(--good) !important;}
+.tn-sub-src-ads{background:#c98a0b !important;}
+.tn-sub-note{margin-top:16px; padding:10px 12px; border-radius:var(--r-sm); background:var(--card-2); font-size:12px; line-height:1.55; color:var(--ink-3);}
 /* Form submission detail panel (opened from the bell) */
 .tn-sub-ov{position:fixed; inset:0; z-index:9700; background:rgba(15,20,26,.35); display:flex; justify-content:flex-end; animation:tnSubFade .2s ease;}
 .tn-sub-ov[hidden], .tn-bell-pop[hidden]{display:none !important;}
@@ -27570,7 +27612,7 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
   const right = document.querySelector('.tn-right');
   if (!right || typeof isPublicView !== 'function' || isPublicView()) return;
   const SEEN_KEY = 'edgeBellSeen', POLL_MS = 20 * 1000;
-  let rows = [], seen = null, timer = null, busy = false, lastErr = '', firstLoad = true;
+  let rows = [], tracked = null, view = 'all', slowOpen = false, seen = null, timer = null, busy = false, lastErr = '', firstLoad = true;
   const readSeen = () => { try{ const v = JSON.parse(localStorage.getItem(SEEN_KEY) || 'null'); return v && Array.isArray(v.ids) ? v : null; }catch(e){ return null; } };
   const writeSeen = () => { try{ localStorage.setItem(SEEN_KEY, JSON.stringify({ids: seen.ids.slice(-400), at: Date.now()})); }catch(e){} };
   seen = readSeen();
@@ -27598,32 +27640,130 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
     return new Date(ms).toLocaleDateString(undefined, {month: 'short', day: 'numeric'});
   };
 
+  /* Icons, client logos and the Slow this week list. A client's own logo
+     (logoUrl on the client) is used when it has one, otherwise its website's
+     favicon, and its initials underneath in case neither loads. */
+  const ICON = {
+    phone: '<svg viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/></svg>',
+    form: '<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg>',
+    slow: '<svg viewBox="0 0 24 24"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg>'
+  };
+  const isCall = r => r.origin === 'call';
+  const kindOf = r => isCall(r) ? (r.ads ? 'ads' : 'call') : r.origin === 'easyleads' ? 'easyleads' : 'site';
+  const hueOf = s => { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360; return h; };
+  function avatar(c, r, small){
+    const name = String(c ? c.name : ((r && (r.client || r.domain)) || '?'));
+    const dom = c ? cleanDomain(c.website || '') : ((r && r.domain) || '');
+    const ini = name.replace(/[^\p{L}\p{N}\s]/gu, '').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?';
+    const logo = (c && c.logoUrl) || (dom ? 'https://www.google.com/s2/favicons?sz=64&domain=' + encodeURIComponent(dom) : '');
+    const k = r && !small ? kindOf(r) : '';
+    return '<span class="tn-bell-av" style="--av:' + hueOf(name) + '"><b>' + esc(ini) + '</b>' +
+      (logo ? '<img src="' + esc(logo) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onload="this.style.opacity=1" onerror="this.remove()">' : '') +
+      (k ? '<span class="tn-bell-k ' + k + '">' + (isCall(r) ? ICON.phone : ICON.form) + '</span>' : '') + '</span>';
+  }
+  const dayLabel = ms => {
+    const d = new Date(ms), t = new Date(); t.setHours(0, 0, 0, 0);
+    const diff = Math.round((t - new Date(d.getFullYear(), d.getMonth(), d.getDate())) / 864e5);
+    if (diff <= 0) return 'Today';
+    if (diff === 1) return 'Yesterday';
+    if (diff < 7) return d.toLocaleDateString(undefined, {weekday: 'long'});
+    return d.toLocaleDateString(undefined, {weekday: 'short', month: 'short', day: 'numeric'});
+  };
+  /* SLOW THIS WEEK: active clients the tracker can hear from (a live forms
+     snippet, Easyleads, or GA4 call events - the tracker sends that list as
+     "tracked") with no form submission and no call since Monday 00:00.
+     Test sends don't count. Clients set to anything but Active, or sitting in
+     an Inactive/Archived folder, are left out. Until the tracker sends
+     "tracked", the list stays hidden rather than flag every client. */
+  const weekStart = () => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - (d.getDay() + 6) % 7); return d.getTime(); };
+  function slowClients(){
+    if (!tracked) return [];
+    const since = weekStart();
+    const heard = new Set(rows.filter(r => !r.test && r.ms >= since).map(r => r.domain));
+    const folders = state.seoFolders || [];
+    const parked = id => { const f = folders.find(x => x.id === id); return !!(f && /inactive|archiv|paused|former|old/i.test(f.name)); };
+    const seenDom = new Set();
+    return (state.seoClients || []).filter(c => {
+      const d = cleanDomain(c.website || '');
+      if (!d || tracked.indexOf(d) === -1 || heard.has(d) || seenDom.has(d)) return false;
+      if (c.status && !/^active$/i.test(String(c.status).trim())) return false;
+      if (c.folderId && parked(c.folderId)) return false;
+      seenDom.add(d);
+      return true;
+    }).sort((a, b) => String(a.name).localeCompare(String(b.name)));
+  }
   function paintBadge(){
-    const n = unread().length, el = btn.querySelector('.tn-bell-n');
+    const list = unread(), n = list.length, el = btn.querySelector('.tn-bell-n');
     el.hidden = !n;
     el.textContent = n > 9 ? '9+' : String(n);
     btn.classList.toggle('has', n > 0);
-    btn.title = n ? n + ' new form submission' + (n === 1 ? '' : 's') : 'Form submissions';
+    const calls = list.filter(isCall).length, forms = n - calls;
+    btn.title = n
+      ? [forms ? forms + ' new form submission' + (forms === 1 ? '' : 's') : '', calls ? calls + ' new call' + (calls === 1 ? '' : 's') : ''].filter(String).join(' and ')
+      : 'Form submissions and calls';
   }
   function paintPanel(){
     const u = new Set(unread().map(r => r.id));
-    const list = rows.slice(0, 40);
-    panel.innerHTML = '<div class="tn-bell-h"><b>Form submissions</b><span>' + (u.size ? u.size + ' new' : 'All caught up') + '</span></div>' +
-      (lastErr ? '<div class="tn-bell-err">' + esc(lastErr) + '</div>' : '') +
-      (list.length ? '<ul>' + list.map(r => {
-        const c = clientFor(r.domain);
-        return '<li class="' + (u.has(r.id) ? 'new' : '') + (r.test ? ' test' : '') + '" data-domain="' + esc(r.domain) + '" data-id="' + esc(r.id) + '">' +
-          '<div class="tn-bell-c">' + esc(c ? c.name : (r.client || r.domain)) + (r.test ? '<em>test</em>' : '') + '</div>' +
-          '<div class="tn-bell-d">' + esc(r.form || 'Website form') + (r.name ? ' · ' + esc(r.name) : '') + (r.origin === 'easyleads' ? ' · Easyleads' : '') + '</div>' +
-          '<div class="tn-bell-t">' + esc(ago(r.ms)) + '</div></li>';
-      }).join('') + '</ul>' : (lastErr ? '' : '<div class="tn-bell-empty">No submissions in the last two weeks.</div>'));
+    const nCalls = rows.filter(isCall).length;
+    const list = rows.filter(r => view === 'all' || (view === 'calls' ? isCall(r) : !isCall(r))).slice(0, 60);
+    const tab = (k, label, n) => '<button type="button" data-view="' + k + '" class="' + (view === k ? 'on' : '') + '">' + label + '<i>' + n + '</i></button>';
+    let html = '<div class="tn-bell-h"><b>Submissions &amp; calls</b><span>' + (u.size ? u.size + ' new' : 'All caught up') + '</span>' +
+      '<div class="tn-bell-tabs">' + tab('all', 'All', rows.length) + tab('forms', 'Forms', rows.length - nCalls) + tab('calls', 'Calls', nCalls) + '</div></div>';
+    if (lastErr) html += '<div class="tn-bell-err">' + esc(lastErr) + '</div>';
+    const slow = view === 'all' ? slowClients() : [];
+    if (slow.length){
+      const max = slowOpen ? slow.length : 6;
+      html += '<div class="tn-bell-slow"><div class="tn-bell-slow-h">' + ICON.slow + 'Slow this week<span>' + slow.length + ' with no leads since Monday</span></div>' +
+        '<div class="tn-bell-slow-l">' + slow.slice(0, max).map(c =>
+          '<button type="button" data-client="' + esc(c.id) + '" title="No form submissions or calls since Monday - open ' + esc(c.name) + '">' + avatar(c, null, true) + esc(c.name) + '</button>').join('') +
+        (slow.length > 6 ? '<button type="button" class="tn-bell-slow-more" data-slow-more>' + (slowOpen ? 'Show less' : '+' + (slow.length - max) + ' more') + '</button>' : '') + '</div></div>';
+    }
+    if (list.length){
+      let day = '';
+      html += '<ul>' + list.map(r => {
+        const c = clientFor(r.domain), k = kindOf(r), d = dayLabel(r.ms);
+        const head = d !== day ? '<li class="tn-bell-day" aria-hidden="true">' + esc(d) + '</li>' : '';
+        day = d;
+        const detail = isCall(r)
+          ? (r.ads ? 'Phone call · from a Google Ads visit' : 'Phone call · from the website') + (r.page && r.page !== '/' ? ' · ' + esc(r.page) : '')
+          : esc(r.form || 'Website form') + (r.name ? ' · ' + esc(r.name) : '');
+        const tag = k === 'ads' ? 'Ads call' : k === 'call' ? 'Call' : sourceOf(r);
+        return head + '<li class="' + (u.has(r.id) ? 'new' : '') + (r.test ? ' test' : '') + '" data-domain="' + esc(r.domain) + '" data-id="' + esc(r.id) + '">' +
+          avatar(c, r) +
+          '<div class="tn-bell-m"><div class="tn-bell-c">' + esc(c ? c.name : (r.client || r.domain)) + (r.test ? '<em>test</em>' : '') + '</div>' +
+          '<div class="tn-bell-d">' + detail + '</div></div>' +
+          '<div class="tn-bell-r"><span class="tn-bell-t">' + esc(ago(r.ms)) + '</span><span class="tn-bell-tag ' + k + '">' + esc(tag) + '</span></div></li>';
+      }).join('') + '</ul>';
+    } else if (!lastErr){
+      html += '<div class="tn-bell-empty">' + (view === 'calls'
+        ? 'No phone calls in the last two weeks. Calls show up here once a client’s GA4 records a tap on their phone number.'
+        : view === 'forms' ? 'No form submissions in the last two weeks.' : 'Nothing in the last two weeks.') + '</div>';
+    }
+    panel.innerHTML = html;
+  }
+  /* A call has no form behind it, so its panel shows what GA4 recorded. */
+  function callHtml(r){
+    const c = clientFor(r.domain);
+    const when = new Date(r.ms).toLocaleString(undefined, {weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'});
+    const row = (label, val) => val ? '<div class="tn-sub-row"><span>' + esc(label) + '</span><b>' + esc(val) + '</b></div>' : '';
+    return '<div class="tn-sub" role="dialog" aria-label="Phone call">' +
+      '<header><div><div class="tn-sub-client">' + esc(c ? c.name : (r.client || r.domain)) + '</div>' +
+      '<div class="tn-sub-meta"><span class="tn-sub-src tn-sub-src-' + (r.ads ? 'ads' : 'call') + '">' + (r.ads ? 'Ads call' : 'Call') + '</span>' +
+      'Phone call · ' + esc(when) + '</div></div>' +
+      '<button type="button" class="tn-sub-x" aria-label="Close">×</button></header>' +
+      '<div class="tn-sub-body"><div class="tn-sub-sec">Call</div>' +
+      row('Came from', r.ads ? 'A visit from Google Ads' : 'The website') +
+      row('Traffic source', r.src) + row('Page', r.page) + row('GA4 event', r.event) +
+      '<div class="tn-sub-note">Recorded by Google Analytics when someone tapped the phone number on the site. GA4 reports these a little late, so the time is approximate, and it can’t tell whether the call was answered. Calls placed straight from a Google Ads call button never reach the site, so they aren’t listed.</div></div>' +
+      '<footer>' + (c ? '<button type="button" class="btn btn-sm tn-sub-client-btn">Open ' + esc(c.name) + '</button>' : '') +
+      '<button type="button" class="btn btn-sm btn-go tn-sub-done">Done</button></footer></div>';
   }
   function place(){
     const r = btn.getBoundingClientRect();
     panel.style.top = (r.bottom + 8) + 'px';
     panel.style.right = Math.max(8, window.innerWidth - r.right) + 'px';
   }
-  function close(){ panel.hidden = true; document.removeEventListener('mousedown', outside, true); }
+  function close(){ panel.hidden = true; slowOpen = false; document.removeEventListener('mousedown', outside, true); }
   function outside(e){ if (!panel.contains(e.target) && !btn.contains(e.target)) close(); }
   /* A new submission shows straight away: a notice under the bell that stays
      until it is clicked or closed, and - when the tool isn't the window in
@@ -27633,7 +27773,12 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
     const first = fresh[0], c = clientFor(first.domain);
     lastFresh = fresh;
     const who = c ? c.name : (first.client || first.domain);
-    const line = fresh.length === 1 ? who + ' · ' + (first.form || 'Website form') : fresh.length + ' new submissions · latest: ' + who;
+    const calls = fresh.filter(r => r.origin === 'call').length;
+    const what = r => r.origin === 'call' ? (r.ads ? 'Phone call (Google Ads)' : 'Phone call') : (r.form || 'Website form');
+    const title = fresh.length === 1
+      ? (calls ? 'New phone call' : 'New form submission')
+      : calls === fresh.length ? fresh.length + ' new phone calls' : calls ? fresh.length + ' new leads' : fresh.length + ' new form submissions';
+    const line = fresh.length === 1 ? who + ' · ' + what(first) : 'Latest: ' + who + ' · ' + what(first);
     if (!pop){
       pop = document.createElement('div');
       pop.className = 'tn-bell-pop';
@@ -27645,7 +27790,7 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
         if (!x){ if (lastFresh.length === 1) openDetail(lastFresh[0]); else if (panel.hidden) btn.click(); }
       });
     }
-    pop.innerHTML = '<b>New form submission</b><span>' + esc(line) + '</span><button type="button" class="tn-bell-pop-x" aria-label="Dismiss">×</button>';
+    pop.innerHTML = '<b>' + esc(title) + '</b><span>' + esc(line) + '</span><button type="button" class="tn-bell-pop-x" aria-label="Dismiss">×</button>';
     const r = btn.getBoundingClientRect();
     pop.style.top = (r.bottom + 8) + 'px';
     pop.style.right = Math.max(8, window.innerWidth - r.right) + 'px';
@@ -27653,7 +27798,7 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
     btn.classList.remove('ring'); void btn.offsetWidth; btn.classList.add('ring');
     try{
       if (window.Notification && Notification.permission === 'granted' && (document.hidden || !document.hasFocus())){
-        const n = new Notification('New form submission', {body: line, tag: 'edge-form-' + first.id});
+        const n = new Notification(title, {body: line, tag: 'edge-form-' + first.id});
         n.onclick = () => { try{ window.focus(); }catch(e){} n.close(); if (fresh.length === 1) openDetail(first); else if (panel.hidden) btn.click(); };
       }
     }catch(e){}
@@ -27665,6 +27810,7 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
      (action=forms, team key) for that client and day, and matched by its id. */
   let drawer = null, openId = '';
   const sourceOf = r => {
+    if (r.origin === 'call') return r.ads ? 'Ads call' : 'Call';
     if (r.origin === 'easyleads') return 'Easyleads';
     const c = clientFor(r.domain), cms = String((c && c.cms) || '').toLowerCase();
     if (/concrete/.test(cms)) return 'Concrete';
@@ -27741,6 +27887,7 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
     drawer.classList.remove('out');
     drawer.hidden = false;
     document.addEventListener('keydown', drawerKey, true);
+    if (r.origin === 'call'){ drawer.innerHTML = callHtml(r); return; }
     const t = tracker();
     try{
       const from = dayIso(r.ms - 36 * 3600 * 1000), to = dayIso(r.ms + 36 * 3600 * 1000);
@@ -27768,6 +27915,19 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
     poll();
   });
   panel.addEventListener('click', e => {
+    const tb = e.target.closest('[data-view]');
+    if (tb){ view = tb.dataset.view; paintPanel(); return; }
+    if (e.target.closest('[data-slow-more]')){ slowOpen = !slowOpen; paintPanel(); return; }
+    const cb = e.target.closest('[data-client]');
+    if (cb){
+      const c = (state.seoClients || []).find(x => x.id === cb.dataset.client);
+      close();
+      if (!c) return;
+      try{ const m = document.getElementById('modBtnSeo'); if (m) m.click(); }catch(err){}
+      state.activeSeoClientId = c.id;
+      try{ save(); renderSeoAll(); }catch(err){}
+      return;
+    }
     const li = e.target.closest('li[data-id]');
     if (li) openDetail(rows.find(r => r.id === li.dataset.id));
   });
@@ -27784,6 +27944,7 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
       if (data && Array.isArray(data.rows)){
         const before = new Set(rows.map(r => r.id));
         rows = data.rows.filter(r => r && r.id && r.ms);
+        tracked = Array.isArray(data.tracked) ? data.tracked : null;
         lastErr = '';
         if (!seen){
           /* First time on this browser: anything older than a day counts as seen. */

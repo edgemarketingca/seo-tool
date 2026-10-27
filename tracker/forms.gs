@@ -263,14 +263,19 @@ function formsShareOk_(domain, secret) {
 function formsRecent_() {
   const cache = CacheService.getScriptCache(), ck = 'fsRecent';
   const hit = cache.get(ck);
-  if (hit) { try { return { rows: JSON.parse(hit) }; } catch (e) {} }
+  if (hit) { try { const v = JSON.parse(hit); return Array.isArray(v) ? { rows: v } : v; } catch (e) {} }
   const names = {};
   clients_().forEach(function (c) { names[c.domain] = c.name; });
-  const cutoff = Date.now() - 14 * 24 * 3600 * 1000;
+  const now = Date.now(), cutoff = now - 14 * 24 * 3600 * 1000, heardSince = now - 120 * 24 * 3600 * 1000;
+  /* tracked: the clients the tracker can hear from (a live forms snippet or
+     Easyleads in the last 120 days, or GA4 call events), so the bell's
+     "Slow this week" only flags clients that could have had a lead. */
+  const tracked = {};
   var rows = [];
   fsValues_().forEach(function (r) {
     if (r[15] === 'import') return;
     const d = r[1] instanceof Date ? r[1] : new Date(r[1]);
+    if (!isNaN(d) && d.getTime() >= heardSince) tracked[r[0]] = 1;
     if (isNaN(d) || d.getTime() < cutoff) return;
     var f = {};
     try { f = JSON.parse(r[9] || '{}') || {}; } catch (e) { f = {}; }
@@ -285,8 +290,17 @@ function formsRecent_() {
       test: fsIsTest_(r[0], r[2], r[4], r[5], r[8], f)
     });
   });
+  /* Phone calls from GA4 (calls.gs), when that file is in the project. */
+  if (typeof callsRecent_ === 'function') {
+    try {
+      const calls = callsRecent_();
+      calls.rows.forEach(function (x) { if (x.ms >= cutoff) { x.client = names[x.domain] || x.client; rows.push(x); } });
+      calls.tracked.forEach(function (dm) { tracked[dm] = 1; });
+    } catch (e) { console.warn('Calls in the bell: ' + e.message); }
+  }
   rows.sort(function (a, b) { return b.ms - a.ms; });
-  rows = rows.slice(0, 100);
-  try { cache.put(ck, JSON.stringify(rows), 60); } catch (e) {}
-  return { rows: rows };
+  rows = rows.slice(0, 150);
+  const out = { rows: rows, tracked: Object.keys(tracked) };
+  try { cache.put(ck, JSON.stringify(out), 60); } catch (e) {}
+  return out;
 }
