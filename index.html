@@ -21514,12 +21514,12 @@ function seoPackIsClient(it, client){
 }
 /* The results one scan saw, shown in a panel: the map pack, then the
    website results around the client, the client's own rows highlighted. */
-function seoOpenSnapshot(loc, k, c){
+function seoOpenSnapshot(loc, k, c, liveUrl){
   const s = loc && loc.snap;
   if (!s) return;
   const old = document.getElementById('seoSnap');
   if (old) old.remove();
-  const live = seoRankPageUrl(loc) || loc.sourceUrl || '';
+  const live = liveUrl || (loc.snap && loc.sourceUrl ? seoRankPageUrl(loc) || loc.sourceUrl : '') || '';
   const who = esc(c && c.name ? c.name : 'Client');
   const rows = Array.isArray(s.r) ? s.r : [];
   const first = rows.length ? rows[0][0] : 1, last = rows.length ? rows[rows.length - 1][0] : 0;
@@ -22052,10 +22052,18 @@ async function seoScanOne(client, kw, loc, hooks){
         }
       }
     }
+    /* A rank seen in only one of three or more confirming reads is Google
+       flickering a page in and out, not a position anyone opening the search
+       will find. It is noted on the row and saved as not ranking. */
+    let weak = null;
+    if (found && data.confirm && data.confirm.of >= 3 && data.confirm.foundIn < 2){
+      weak = {pos: found.position != null ? found.position : idx + 1, of: data.confirm.of, url: found.url || null};
+      found = null; idx = -1; how = null; fm = null;
+    }
     /* A position that was there last time is not taken away by a check that
        didn't get to finish its re-reads. The row keeps the old number and
        says why. */
-    if (!found && loc.rank > 0 && data.reads < data.readsMax){
+    if (!found && !weak && loc.rank > 0 && data.reads < data.readsMax){
       loc.error = 'Only ' + data.reads + ' of ' + data.readsMax + ' reads came back and none of them found the site, ' +
         'so the last position (#' + loc.rank + ') has been kept. Scan again to confirm.';
       return 'error';
@@ -22078,6 +22086,7 @@ async function seoScanOne(client, kw, loc, hooks){
     loc.titleRewritten = !!(fm && fm.titleRewritten);
     loc.offTarget = !!(fm && fm.offTarget);
     loc.possible = found ? null : possible;
+    loc.weak = weak;
     /* Best map-pack position the client had in any read of this search. */
     loc.mapPack = packBest;
     /* What this search showed around the client, kept so "view the search" can
@@ -23794,6 +23803,10 @@ function seoLocGroupRow(c, k, loc){
       if (loc.offTarget && loc.matchUrl) score += ' · <b title="This keyword has a target page, and Google is ranking a different page for it.">ranking ' + esc(seoPathOf(loc.matchUrl)) + ', not the target page</b>';
     }
     if (loc.mapPack) score += ' \u00b7 <span class="seo-match-badge seo-match-hi" title="The business also showed in Google\u2019s map pack (the local listings above the website results) at this position. That is a separate placement from the website rank.">Map pack #' + loc.mapPack + '</span>';
+    if (loc.rank === 0 && loc.weak){
+      miss += ' · <b title="Google showed this page in only one of the confirming reads. A position that comes and goes like that isn’t one a client will find when they search, so it is not counted as a rank.">seen once at #' +
+        esc(String(loc.weak.pos)) + ' in ' + esc(String(loc.weak.of)) + ' reads — not counted</b>';
+    }
     if (loc.rank === 0 && loc.possible){
       const pm = loc.possible;
       miss += ' · <b title="This result mentions the client but didn’t line up on enough checks to count: it needs one of their domains or listings plus 3 of 5. If it is theirs, add it under Ranking match on the Dashboard.">possible match, not counted: #' +
@@ -24158,7 +24171,7 @@ function seoMergeLocInto(keep, drop){
   if ((drop.checkedAt || 0) > (keep.checkedAt || 0)){
     ['rank','prevRank','matchedTitle','matchedDomain','sourceUrl','checkedAt','manual','error','precision',
      'matchedBy','readCount','topDomains','partial','depthRead','exhausted',
-     'reads','readsMax','failedReads','gsc','depthAsked','page','confirm','matchScore','matchFactors','matchUrl','titleRewritten','offTarget','possible','mapPack','snap'].forEach(f => { keep[f] = drop[f]; });
+     'reads','readsMax','failedReads','gsc','depthAsked','page','confirm','matchScore','matchFactors','matchUrl','titleRewritten','offTarget','possible','mapPack','snap','weak'].forEach(f => { keep[f] = drop[f]; });
   }
   if (keep.lat == null && drop.lat != null){ keep.lat = drop.lat; keep.lng = drop.lng; }
   keep.history = Array.from(hist.values()).sort((x, y) => (x.checkedAt || 0) - (y.checkedAt || 0)).slice(-60);
@@ -25815,6 +25828,9 @@ function buildSeoReportPayload(c, opts){
             sourceUrl: opts.showLinks && loc.sourceUrl
               ? seoRankLink(loc.sourceUrl, Number(snap.rank) || 0, seoRankPage({rank: snap.rank, page: snap.page, precision: snap.precision}), loc.matchedDomain, loc.matchedTitle)
               : null,
+            /* What the scan saw, so the report link opens the same results the rank came
+               from. Live figures only, and stored as text (Firestore refuses nested lists). */
+            snapshot: (opts.showLinks && !asOf && loc.snap && Number(snap.rank) === Number(loc.rank)) ? JSON.stringify(loc.snap) : null,
             /* How deep the scan looked before reporting a miss. Additive and
                optional: a report published before today simply omits it and
                its unranked rows read "Not found" rather than a depth. */
@@ -27076,6 +27092,18 @@ function renderSeoReport(data){
       meta.className = 'kwr-meta';
       if (!/^https?:\/\//i.test(href)) href = '#';
       meta.innerHTML = '<a href="' + esc(href) + '" target="_blank" rel="noopener noreferrer">view the search' + (k.rank > 0 && pg > 1 ? ' (page ' + pg + ')' : '') + '</a>';
+      /* Opens what the scan saw rather than live Google, which can show different
+         results to whoever clicks. Ctrl-click (or "Open live Google") still goes live. */
+      let snapData = null;
+      try{ snapData = k.snapshot ? JSON.parse(k.snapshot) : null; }catch(e){ snapData = null; }
+      if (snapData && typeof seoOpenSnapshot === 'function'){
+        const a0 = meta.querySelector('a');
+        if (a0) a0.addEventListener('click', e => {
+          if (e.ctrlKey || e.metaKey || e.shiftKey || e.button === 1) return;
+          e.preventDefault();
+          seoOpenSnapshot({snap: snapData, rank: k.rank, label: k.__label || ''}, {text: k.text}, {name: data.clientName || ''}, href !== '#' ? href : '');
+        });
+      }
       row.appendChild(meta);
     }
     return row;
@@ -27113,7 +27141,7 @@ function renderSeoReport(data){
 
       const body = document.createElement('div');
       body.className = 'seo-lg-body';
-      keep.forEach(k => body.appendChild(buildRow(k)));
+      keep.forEach(k => { k.__label = g.label; body.appendChild(buildRow(k)); });
       card.appendChild(body);
       list.appendChild(card);
     });
