@@ -23862,6 +23862,12 @@ function seoLocGroupRow(c, k, loc){
       e.preventDefault();
       seoOpenSnapshot(loc, k, c);
     });
+    /* Scanned before snapshots existed: say plainly that this opens live Google,
+       which can differ from the scan, rather than presenting it as the result. */
+    if (viewA && !loc.snap){
+      viewA.textContent = 'live Google \u2014 rescan to see what the scan saw';
+      viewA.title = 'This keyword was scanned before snapshots were kept, so this opens a fresh Google search, which can show different results. Scan it again to see exactly the results this rank came from.';
+    }
     const copyLinkBtn = document.createElement('button');
     copyLinkBtn.type = 'button';
     copyLinkBtn.className = 'seo-copy-link-btn';
@@ -27077,7 +27083,10 @@ function renderSeoReport(data){
 
     /* The link only — the date each rank was checked is deliberately not
        printed here (see the header note). */
-    if (k.sourceUrl){
+    /* Only rows with a scan snapshot get "view the search": a link to a fresh
+       Google search can show different results from the ones in this report.
+       Older rows get theirs when the keyword is scanned and the report republished. */
+    if (k.sourceUrl && k.snapshot){
       /* Reports published before links carried the page still point at page
          one; for those, the page is estimated from the rank so a #14 opens
          page two. Newer links already carry it and are used as they are. */
