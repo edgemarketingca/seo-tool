@@ -1211,6 +1211,13 @@ body.embed-mode .hub{display:none !important;}
 .tn-bell-t{font-size:11px; color:var(--ink-3); margin-top:2px;}
 .tn-bell-empty,.tn-bell-err{padding:18px 14px; font-size:12.5px; color:var(--ink-3); line-height:1.6;}
 .tn-bell-err{color:var(--alert);}
+.tn-bell-pop{position:fixed; z-index:9600; display:flex; flex-direction:column; gap:2px; min-width:250px; max-width:340px; padding:11px 34px 11px 14px; background:#1b222a; color:#fff; border-radius:12px; box-shadow:0 14px 34px -12px rgba(0,0,0,.55); border-left:4px solid var(--brand); cursor:pointer; font-family:var(--ui); animation:rise .25s var(--ease);}
+.tn-bell-pop b{font-size:12.5px;}
+.tn-bell-pop span{font-size:12px; color:#c9d3dc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.tn-bell-pop-x{position:absolute; top:6px; right:8px; border:none; background:none; color:#8b98a3; font-size:17px; line-height:1; cursor:pointer; padding:2px 4px;}
+.tn-bell-pop-x:hover{color:#fff;}
+.tn-bell.ring svg{animation:tnBellRing .9s ease 2;}
+@keyframes tnBellRing{0%,100%{transform:rotate(0)}15%{transform:rotate(16deg)}30%{transform:rotate(-14deg)}45%{transform:rotate(10deg)}60%{transform:rotate(-8deg)}75%{transform:rotate(4deg)}}
 @media (max-width:880px){
   .topnav{flex-wrap:wrap; gap:9px; padding:9px 14px;}
   .tn-sep{display:none;}
@@ -27535,7 +27542,7 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
 (function formBell(){
   const right = document.querySelector('.tn-right');
   if (!right || typeof isPublicView !== 'function' || isPublicView()) return;
-  const SEEN_KEY = 'edgeBellSeen', POLL_MS = 3 * 60 * 1000;
+  const SEEN_KEY = 'edgeBellSeen', POLL_MS = 20 * 1000;
   let rows = [], seen = null, timer = null, busy = false, lastErr = '', firstLoad = true;
   const readSeen = () => { try{ const v = JSON.parse(localStorage.getItem(SEEN_KEY) || 'null'); return v && Array.isArray(v.ids) ? v : null; }catch(e){ return null; } };
   const writeSeen = () => { try{ localStorage.setItem(SEEN_KEY, JSON.stringify({ids: seen.ids.slice(-400), at: Date.now()})); }catch(e){} };
@@ -27591,8 +27598,43 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
   }
   function close(){ panel.hidden = true; document.removeEventListener('mousedown', outside, true); }
   function outside(e){ if (!panel.contains(e.target) && !btn.contains(e.target)) close(); }
+  /* A new submission shows straight away: a notice under the bell that stays
+     until it is clicked or closed, and - when the tool isn't the window in
+     front - a desktop notification, if this person allowed them. */
+  let pop = null;
+  function notify(fresh){
+    const first = fresh[0], c = clientFor(first.domain);
+    const who = c ? c.name : (first.client || first.domain);
+    const line = fresh.length === 1 ? who + ' · ' + (first.form || 'Website form') : fresh.length + ' new submissions · latest: ' + who;
+    if (!pop){
+      pop = document.createElement('div');
+      pop.className = 'tn-bell-pop';
+      pop.setAttribute('role', 'status');
+      document.body.appendChild(pop);
+      pop.addEventListener('click', e => {
+        const x = e.target.closest('.tn-bell-pop-x');
+        pop.hidden = true;
+        if (!x && panel.hidden) btn.click();
+      });
+    }
+    pop.innerHTML = '<b>New form submission</b><span>' + esc(line) + '</span><button type="button" class="tn-bell-pop-x" aria-label="Dismiss">×</button>';
+    const r = btn.getBoundingClientRect();
+    pop.style.top = (r.bottom + 8) + 'px';
+    pop.style.right = Math.max(8, window.innerWidth - r.right) + 'px';
+    pop.hidden = false;
+    btn.classList.remove('ring'); void btn.offsetWidth; btn.classList.add('ring');
+    try{
+      if (window.Notification && Notification.permission === 'granted' && (document.hidden || !document.hasFocus())){
+        const n = new Notification('New form submission', {body: line, tag: 'edge-form-' + first.id});
+        n.onclick = () => { try{ window.focus(); }catch(e){} n.close(); if (panel.hidden) btn.click(); };
+      }
+    }catch(e){}
+  }
   btn.addEventListener('click', () => {
     if (!panel.hidden){ close(); return; }
+    if (pop) pop.hidden = true;
+    /* The first time someone opens the bell, offer desktop notifications. */
+    try{ if (window.Notification && Notification.permission === 'default') Notification.requestPermission(); }catch(e){}
     paintPanel(); place(); panel.hidden = false;
     document.addEventListener('mousedown', outside, true);
     /* Opening the bell marks everything in it as seen; the list keeps showing
@@ -27631,10 +27673,7 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
           writeSeen();
         }
         const fresh = rows.filter(r => !r.test && !before.has(r.id) && seen.ids.indexOf(r.id) === -1);
-        if (!firstLoad && fresh.length){
-          const c = clientFor(fresh[0].domain);
-          toast(fresh.length === 1 ? 'New form submission — ' + (c ? c.name : (fresh[0].client || fresh[0].domain)) : fresh.length + ' new form submissions');
-        }
+        if (!firstLoad && fresh.length) notify(fresh);
         firstLoad = false;
       } else {
         lastErr = data && data.error === 'domain required'
@@ -27655,6 +27694,7 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
     poll();
   }
   document.addEventListener('visibilitychange', () => { if (!document.hidden) poll(); });
+  window.addEventListener('focus', () => poll());
   /* Signing in or out (or another person signing in): start over. */
   let wasIn = null;
   setInterval(() => {
