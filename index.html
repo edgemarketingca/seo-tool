@@ -21520,6 +21520,10 @@ function seoOpenSnapshot(loc, k, c, liveUrl){
   const old = document.getElementById('seoSnap');
   if (old) old.remove();
   const live = liveUrl || (loc.snap && loc.sourceUrl ? seoRankPageUrl(loc) || loc.sourceUrl : '') || '';
+  /* Live Google is only offered on page one. Further down, positions swing by
+     ten or twenty places between searches, so a live page usually doesn't show
+     the client at all - the snapshot above is the reliable view there. */
+  const showLive = !!live && Number(loc.rank) > 0 && Number(loc.rank) <= 10;
   const who = esc(c && c.name ? c.name : 'Client');
   const rows = Array.isArray(s.r) ? s.r : [];
   const first = rows.length ? rows[0][0] : 1, last = rows.length ? rows[rows.length - 1][0] : 0;
@@ -21540,8 +21544,8 @@ function seoOpenSnapshot(loc, k, c, liveUrl){
     packHtml +
     '<div class="seo-snap-h">Website results' + (rows.length ? ' #' + first + '–' + last : '') + (s.n ? ' <span>(' + s.n + ' read)</span>' : '') + '</div>' +
     '<ol class="seo-snap-list">' + (first > 1 ? '<li class="gap">…</li>' : '') + rows.map(rowHtml).join('') + (last && s.n && last < s.n ? '<li class="gap">…</li>' : '') + '</ol>' +
-    '<p class="seo-snap-note">This is exactly what Google returned to the scan. A live search moves results around from one search to the next and for people signed in to Google, so today’s live page can show them a few places higher or lower.</p>' +
-    '<footer>' + (live ? '<a class="btn btn-sm" target="_blank" rel="noopener" href="' + esc(live) + '">Open live Google</a>' : '') +
+    '<p class="seo-snap-note">This is exactly what Google returned to the scan. A live search moves results around from one search to the next and for people signed in to Google, so today’s live page can show them a few places higher or lower.' + (live && !showLive ? ' Past page one those swings are large enough that a live link would usually miss them, so none is offered here.' : '') + '</p>' +
+    '<footer>' + (showLive ? '<a class="btn btn-sm" target="_blank" rel="noopener" href="' + esc(live) + '">Open live Google</a>' : '') +
     '<button type="button" class="btn btn-sm btn-go seo-snap-done">Done</button></footer></div>';
   const onKey = e => { if (e.key === 'Escape') close(); };
   const close = () => { ov.remove(); document.removeEventListener('keydown', onKey, true); };
@@ -27108,7 +27112,7 @@ function renderSeoReport(data){
       if (snapData && typeof seoOpenSnapshot === 'function'){
         const a0 = meta.querySelector('a');
         if (a0) a0.addEventListener('click', e => {
-          if (e.ctrlKey || e.metaKey || e.shiftKey || e.button === 1) return;
+          if ((e.ctrlKey || e.metaKey || e.shiftKey || e.button === 1) && Number(k.rank) > 0 && Number(k.rank) <= 10) return;
           e.preventDefault();
           seoOpenSnapshot({snap: snapData, rank: k.rank, label: k.__label || ''}, {text: k.text}, {name: data.clientName || ''}, href !== '#' ? href : '');
         });
