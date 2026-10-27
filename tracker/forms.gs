@@ -251,3 +251,42 @@ function formsShareOk_(domain, secret) {
   if (!/^[a-f0-9]{32}$/.test(String(secret || ''))) return false;
   return (fsShares_()[domain] || []).indexOf(fsHash_(secret)) > -1;
 }
+
+/* NOTIFICATION BELL (SEO tool, top right)
+   GET action=formsRecent, key (team key only)
+   Add this line to doGet in Code.gs, just above "if (!domain) return json_({ error: 'domain required' });":
+     if (p.action === 'formsRecent' && admin) return json_(formsRecent_());
+   The newest website and Easyleads submissions across every client, newest
+   first, for the last two weeks (at most 100). Imported past submissions are
+   left out. Cached for a minute, so several people with the tool open cost
+   one sheet read a minute between them. */
+function formsRecent_() {
+  const cache = CacheService.getScriptCache(), ck = 'fsRecent';
+  const hit = cache.get(ck);
+  if (hit) { try { return { rows: JSON.parse(hit) }; } catch (e) {} }
+  const names = {};
+  clients_().forEach(function (c) { names[c.domain] = c.name; });
+  const cutoff = Date.now() - 14 * 24 * 3600 * 1000;
+  var rows = [];
+  fsValues_().forEach(function (r) {
+    if (r[15] === 'import') return;
+    const d = r[1] instanceof Date ? r[1] : new Date(r[1]);
+    if (isNaN(d) || d.getTime() < cutoff) return;
+    var f = {};
+    try { f = JSON.parse(r[9] || '{}') || {}; } catch (e) { f = {}; }
+    rows.push({
+      id: String(r[16] || (r[0] + ':' + d.getTime())),
+      domain: r[0],
+      client: names[r[0]] || r[0],
+      ms: d.getTime(),
+      form: String(r[2] || ''),
+      name: String(r[4] || ''),
+      origin: String(r[15] || ''),
+      test: fsIsTest_(r[0], r[2], r[4], r[5], r[8], f)
+    });
+  });
+  rows.sort(function (a, b) { return b.ms - a.ms; });
+  rows = rows.slice(0, 100);
+  try { cache.put(ck, JSON.stringify(rows), 60); } catch (e) {}
+  return { rows: rows };
+}
