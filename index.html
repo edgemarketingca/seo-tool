@@ -1216,6 +1216,16 @@ body.embed-mode .hub{display:none !important;}
 .tn-bell-pop span{font-size:12px; color:#c9d3dc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
 .tn-bell-pop-x{position:absolute; top:6px; right:8px; border:none; background:none; color:#8b98a3; font-size:17px; line-height:1; cursor:pointer; padding:2px 4px;}
 .tn-bell-pop-x:hover{color:#fff;}
+/* Three top-bar buttons: Slow this week · Calls · Forms */
+.tn-bk-calls.has{color:#fff; border-color:rgba(31,170,120,.6);}
+.tn-bk-calls .tn-bell-n{background:#12936a;}
+.tn-bk-slow.has{color:#f6b860; border-color:rgba(214,150,40,.55);}
+.tn-bk-slow .tn-bell-n{background:#c98a0b;}
+.tn-bell-panel li[data-client]{cursor:pointer;}
+.tn-bell-d .ch{color:var(--ink); font-weight:600;}
+.tn-bell-tag.slow{background:#fff1df; color:#9a4f12;}
+.tn-bell-foot{position:sticky; bottom:0; padding:9px 14px; font-size:11px; line-height:1.45; color:var(--ink-3); background:var(--card-2); border-top:1px solid var(--line-2);}
+.tn-bell-tabs{flex-wrap:wrap;}
 /* Bell rows: client logo, what came in (form or call), where from; plus Slow this week */
 .tn-bell-panel{width:384px; max-height:min(80vh, 640px);}
 .tn-bell-h{flex-wrap:wrap; row-gap:9px; z-index:2;}
@@ -27609,28 +27619,55 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
    are listed but never counted. Imported past submissions are left out.
    -------------------------------------------------------------------------- */
 (function formBell(){
+  /* ==========================================================================
+     THREE BUTTONS (top right): Forms, Calls, Slow this week
+     One poll of the AI Visibility Tracker (action formsRecent, team key) feeds
+     all three. Forms: website and Easyleads submissions, with where each came
+     from. Calls: phone-number taps from each client's GA4, with the channel of
+     the visit. Slow this week: active clients the tracker can hear from with
+     no form and no call since Monday. Seen/new is kept per person in this
+     browser; test sends are listed but never counted.
+     -------------------------------------------------------------------------- */
   const right = document.querySelector('.tn-right');
   if (!right || typeof isPublicView !== 'function' || isPublicView()) return;
   const SEEN_KEY = 'edgeBellSeen', POLL_MS = 20 * 1000;
-  let rows = [], tracked = null, view = 'all', slowOpen = false, seen = null, timer = null, busy = false, lastErr = '', firstLoad = true;
+  let rows = [], tracked = null, lastLead = null, seen = null, timer = null, busy = false, lastErr = '', firstLoad = true;
   const readSeen = () => { try{ const v = JSON.parse(localStorage.getItem(SEEN_KEY) || 'null'); return v && Array.isArray(v.ids) ? v : null; }catch(e){ return null; } };
-  const writeSeen = () => { try{ localStorage.setItem(SEEN_KEY, JSON.stringify({ids: seen.ids.slice(-400), at: Date.now()})); }catch(e){} };
+  const writeSeen = () => { try{ localStorage.setItem(SEEN_KEY, JSON.stringify({ids: seen.ids.slice(-600), at: Date.now()})); }catch(e){} };
   seen = readSeen();
 
-  const btn = document.createElement('button');
-  btn.type = 'button'; btn.className = 'tn-bell'; btn.id = 'tnBell'; btn.hidden = true;
-  btn.title = 'Form submissions';
-  btn.setAttribute('aria-label', 'Form submissions');
-  btn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><span class="tn-bell-n" hidden></span>';
-  right.insertBefore(btn, right.firstChild);
-  const panel = document.createElement('div');
-  panel.className = 'tn-bell-panel'; panel.hidden = true;
-  document.body.appendChild(panel);
+  const ICON = {
+    bell: '<svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>',
+    phone: '<svg viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/></svg>',
+    form: '<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg>',
+    slow: '<svg viewBox="0 0 24 24"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg>'
+  };
+  const isCall = r => r.origin === 'call';
+  const TRAYS = {
+    forms: {id: 'tnBell', title: 'Form submissions', icon: ICON.bell, match: r => !isCall(r), view: 'all'},
+    calls: {id: 'tnCalls', title: 'Phone calls', icon: ICON.phone, match: isCall, view: 'all'},
+    slow: {id: 'tnSlow', title: 'Slow this week', icon: ICON.slow, match: null, view: 'all'}
+  };
+  /* Inserted in turn at the front of the bar, so they read Slow · Calls · Forms. */
+  ['forms', 'calls', 'slow'].forEach(k => {
+    const t = TRAYS[k];
+    t.btn = document.createElement('button');
+    t.btn.type = 'button'; t.btn.className = 'tn-bell tn-bk-' + k; t.btn.id = t.id; t.btn.hidden = true;
+    t.btn.title = t.title;
+    t.btn.setAttribute('aria-label', t.title);
+    t.btn.innerHTML = t.icon + '<span class="tn-bell-n" hidden></span>';
+    right.insertBefore(t.btn, right.firstChild);
+    t.panel = document.createElement('div');
+    t.panel.className = 'tn-bell-panel tn-bp-' + k; t.panel.hidden = true;
+    document.body.appendChild(t.panel);
+  });
+  /* The detail drawer below talks about "btn" and "panel": the forms ones. */
+  const btn = TRAYS.forms.btn, panel = TRAYS.forms.panel;
 
   const signedIn = () => { try{ return !!(fbAuth && fbAuth.currentUser); }catch(e){ return false; } };
   const tracker = () => { const s = (state.settings && state.settings.aiTracker) || {}; return {url: s.url || '', key: s.key || ''}; };
   const clientFor = domain => (state.seoClients || []).find(c => cleanDomain(c.website) === domain) || null;
-  const unread = () => seen ? rows.filter(r => !r.test && seen.ids.indexOf(r.id) === -1) : [];
+  const unread = k => seen ? rows.filter(r => !r.test && (!k || TRAYS[k].match(r)) && seen.ids.indexOf(r.id) === -1) : [];
   const ago = ms => {
     const m = Math.round((Date.now() - ms) / 60000);
     if (m < 1) return 'just now';
@@ -27639,24 +27676,16 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
     if (h < 24) return h + ' h ago';
     return new Date(ms).toLocaleDateString(undefined, {month: 'short', day: 'numeric'});
   };
-
-  /* Icons, client logos and the Slow this week list. A client's own logo
-     (logoUrl on the client) is used when it has one, otherwise its website's
-     favicon, and its initials underneath in case neither loads. */
-  const ICON = {
-    phone: '<svg viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/></svg>',
-    form: '<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg>',
-    slow: '<svg viewBox="0 0 24 24"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg>'
-  };
-  const isCall = r => r.origin === 'call';
   const kindOf = r => isCall(r) ? (r.ads ? 'ads' : 'call') : r.origin === 'easyleads' ? 'easyleads' : 'site';
   const hueOf = s => { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360; return h; };
-  function avatar(c, r, small){
+  /* A client's own logo (logoUrl) when it has one, else its website's favicon,
+     with its initials underneath until (or unless) the picture loads. */
+  function avatar(c, r){
     const name = String(c ? c.name : ((r && (r.client || r.domain)) || '?'));
     const dom = c ? cleanDomain(c.website || '') : ((r && r.domain) || '');
     const ini = name.replace(/[^\p{L}\p{N}\s]/gu, '').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?';
     const logo = (c && c.logoUrl) || (dom ? 'https://www.google.com/s2/favicons?sz=64&domain=' + encodeURIComponent(dom) : '');
-    const k = r && !small ? kindOf(r) : '';
+    const k = r ? kindOf(r) : '';
     return '<span class="tn-bell-av" style="--av:' + hueOf(name) + '"><b>' + esc(ini) + '</b>' +
       (logo ? '<img src="' + esc(logo) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onload="this.style.opacity=1" onerror="this.remove()">' : '') +
       (k ? '<span class="tn-bell-k ' + k + '">' + (isCall(r) ? ICON.phone : ICON.form) + '</span>' : '') + '</span>';
@@ -27669,17 +27698,32 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
     if (diff < 7) return d.toLocaleDateString(undefined, {weekday: 'long'});
     return d.toLocaleDateString(undefined, {weekday: 'short', month: 'short', day: 'numeric'});
   };
+  /* Where a call's visit came from, from GA4's session source / medium. */
+  function channelOf(r){
+    const sm = String(r.src || '').split(' / '), s = (sm[0] || '').toLowerCase(), m = (sm[1] || '').toLowerCase();
+    if (r.ads) return /facebook|instagram|meta|linkedin|tiktok/.test(s) ? 'Paid social' : /bing|microsoft/.test(s) ? 'Microsoft Ads' : 'Google Ads';
+    if (/chatgpt|openai|perplexity|gemini|copilot|claude/.test(s) || /ai/.test(m)) return 'AI assistant';
+    if (m === 'organic') return 'Organic search';
+    if (m === '(none)' || m === '(not set)' || s === '(direct)') return 'Direct';
+    if (/social/.test(m) || /facebook|instagram|linkedin|tiktok|youtube|pinterest|reddit|^t\.co$|^x\.com$/.test(s)) return 'Social';
+    if (/e-?mail|newsletter/.test(m)) return 'Email';
+    if (m === 'referral') return 'Referral';
+    return m ? m.charAt(0).toUpperCase() + m.slice(1) : 'Website';
+  }
+  /* Where a form's visit came from: the tracker's channel for it, when known. */
+  const formChannel = r => r.channel && !/^not tracked/i.test(r.channel) ? r.channel : '';
+
   /* SLOW THIS WEEK: active clients the tracker can hear from (a live forms
-     snippet, Easyleads, or GA4 call events - the tracker sends that list as
-     "tracked") with no form submission and no call since Monday 00:00.
-     Test sends don't count. Clients set to anything but Active, or sitting in
-     an Inactive/Archived folder, are left out. Until the tracker sends
-     "tracked", the list stays hidden rather than flag every client. */
+     snippet, Easyleads, or GA4 call events - sent as "tracked") with no form
+     and no call since Monday 00:00. Clients set to anything but Active, or in
+     an Inactive/Archived folder, are left out. Hidden until the tracker sends
+     "tracked", rather than flag every client. */
   const weekStart = () => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - (d.getDay() + 6) % 7); return d.getTime(); };
   function slowClients(){
     if (!tracked) return [];
     const since = weekStart();
     const heard = new Set(rows.filter(r => !r.test && r.ms >= since).map(r => r.domain));
+    if (lastLead) Object.keys(lastLead).forEach(d => { if (lastLead[d] && lastLead[d].ms >= since) heard.add(d); });
     const folders = state.seoFolders || [];
     const parked = id => { const f = folders.find(x => x.id === id); return !!(f && /inactive|archiv|paused|former|old/i.test(f.name)); };
     const seenDom = new Set();
@@ -27692,55 +27736,110 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
       return true;
     }).sort((a, b) => String(a.name).localeCompare(String(b.name)));
   }
+  /* The most recent lead the bell knows of for a client (form or call). */
+  function lastFor(domain){
+    let best = null;
+    rows.forEach(r => { if (!r.test && r.domain === domain && (!best || r.ms > best.ms)) best = {ms: r.ms, call: isCall(r)}; });
+    const l = lastLead && lastLead[domain];
+    if (l && (!best || l.ms > best.ms)) best = l;
+    return best;
+  }
+
   function paintBadge(){
-    const list = unread(), n = list.length, el = btn.querySelector('.tn-bell-n');
-    el.hidden = !n;
-    el.textContent = n > 9 ? '9+' : String(n);
-    btn.classList.toggle('has', n > 0);
-    const calls = list.filter(isCall).length, forms = n - calls;
-    btn.title = n
-      ? [forms ? forms + ' new form submission' + (forms === 1 ? '' : 's') : '', calls ? calls + ' new call' + (calls === 1 ? '' : 's') : ''].filter(String).join(' and ')
-      : 'Form submissions and calls';
+    const on = !TRAYS.forms.btn.hidden;
+    ['forms', 'calls'].forEach(k => {
+      const t = TRAYS[k], n = unread(k).length, el = t.btn.querySelector('.tn-bell-n');
+      el.hidden = !n;
+      el.textContent = n > 9 ? '9+' : String(n);
+      t.btn.classList.toggle('has', n > 0);
+      t.btn.title = n ? n + (k === 'calls' ? ' new phone call' : ' new form submission') + (n === 1 ? '' : 's') : t.title;
+    });
+    const s = TRAYS.slow, slow = slowClients(), el = s.btn.querySelector('.tn-bell-n');
+    s.btn.hidden = !on || !tracked;
+    el.hidden = !slow.length;
+    el.textContent = slow.length > 99 ? '99+' : String(slow.length);
+    s.btn.classList.toggle('has', slow.length > 0);
+    s.btn.title = slow.length ? slow.length + ' client' + (slow.length === 1 ? '' : 's') + ' with no leads since Monday' : 'Slow this week: every tracked client has had a lead';
   }
-  function paintPanel(){
-    const u = new Set(unread().map(r => r.id));
-    const nCalls = rows.filter(isCall).length;
-    const list = rows.filter(r => view === 'all' || (view === 'calls' ? isCall(r) : !isCall(r))).slice(0, 60);
-    const tab = (k, label, n) => '<button type="button" data-view="' + k + '" class="' + (view === k ? 'on' : '') + '">' + label + '<i>' + n + '</i></button>';
-    let html = '<div class="tn-bell-h"><b>Submissions &amp; calls</b><span>' + (u.size ? u.size + ' new' : 'All caught up') + '</span>' +
-      '<div class="tn-bell-tabs">' + tab('all', 'All', rows.length) + tab('forms', 'Forms', rows.length - nCalls) + tab('calls', 'Calls', nCalls) + '</div></div>';
+  function showButtons(on){
+    TRAYS.forms.btn.hidden = !on;
+    TRAYS.calls.btn.hidden = !on;
+    if (!on) TRAYS.slow.btn.hidden = true;
+  }
+
+  const tabsHtml = (t, list) => '<div class="tn-bell-tabs">' + list.map(([k, label, n]) =>
+    '<button type="button" data-view="' + esc(k) + '" class="' + (t.view === k ? 'on' : '') + '">' + esc(label) + '<i>' + n + '</i></button>').join('') + '</div>';
+  function rowsHtml(list, u){
+    let day = '';
+    return '<ul>' + list.map(r => {
+      const c = clientFor(r.domain), k = kindOf(r), d = dayLabel(r.ms);
+      const head = d !== day ? '<li class="tn-bell-day" aria-hidden="true">' + esc(d) + '</li>' : '';
+      day = d;
+      let detail, tag;
+      if (isCall(r)){
+        detail = '<span class="ch">' + esc(channelOf(r)) + '</span>' + (r.page && r.page !== '/' ? ' · ' + esc(r.page) : '');
+        tag = r.ads ? 'Ads call' : 'Call';
+      } else {
+        const ch = formChannel(r);
+        detail = esc(r.form || 'Website form') + (r.name ? ' · ' + esc(r.name) : '') + (ch ? ' · <span class="ch">' + esc(ch) + '</span>' : '');
+        tag = sourceOf(r);
+      }
+      return head + '<li class="' + (u.has(r.id) ? 'new' : '') + (r.test ? ' test' : '') + '" data-domain="' + esc(r.domain) + '" data-id="' + esc(r.id) + '">' +
+        avatar(c, r) +
+        '<div class="tn-bell-m"><div class="tn-bell-c">' + esc(c ? c.name : (r.client || r.domain)) + (r.test ? '<em>test</em>' : '') + '</div>' +
+        '<div class="tn-bell-d">' + detail + '</div></div>' +
+        '<div class="tn-bell-r"><span class="tn-bell-t">' + esc(ago(r.ms)) + '</span><span class="tn-bell-tag ' + k + '">' + esc(tag) + '</span></div></li>';
+    }).join('') + '</ul>';
+  }
+  const newIds = k => { const t = TRAYS[k]; return new Set([...(t.fresh || []), ...unread(k).map(r => r.id)]); };
+  function paintForms(){
+    const t = TRAYS.forms, u = newIds('forms'), all = rows.filter(t.match);
+    const counts = {};
+    all.forEach(r => { const s = sourceOf(r); counts[s] = (counts[s] || 0) + 1; });
+    const srcs = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
+    if (t.view !== 'all' && !counts[t.view]) t.view = 'all';
+    const list = all.filter(r => t.view === 'all' || sourceOf(r) === t.view).slice(0, 60);
+    let html = '<div class="tn-bell-h"><b>Form submissions</b><span>' + (unread('forms').length ? unread('forms').length + ' new' : 'All caught up') + '</span>' +
+      tabsHtml(t, [['all', 'All', all.length]].concat(srcs.map(s => [s, s, counts[s]]))) + '</div>';
     if (lastErr) html += '<div class="tn-bell-err">' + esc(lastErr) + '</div>';
-    const slow = view === 'all' ? slowClients() : [];
-    if (slow.length){
-      const max = slowOpen ? slow.length : 6;
-      html += '<div class="tn-bell-slow"><div class="tn-bell-slow-h">' + ICON.slow + 'Slow this week<span>' + slow.length + ' with no leads since Monday</span></div>' +
-        '<div class="tn-bell-slow-l">' + slow.slice(0, max).map(c =>
-          '<button type="button" data-client="' + esc(c.id) + '" title="No form submissions or calls since Monday - open ' + esc(c.name) + '">' + avatar(c, null, true) + esc(c.name) + '</button>').join('') +
-        (slow.length > 6 ? '<button type="button" class="tn-bell-slow-more" data-slow-more>' + (slowOpen ? 'Show less' : '+' + (slow.length - max) + ' more') + '</button>' : '') + '</div></div>';
-    }
-    if (list.length){
-      let day = '';
-      html += '<ul>' + list.map(r => {
-        const c = clientFor(r.domain), k = kindOf(r), d = dayLabel(r.ms);
-        const head = d !== day ? '<li class="tn-bell-day" aria-hidden="true">' + esc(d) + '</li>' : '';
-        day = d;
-        const detail = isCall(r)
-          ? (r.ads ? 'Phone call · from a Google Ads visit' : 'Phone call · from the website') + (r.page && r.page !== '/' ? ' · ' + esc(r.page) : '')
-          : esc(r.form || 'Website form') + (r.name ? ' · ' + esc(r.name) : '');
-        const tag = k === 'ads' ? 'Ads call' : k === 'call' ? 'Call' : sourceOf(r);
-        return head + '<li class="' + (u.has(r.id) ? 'new' : '') + (r.test ? ' test' : '') + '" data-domain="' + esc(r.domain) + '" data-id="' + esc(r.id) + '">' +
-          avatar(c, r) +
-          '<div class="tn-bell-m"><div class="tn-bell-c">' + esc(c ? c.name : (r.client || r.domain)) + (r.test ? '<em>test</em>' : '') + '</div>' +
-          '<div class="tn-bell-d">' + detail + '</div></div>' +
-          '<div class="tn-bell-r"><span class="tn-bell-t">' + esc(ago(r.ms)) + '</span><span class="tn-bell-tag ' + k + '">' + esc(tag) + '</span></div></li>';
-      }).join('') + '</ul>';
-    } else if (!lastErr){
-      html += '<div class="tn-bell-empty">' + (view === 'calls'
-        ? 'No phone calls in the last two weeks. Calls show up here once a client’s GA4 records a tap on their phone number.'
-        : view === 'forms' ? 'No form submissions in the last two weeks.' : 'Nothing in the last two weeks.') + '</div>';
-    }
-    panel.innerHTML = html;
+    if (list.length) html += rowsHtml(list, u);
+    else if (!lastErr) html += '<div class="tn-bell-empty">No form submissions in the last two weeks.</div>';
+    t.panel.innerHTML = html;
   }
+  function paintCalls(){
+    const t = TRAYS.calls, u = newIds('calls'), all = rows.filter(t.match);
+    const nAds = all.filter(r => r.ads).length;
+    const list = all.filter(r => t.view === 'all' || (t.view === 'ads' ? r.ads : !r.ads)).slice(0, 60);
+    let html = '<div class="tn-bell-h"><b>Phone calls</b><span>' + (unread('calls').length ? unread('calls').length + ' new' : 'All caught up') + '</span>' +
+      tabsHtml(t, [['all', 'All', all.length], ['ads', 'From ads', nAds], ['site', 'From the website', all.length - nAds]]) + '</div>';
+    if (lastErr) html += '<div class="tn-bell-err">' + esc(lastErr) + '</div>';
+    if (list.length) html += rowsHtml(list, u);
+    else if (!lastErr) html += '<div class="tn-bell-empty">No phone calls in the last two weeks. Calls show up here once a client’s GA4 records a tap on their phone number.</div>';
+    html += '<div class="tn-bell-foot">Taps on a client’s phone number, recorded by GA4 - usually a few hours behind.</div>';
+    t.panel.innerHTML = html;
+  }
+  function paintSlow(){
+    const t = TRAYS.slow, slow = slowClients();
+    let html = '<div class="tn-bell-h"><b>Slow this week</b><span>No forms or calls since Monday</span></div>';
+    if (lastErr) html += '<div class="tn-bell-err">' + esc(lastErr) + '</div>';
+    if (!tracked) html += '<div class="tn-bell-empty">Waiting for the tracker…</div>';
+    else if (!slow.length) html += '<div class="tn-bell-empty">Every client the tracker hears from has had a lead this week.</div>';
+    else {
+      const now = Date.now();
+      html += '<ul>' + slow.map(c => {
+        const l = lastFor(cleanDomain(c.website || ''));
+        const days = l ? Math.max(1, Math.floor((now - l.ms) / 864e5)) : 0;
+        const sub = l ? 'Last lead ' + new Date(l.ms).toLocaleDateString(undefined, {weekday: 'short', month: 'short', day: 'numeric'}) + ' · ' + (l.call ? 'phone call' : 'form') : 'No leads in the last two weeks';
+        return '<li data-client="' + esc(c.id) + '">' + avatar(c, null) +
+          '<div class="tn-bell-m"><div class="tn-bell-c">' + esc(c.name) + '</div><div class="tn-bell-d">' + esc(sub) + '</div></div>' +
+          '<div class="tn-bell-r"><span class="tn-bell-tag slow">' + (l ? days + (days === 1 ? ' day' : ' days') : '2 wk+') + '</span></div></li>';
+      }).join('') + '</ul>';
+    }
+    html += '<div class="tn-bell-foot">Active clients with form tracking, Easyleads or GA4 calls. Click one to open it.</div>';
+    t.panel.innerHTML = html;
+  }
+  const paintTray = k => k === 'forms' ? paintForms() : k === 'calls' ? paintCalls() : paintSlow();
+
   /* A call has no form behind it, so its panel shows what GA4 recorded. */
   function callHtml(r){
     const c = clientFor(r.domain);
@@ -27752,33 +27851,54 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
       'Phone call · ' + esc(when) + '</div></div>' +
       '<button type="button" class="tn-sub-x" aria-label="Close">×</button></header>' +
       '<div class="tn-sub-body"><div class="tn-sub-sec">Call</div>' +
-      row('Came from', r.ads ? 'A visit from Google Ads' : 'The website') +
-      row('Traffic source', r.src) + row('Page', r.page) + row('GA4 event', r.event) +
+      row('Channel', channelOf(r)) + row('Source / medium', r.src) + row('Page', r.page) + row('GA4 event', r.event) +
       '<div class="tn-sub-note">Recorded by Google Analytics when someone tapped the phone number on the site. GA4 reports these a little late, so the time is approximate, and it can’t tell whether the call was answered. Calls placed straight from a Google Ads call button never reach the site, so they aren’t listed.</div></div>' +
       '<footer>' + (c ? '<button type="button" class="btn btn-sm tn-sub-client-btn">Open ' + esc(c.name) + '</button>' : '') +
       '<button type="button" class="btn btn-sm btn-go tn-sub-done">Done</button></footer></div>';
   }
-  function place(){
-    const r = btn.getBoundingClientRect();
-    panel.style.top = (r.bottom + 8) + 'px';
-    panel.style.right = Math.max(8, window.innerWidth - r.right) + 'px';
+
+  function place(t){
+    const r = t.btn.getBoundingClientRect();
+    t.panel.style.top = (r.bottom + 8) + 'px';
+    t.panel.style.right = Math.max(8, window.innerWidth - r.right) + 'px';
   }
-  function close(){ panel.hidden = true; slowOpen = false; document.removeEventListener('mousedown', outside, true); }
-  function outside(e){ if (!panel.contains(e.target) && !btn.contains(e.target)) close(); }
-  /* A new submission shows straight away: a notice under the bell that stays
-     until it is clicked or closed, and - when the tool isn't the window in
+  function close(){
+    Object.keys(TRAYS).forEach(k => { TRAYS[k].panel.hidden = true; TRAYS[k].fresh = null; });
+    document.removeEventListener('mousedown', outside, true);
+  }
+  function outside(e){
+    const inside = Object.keys(TRAYS).some(k => TRAYS[k].panel.contains(e.target) || TRAYS[k].btn.contains(e.target));
+    if (!inside) close();
+  }
+  function openTray(k){
+    const t = TRAYS[k];
+    close();
+    if (pop) pop.hidden = true;
+    try{ if (k !== 'slow' && window.Notification && Notification.permission === 'default') Notification.requestPermission(); }catch(e){}
+    /* What was new when it opened stays marked until it is closed. */
+    if (t.match) t.fresh = unread(k).map(r => r.id);
+    paintTray(k); place(t); t.panel.hidden = false;
+    document.addEventListener('mousedown', outside, true);
+    if (seen && t.match){ rows.forEach(r => { if (t.match(r) && seen.ids.indexOf(r.id) === -1) seen.ids.push(r.id); }); writeSeen(); }
+    paintBadge();
+    poll();
+  }
+
+  /* A new form or call shows straight away: a notice under its own button that
+     stays until clicked or closed, and - when the tool isn't the window in
      front - a desktop notification, if this person allowed them. */
   let pop = null, lastFresh = [];
   function notify(fresh){
     const first = fresh[0], c = clientFor(first.domain);
     lastFresh = fresh;
     const who = c ? c.name : (first.client || first.domain);
-    const calls = fresh.filter(r => r.origin === 'call').length;
-    const what = r => r.origin === 'call' ? (r.ads ? 'Phone call (Google Ads)' : 'Phone call') : (r.form || 'Website form');
+    const calls = fresh.filter(isCall).length, allCalls = calls === fresh.length;
+    const what = r => isCall(r) ? 'Phone call · ' + channelOf(r) : (r.form || 'Website form') + (formChannel(r) ? ' · ' + formChannel(r) : '');
     const title = fresh.length === 1
       ? (calls ? 'New phone call' : 'New form submission')
-      : calls === fresh.length ? fresh.length + ' new phone calls' : calls ? fresh.length + ' new leads' : fresh.length + ' new form submissions';
+      : allCalls ? fresh.length + ' new phone calls' : calls ? fresh.length + ' new leads' : fresh.length + ' new form submissions';
     const line = fresh.length === 1 ? who + ' · ' + what(first) : 'Latest: ' + who + ' · ' + what(first);
+    const tray = allCalls ? TRAYS.calls : TRAYS.forms;
     if (!pop){
       pop = document.createElement('div');
       pop.className = 'tn-bell-pop';
@@ -27787,19 +27907,19 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
       pop.addEventListener('click', e => {
         const x = e.target.closest('.tn-bell-pop-x');
         pop.hidden = true;
-        if (!x){ if (lastFresh.length === 1) openDetail(lastFresh[0]); else if (panel.hidden) btn.click(); }
+        if (!x){ if (lastFresh.length === 1) openDetail(lastFresh[0]); else openTray(lastFresh.every(isCall) ? 'calls' : 'forms'); }
       });
     }
     pop.innerHTML = '<b>' + esc(title) + '</b><span>' + esc(line) + '</span><button type="button" class="tn-bell-pop-x" aria-label="Dismiss">×</button>';
-    const r = btn.getBoundingClientRect();
+    const r = tray.btn.getBoundingClientRect();
     pop.style.top = (r.bottom + 8) + 'px';
     pop.style.right = Math.max(8, window.innerWidth - r.right) + 'px';
     pop.hidden = false;
-    btn.classList.remove('ring'); void btn.offsetWidth; btn.classList.add('ring');
+    tray.btn.classList.remove('ring'); void tray.btn.offsetWidth; tray.btn.classList.add('ring');
     try{
       if (window.Notification && Notification.permission === 'granted' && (document.hidden || !document.hasFocus())){
-        const n = new Notification(title, {body: line, tag: 'edge-form-' + first.id});
-        n.onclick = () => { try{ window.focus(); }catch(e){} n.close(); if (fresh.length === 1) openDetail(first); else if (panel.hidden) btn.click(); };
+        const n = new Notification(title, {body: line, tag: 'edge-lead-' + first.id});
+        n.onclick = () => { try{ window.focus(); }catch(e){} n.close(); if (fresh.length === 1) openDetail(first); else openTray(allCalls ? 'calls' : 'forms'); };
       }
     }catch(e){}
   }
@@ -27901,42 +28021,32 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
       if (openId === r.id) drawer.innerHTML = drawerHtml(r, null, 'The details couldn’t be loaded right now. Try again in a moment.');
     }
   }
-  btn.addEventListener('click', () => {
-    if (!panel.hidden){ close(); return; }
-    if (pop) pop.hidden = true;
-    /* The first time someone opens the bell, offer desktop notifications. */
-    try{ if (window.Notification && Notification.permission === 'default') Notification.requestPermission(); }catch(e){}
-    paintPanel(); place(); panel.hidden = false;
-    document.addEventListener('mousedown', outside, true);
-    /* Opening the bell marks everything in it as seen; the list keeps showing
-       which ones were new until it is closed. */
-    if (seen){ rows.forEach(r => { if (seen.ids.indexOf(r.id) === -1) seen.ids.push(r.id); }); writeSeen(); }
-    paintBadge();
-    poll();
-  });
-  panel.addEventListener('click', e => {
-    const tb = e.target.closest('[data-view]');
-    if (tb){ view = tb.dataset.view; paintPanel(); return; }
-    if (e.target.closest('[data-slow-more]')){ slowOpen = !slowOpen; paintPanel(); return; }
-    const cb = e.target.closest('[data-client]');
-    if (cb){
-      const c = (state.seoClients || []).find(x => x.id === cb.dataset.client);
-      close();
-      if (!c) return;
-      try{ const m = document.getElementById('modBtnSeo'); if (m) m.click(); }catch(err){}
-      state.activeSeoClientId = c.id;
-      try{ save(); renderSeoAll(); }catch(err){}
-      return;
-    }
-    const li = e.target.closest('li[data-id]');
-    if (li) openDetail(rows.find(r => r.id === li.dataset.id));
+  Object.keys(TRAYS).forEach(k => {
+    const t = TRAYS[k];
+    t.btn.addEventListener('click', () => { if (!t.panel.hidden){ close(); return; } openTray(k); });
+    t.panel.addEventListener('click', e => {
+      const tb = e.target.closest('[data-view]');
+      if (tb){ t.view = tb.dataset.view; paintTray(k); return; }
+      const cb = e.target.closest('[data-client]');
+      if (cb){
+        const c = (state.seoClients || []).find(x => x.id === cb.dataset.client);
+        close();
+        if (!c) return;
+        try{ const m = document.getElementById('modBtnSeo'); if (m) m.click(); }catch(err){}
+        state.activeSeoClientId = c.id;
+        try{ save(); renderSeoAll(); }catch(err){}
+        return;
+      }
+      const li = e.target.closest('li[data-id]');
+      if (li) openDetail(rows.find(r => r.id === li.dataset.id));
+    });
   });
 
   async function poll(){
     if (busy) return;
     const t = tracker();
-    if (!signedIn() || !t.url || !t.key){ btn.hidden = true; return; }
-    btn.hidden = false;
+    if (!signedIn() || !t.url || !t.key){ showButtons(false); return; }
+    showButtons(true);
     busy = true;
     try{
       const res = await fetch(t.url + (t.url.indexOf('?') > -1 ? '&' : '?') + 'action=formsRecent&key=' + encodeURIComponent(t.key), {redirect: 'follow'});
@@ -27945,6 +28055,7 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
         const before = new Set(rows.map(r => r.id));
         rows = data.rows.filter(r => r && r.id && r.ms);
         tracked = Array.isArray(data.tracked) ? data.tracked : null;
+        lastLead = data.last && typeof data.last === 'object' ? data.last : null;
         lastErr = '';
         if (!seen){
           /* First time on this browser: anything older than a day counts as seen. */
@@ -27956,7 +28067,7 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
         firstLoad = false;
       } else {
         lastErr = data && data.error === 'domain required'
-          ? 'The tracker needs a one-time update before the bell can read submissions.'
+          ? 'The tracker needs a one-time update before these can be read.'
           : 'Submissions couldn’t be loaded' + (data && data.error ? ': ' + data.error : '.');
       }
     }catch(e){
@@ -27964,7 +28075,7 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
     }finally{
       busy = false;
       paintBadge();
-      if (!panel.hidden) paintPanel();
+      Object.keys(TRAYS).forEach(k => { if (!TRAYS[k].panel.hidden) paintTray(k); });
     }
   }
   function start(){
@@ -27980,8 +28091,8 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
     const now = signedIn();
     if (now === wasIn) return;
     wasIn = now;
-    rows = []; firstLoad = true; seen = readSeen(); lastErr = '';
-    if (now) poll(); else { btn.hidden = true; close(); }
+    rows = []; tracked = null; lastLead = null; firstLoad = true; seen = readSeen(); lastErr = '';
+    if (now) poll(); else { showButtons(false); close(); }
   }, 5000);
   start();
 })();

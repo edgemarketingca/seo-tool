@@ -268,17 +268,22 @@ function formsRecent_() {
   clients_().forEach(function (c) { names[c.domain] = c.name; });
   const now = Date.now(), cutoff = now - 14 * 24 * 3600 * 1000, heardSince = now - 120 * 24 * 3600 * 1000;
   /* tracked: the clients the tracker can hear from (a live forms snippet or
-     Easyleads in the last 120 days, or GA4 call events), so the bell's
-     "Slow this week" only flags clients that could have had a lead. */
-  const tracked = {};
+     Easyleads in the last 120 days, or GA4 call events), so the SEO tool's
+     "Slow this week" only flags clients that could have had a lead.
+     last: each of those clients' most recent real lead {ms, call}. */
+  const tracked = {}, last = {};
+  const seeLead = function (dm, ms, call) { if (!last[dm] || ms > last[dm].ms) last[dm] = { ms: ms, call: !!call }; };
   var rows = [];
   fsValues_().forEach(function (r) {
     if (r[15] === 'import') return;
     const d = r[1] instanceof Date ? r[1] : new Date(r[1]);
-    if (!isNaN(d) && d.getTime() >= heardSince) tracked[r[0]] = 1;
-    if (isNaN(d) || d.getTime() < cutoff) return;
+    if (isNaN(d) || d.getTime() < heardSince) return;
+    tracked[r[0]] = 1;
     var f = {};
     try { f = JSON.parse(r[9] || '{}') || {}; } catch (e) { f = {}; }
+    const test = fsIsTest_(r[0], r[2], r[4], r[5], r[8], f);
+    if (!test) seeLead(r[0], d.getTime(), false);
+    if (d.getTime() < cutoff) return;
     rows.push({
       id: String(r[16] || (r[0] + ':' + d.getTime())),
       domain: r[0],
@@ -287,20 +292,24 @@ function formsRecent_() {
       form: String(r[2] || ''),
       name: String(r[4] || ''),
       origin: String(r[15] || ''),
-      test: fsIsTest_(r[0], r[2], r[4], r[5], r[8], f)
+      channel: String(r[10] || ''),
+      test: test
     });
   });
-  /* Phone calls from GA4 (calls.gs), when that file is in the project. */
+  /* Phone calls from GA4 (Calls.gs), when that file is in the project. */
   if (typeof callsRecent_ === 'function') {
     try {
       const calls = callsRecent_();
-      calls.rows.forEach(function (x) { if (x.ms >= cutoff) { x.client = names[x.domain] || x.client; rows.push(x); } });
+      calls.rows.forEach(function (x) {
+        seeLead(x.domain, x.ms, true);
+        if (x.ms >= cutoff) { x.client = names[x.domain] || x.client; rows.push(x); }
+      });
       calls.tracked.forEach(function (dm) { tracked[dm] = 1; });
     } catch (e) { console.warn('Calls in the bell: ' + e.message); }
   }
   rows.sort(function (a, b) { return b.ms - a.ms; });
-  rows = rows.slice(0, 150);
-  const out = { rows: rows, tracked: Object.keys(tracked) };
+  rows = rows.slice(0, 200); /* keeps the cached copy under CacheService's 100 KB */
+  const out = { rows: rows, tracked: Object.keys(tracked), last: last };
   try { cache.put(ck, JSON.stringify(out), 60); } catch (e) {}
   return out;
 }
