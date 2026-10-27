@@ -1216,6 +1216,28 @@ body.embed-mode .hub{display:none !important;}
 .tn-bell-pop span{font-size:12px; color:#c9d3dc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
 .tn-bell-pop-x{position:absolute; top:6px; right:8px; border:none; background:none; color:#8b98a3; font-size:17px; line-height:1; cursor:pointer; padding:2px 4px;}
 .tn-bell-pop-x:hover{color:#fff;}
+/* Form submission detail panel (opened from the bell) */
+.tn-sub-ov{position:fixed; inset:0; z-index:9700; background:rgba(15,20,26,.35); display:flex; justify-content:flex-end;}
+.tn-sub{width:min(460px,100%); height:100%; background:var(--card); box-shadow:var(--sh-3); display:flex; flex-direction:column; animation:tnSubIn .22s var(--ease);}
+@keyframes tnSubIn{from{transform:translateX(24px); opacity:0}to{transform:none; opacity:1}}
+.tn-sub header{display:flex; align-items:flex-start; justify-content:space-between; gap:12px; padding:18px 20px 14px; border-bottom:1px solid var(--line-2);}
+.tn-sub-client{font-family:var(--display); font-size:17px; font-weight:600; color:var(--ink);}
+.tn-sub-meta{display:flex; align-items:center; flex-wrap:wrap; gap:6px; font-size:12px; color:var(--ink-3); margin-top:5px;}
+.tn-sub-src{font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; border-radius:10px; padding:2px 8px; color:#fff; background:#57646f;}
+.tn-sub-src-easyleads{background:#6d4aff;}
+.tn-sub-src-concrete{background:#1f7ae0;}
+.tn-sub-src-wordpress{background:#21759b;}
+.tn-sub-x{border:none; background:none; font-size:24px; line-height:1; color:var(--ink-3); cursor:pointer; padding:0 4px;}
+.tn-sub-x:hover{color:var(--ink);}
+.tn-sub-body{flex:1; overflow:auto; padding:6px 20px 20px;}
+.tn-sub-sec{font-size:10px; letter-spacing:.09em; text-transform:uppercase; color:var(--ink-3); font-weight:700; margin:18px 0 8px;}
+.tn-sub-row{display:flex; gap:12px; padding:7px 0; border-bottom:1px solid var(--line-2); font-size:13px;}
+.tn-sub-row span{flex:0 0 120px; color:var(--ink-3);}
+.tn-sub-row b{flex:1; min-width:0; font-weight:500; color:var(--ink); overflow-wrap:anywhere;}
+.tn-sub-row a{color:var(--brand-deep);}
+.tn-sub-msg{font-size:13.5px; line-height:1.65; color:var(--ink); background:var(--card-2); border:1px solid var(--line-2); border-radius:var(--r-md); padding:12px 14px; white-space:normal; overflow-wrap:anywhere;}
+.tn-sub-wait{padding:30px 0; color:var(--ink-3); font-size:13px;}
+.tn-sub footer{display:flex; justify-content:flex-end; gap:8px; padding:12px 20px; border-top:1px solid var(--line-2);}
 .tn-bell.ring svg{animation:tnBellRing .9s ease 2;}
 @keyframes tnBellRing{0%,100%{transform:rotate(0)}15%{transform:rotate(16deg)}30%{transform:rotate(-14deg)}45%{transform:rotate(10deg)}60%{transform:rotate(-8deg)}75%{transform:rotate(4deg)}}
 @media (max-width:880px){
@@ -27585,7 +27607,7 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
       (lastErr ? '<div class="tn-bell-err">' + esc(lastErr) + '</div>' : '') +
       (list.length ? '<ul>' + list.map(r => {
         const c = clientFor(r.domain);
-        return '<li class="' + (u.has(r.id) ? 'new' : '') + (r.test ? ' test' : '') + '" data-domain="' + esc(r.domain) + '">' +
+        return '<li class="' + (u.has(r.id) ? 'new' : '') + (r.test ? ' test' : '') + '" data-domain="' + esc(r.domain) + '" data-id="' + esc(r.id) + '">' +
           '<div class="tn-bell-c">' + esc(c ? c.name : (r.client || r.domain)) + (r.test ? '<em>test</em>' : '') + '</div>' +
           '<div class="tn-bell-d">' + esc(r.form || 'Website form') + (r.name ? ' · ' + esc(r.name) : '') + (r.origin === 'easyleads' ? ' · Easyleads' : '') + '</div>' +
           '<div class="tn-bell-t">' + esc(ago(r.ms)) + '</div></li>';
@@ -27601,9 +27623,10 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
   /* A new submission shows straight away: a notice under the bell that stays
      until it is clicked or closed, and - when the tool isn't the window in
      front - a desktop notification, if this person allowed them. */
-  let pop = null;
+  let pop = null, lastFresh = [];
   function notify(fresh){
     const first = fresh[0], c = clientFor(first.domain);
+    lastFresh = fresh;
     const who = c ? c.name : (first.client || first.domain);
     const line = fresh.length === 1 ? who + ' · ' + (first.form || 'Website form') : fresh.length + ' new submissions · latest: ' + who;
     if (!pop){
@@ -27614,7 +27637,7 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
       pop.addEventListener('click', e => {
         const x = e.target.closest('.tn-bell-pop-x');
         pop.hidden = true;
-        if (!x && panel.hidden) btn.click();
+        if (!x){ if (lastFresh.length === 1) openDetail(lastFresh[0]); else if (panel.hidden) btn.click(); }
       });
     }
     pop.innerHTML = '<b>New form submission</b><span>' + esc(line) + '</span><button type="button" class="tn-bell-pop-x" aria-label="Dismiss">×</button>';
@@ -27626,9 +27649,97 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
     try{
       if (window.Notification && Notification.permission === 'granted' && (document.hidden || !document.hasFocus())){
         const n = new Notification('New form submission', {body: line, tag: 'edge-form-' + first.id});
-        n.onclick = () => { try{ window.focus(); }catch(e){} n.close(); if (panel.hidden) btn.click(); };
+        n.onclick = () => { try{ window.focus(); }catch(e){} n.close(); if (fresh.length === 1) openDetail(first); else if (panel.hidden) btn.click(); };
       }
     }catch(e){}
+  }
+  /* ONE CLICK TO THE SUBMISSION. A notice, a bell row or a desktop
+     notification opens the submission itself in a side panel: where it came
+     from (Easyleads, or the client's Concrete or WordPress site), who sent it,
+     their message and every field. The full record is read from the tracker
+     (action=forms, team key) for that client and day, and matched by its id. */
+  let drawer = null, openId = '';
+  const sourceOf = r => {
+    if (r.origin === 'easyleads') return 'Easyleads';
+    const c = clientFor(r.domain), cms = String((c && c.cms) || '').toLowerCase();
+    if (/concrete/.test(cms)) return 'Concrete';
+    if (/wordpress|\bwp\b/.test(cms)) return 'WordPress';
+    return 'Website';
+  };
+  const dayIso = ms => { const d = new Date(ms); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+  function closeDrawer(){ if (drawer) drawer.hidden = true; openId = ''; document.removeEventListener('keydown', drawerKey, true); }
+  function drawerKey(e){ if (e.key === 'Escape') closeDrawer(); }
+  function markSeen(r){
+    if (seen && r && seen.ids.indexOf(r.id) === -1){ seen.ids.push(r.id); writeSeen(); paintBadge(); }
+  }
+  function drawerHtml(r, full, state0){
+    const c = clientFor(r.domain), src = sourceOf(r);
+    const when = new Date(r.ms).toLocaleString(undefined, {weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'});
+    const row = (label, val, href) => val ? '<div class="tn-sub-row"><span>' + esc(label) + '</span><b>' + (href ? '<a href="' + esc(href) + '"' + (/^https?:/.test(href) ? ' target="_blank" rel="noopener"' : '') + '>' + esc(val) + '</a>' : esc(val)) + '</b></div>' : '';
+    let body = '';
+    if (full){
+      const msg = full.message ? '<div class="tn-sub-msg">' + esc(full.message).replace(/\n/g, '<br>') + '</div>' : '';
+      const skip = /^(name|full name|your name|first name|last name|e-?mail|email address|phone|phone number|telephone|company|message)$/i;
+      const extra = Object.keys(full.fields || {}).filter(k => !skip.test(k.trim())).map(k => row(k, String(full.fields[k])));
+      body =
+        '<div class="tn-sub-sec">Contact</div>' +
+        row('Name', full.name) + row('Email', full.email, full.email ? 'mailto:' + full.email : '') +
+        row('Phone', full.phone, full.phone ? 'tel:' + String(full.phone).replace(/[^\d+]/g, '') : '') + row('Company', full.company) +
+        (msg ? '<div class="tn-sub-sec">Message</div>' + msg : '') +
+        (extra.length ? '<div class="tn-sub-sec">All answers</div>' + extra.join('') : '') +
+        '<div class="tn-sub-sec">Where it came from</div>' +
+        row('Page', full.page, /^https?:/.test(full.page || '') ? full.page : '') + row('Channel', full.channel) + row('Source / medium', full.sm) +
+        row('Campaign', full.campaign) + row('Landing page', full.land, /^https?:/.test(full.land || '') ? full.land : '') + row('Referrer', full.ref);
+    } else {
+      body = '<div class="tn-sub-wait">' + esc(state0 || 'Loading the submission…') + '</div>';
+    }
+    return '<div class="tn-sub" role="dialog" aria-label="Form submission">' +
+      '<header><div><div class="tn-sub-client">' + esc(c ? c.name : (r.client || r.domain)) + '</div>' +
+      '<div class="tn-sub-meta"><span class="tn-sub-src tn-sub-src-' + src.toLowerCase() + '">' + esc(src) + '</span>' +
+      esc(r.form || 'Website form') + ' · ' + esc(when) + (r.test ? ' · test send' : '') + '</div></div>' +
+      '<button type="button" class="tn-sub-x" aria-label="Close">×</button></header>' +
+      '<div class="tn-sub-body">' + body + '</div>' +
+      '<footer>' + (c ? '<button type="button" class="btn btn-sm tn-sub-client-btn">Open ' + esc(c.name) + '</button>' : '') +
+      '<button type="button" class="btn btn-sm btn-go tn-sub-done">Done</button></footer></div>';
+  }
+  async function openDetail(r){
+    if (!r) return;
+    close();
+    if (pop) pop.hidden = true;
+    markSeen(r);
+    if (!drawer){
+      drawer = document.createElement('div');
+      drawer.className = 'tn-sub-ov';
+      document.body.appendChild(drawer);
+      drawer.addEventListener('click', e => {
+        if (e.target === drawer || e.target.closest('.tn-sub-x') || e.target.closest('.tn-sub-done')){ closeDrawer(); return; }
+        if (e.target.closest('.tn-sub-client-btn')){
+          const cur = rows.find(x => x.id === drawer.dataset.id), c = cur ? clientFor(cur.domain) : null;
+          closeDrawer();
+          if (!c) return;
+          try{ const m = document.getElementById('modBtnSeo'); if (m) m.click(); }catch(err){}
+          state.activeSeoClientId = c.id;
+          try{ save(); renderSeoAll(); }catch(err){}
+        }
+      });
+    }
+    openId = r.id;
+    drawer.dataset.id = r.id;
+    drawer.innerHTML = drawerHtml(r, null);
+    drawer.hidden = false;
+    document.addEventListener('keydown', drawerKey, true);
+    const t = tracker();
+    try{
+      const from = dayIso(r.ms - 36 * 3600 * 1000), to = dayIso(r.ms + 36 * 3600 * 1000);
+      const q = 'action=forms&src=all&domain=' + encodeURIComponent(r.domain) + '&start=' + from + '&end=' + to + '&key=' + encodeURIComponent(t.key);
+      const res = await fetch(t.url + (t.url.indexOf('?') > -1 ? '&' : '?') + q, {redirect: 'follow'});
+      const data = await res.json();
+      const full = data && Array.isArray(data.rows) ? data.rows.find(x => x && x.id === r.id) : null;
+      if (openId !== r.id) return;
+      drawer.innerHTML = drawerHtml(r, full, full ? '' : 'This submission couldn’t be found on the tracker any more.');
+    }catch(e){
+      if (openId === r.id) drawer.innerHTML = drawerHtml(r, null, 'The details couldn’t be loaded right now. Try again in a moment.');
+    }
   }
   btn.addEventListener('click', () => {
     if (!panel.hidden){ close(); return; }
@@ -27644,14 +27755,8 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
     poll();
   });
   panel.addEventListener('click', e => {
-    const li = e.target.closest('li[data-domain]');
-    if (!li) return;
-    const c = clientFor(li.dataset.domain);
-    if (!c) return;
-    close();
-    try{ const m = document.getElementById('modBtnSeo'); if (m) m.click(); }catch(err){}
-    state.activeSeoClientId = c.id;
-    try{ save(); renderSeoAll(); }catch(err){}
+    const li = e.target.closest('li[data-id]');
+    if (li) openDetail(rows.find(r => r.id === li.dataset.id));
   });
 
   async function poll(){
