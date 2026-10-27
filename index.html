@@ -1191,6 +1191,26 @@ body.embed-mode .hub{display:none !important;}
   cursor:pointer; transition:all .16s var(--ease);
 }
 .tn-btn:hover{background:rgba(255,255,255,.09); color:#fff; border-color:rgba(255,255,255,.2);}
+/* Form submission bell (top right) */
+.tn-bell{position:relative; display:flex; align-items:center; justify-content:center; width:34px; height:32px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.1); color:#b6c3cf; border-radius:9px; cursor:pointer; transition:all .16s var(--ease);}
+.tn-bell:hover{background:rgba(255,255,255,.09); color:#fff; border-color:rgba(255,255,255,.2);}
+.tn-bell svg{width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round;}
+.tn-bell.has{color:#fff; border-color:rgba(232,119,34,.55);}
+.tn-bell-n{position:absolute; top:-6px; right:-6px; min-width:17px; height:17px; padding:0 4px; border-radius:9px; background:var(--brand); color:#fff; font:700 10px/17px var(--ui); text-align:center; box-shadow:0 0 0 2px #14191f;}
+.tn-bell-panel{position:fixed; z-index:9500; width:340px; max-width:calc(100vw - 16px); max-height:min(70vh, 520px); overflow:auto; background:var(--card); border-radius:var(--r-lg); box-shadow:var(--sh-3); border:1px solid var(--line);}
+.tn-bell-h{position:sticky; top:0; display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px 14px; background:var(--card); border-bottom:1px solid var(--line-2); font-size:13px; color:var(--ink);}
+.tn-bell-h span{font-size:11.5px; color:var(--ink-3);}
+.tn-bell-panel ul{list-style:none; margin:0; padding:0;}
+.tn-bell-panel li{padding:10px 14px; border-bottom:1px solid var(--line-2); cursor:pointer;}
+.tn-bell-panel li:hover{background:var(--card-2);}
+.tn-bell-panel li.new{background:linear-gradient(90deg,rgba(232,119,34,.14),rgba(232,119,34,.03)); box-shadow:inset 3px 0 0 var(--brand);}
+.tn-bell-panel li.test{opacity:.55;}
+.tn-bell-c{font-size:13px; font-weight:600; color:var(--ink);}
+.tn-bell-c em{font-style:normal; font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-3); background:var(--line-2); border-radius:8px; padding:1px 6px; margin-left:6px;}
+.tn-bell-d{font-size:12px; color:var(--ink-2); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.tn-bell-t{font-size:11px; color:var(--ink-3); margin-top:2px;}
+.tn-bell-empty,.tn-bell-err{padding:18px 14px; font-size:12.5px; color:var(--ink-3); line-height:1.6;}
+.tn-bell-err{color:var(--alert);}
 @media (max-width:880px){
   .topnav{flex-wrap:wrap; gap:9px; padding:9px 14px;}
   .tn-sep{display:none;}
@@ -27501,6 +27521,150 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
   bootWorkspace();
 }
 
+})();
+/* ==========================================================================
+   FORM SUBMISSION BELL (top right)
+   One bell for every client the tool knows about, including clients added
+   later: it asks the AI Visibility Tracker (action formsRecent, team key) for
+   the newest website and Easyleads submissions across all of them, every few
+   minutes while someone is signed in, and names the client each one is for.
+   What each person has already seen is kept in their own browser, so the
+   badge is per person. Test sends (the team's own address, "test" messages)
+   are listed but never counted. Imported past submissions are left out.
+   -------------------------------------------------------------------------- */
+(function formBell(){
+  const right = document.querySelector('.tn-right');
+  if (!right || typeof isPublicView !== 'function' || isPublicView()) return;
+  const SEEN_KEY = 'edgeBellSeen', POLL_MS = 3 * 60 * 1000;
+  let rows = [], seen = null, timer = null, busy = false, lastErr = '', firstLoad = true;
+  const readSeen = () => { try{ const v = JSON.parse(localStorage.getItem(SEEN_KEY) || 'null'); return v && Array.isArray(v.ids) ? v : null; }catch(e){ return null; } };
+  const writeSeen = () => { try{ localStorage.setItem(SEEN_KEY, JSON.stringify({ids: seen.ids.slice(-400), at: Date.now()})); }catch(e){} };
+  seen = readSeen();
+
+  const btn = document.createElement('button');
+  btn.type = 'button'; btn.className = 'tn-bell'; btn.id = 'tnBell'; btn.hidden = true;
+  btn.title = 'Form submissions';
+  btn.setAttribute('aria-label', 'Form submissions');
+  btn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><span class="tn-bell-n" hidden></span>';
+  right.insertBefore(btn, right.firstChild);
+  const panel = document.createElement('div');
+  panel.className = 'tn-bell-panel'; panel.hidden = true;
+  document.body.appendChild(panel);
+
+  const signedIn = () => { try{ return !!(fbAuth && fbAuth.currentUser); }catch(e){ return false; } };
+  const tracker = () => { const s = (state.settings && state.settings.aiTracker) || {}; return {url: s.url || '', key: s.key || ''}; };
+  const clientFor = domain => (state.seoClients || []).find(c => cleanDomain(c.website) === domain) || null;
+  const unread = () => seen ? rows.filter(r => !r.test && seen.ids.indexOf(r.id) === -1) : [];
+  const ago = ms => {
+    const m = Math.round((Date.now() - ms) / 60000);
+    if (m < 1) return 'just now';
+    if (m < 60) return m + ' min ago';
+    const h = Math.round(m / 60);
+    if (h < 24) return h + ' h ago';
+    return new Date(ms).toLocaleDateString(undefined, {month: 'short', day: 'numeric'});
+  };
+
+  function paintBadge(){
+    const n = unread().length, el = btn.querySelector('.tn-bell-n');
+    el.hidden = !n;
+    el.textContent = n > 9 ? '9+' : String(n);
+    btn.classList.toggle('has', n > 0);
+    btn.title = n ? n + ' new form submission' + (n === 1 ? '' : 's') : 'Form submissions';
+  }
+  function paintPanel(){
+    const u = new Set(unread().map(r => r.id));
+    const list = rows.slice(0, 40);
+    panel.innerHTML = '<div class="tn-bell-h"><b>Form submissions</b><span>' + (u.size ? u.size + ' new' : 'All caught up') + '</span></div>' +
+      (lastErr ? '<div class="tn-bell-err">' + esc(lastErr) + '</div>' : '') +
+      (list.length ? '<ul>' + list.map(r => {
+        const c = clientFor(r.domain);
+        return '<li class="' + (u.has(r.id) ? 'new' : '') + (r.test ? ' test' : '') + '" data-domain="' + esc(r.domain) + '">' +
+          '<div class="tn-bell-c">' + esc(c ? c.name : (r.client || r.domain)) + (r.test ? '<em>test</em>' : '') + '</div>' +
+          '<div class="tn-bell-d">' + esc(r.form || 'Website form') + (r.name ? ' · ' + esc(r.name) : '') + (r.origin === 'easyleads' ? ' · Easyleads' : '') + '</div>' +
+          '<div class="tn-bell-t">' + esc(ago(r.ms)) + '</div></li>';
+      }).join('') + '</ul>' : (lastErr ? '' : '<div class="tn-bell-empty">No submissions in the last two weeks.</div>'));
+  }
+  function place(){
+    const r = btn.getBoundingClientRect();
+    panel.style.top = (r.bottom + 8) + 'px';
+    panel.style.right = Math.max(8, window.innerWidth - r.right) + 'px';
+  }
+  function close(){ panel.hidden = true; document.removeEventListener('mousedown', outside, true); }
+  function outside(e){ if (!panel.contains(e.target) && !btn.contains(e.target)) close(); }
+  btn.addEventListener('click', () => {
+    if (!panel.hidden){ close(); return; }
+    paintPanel(); place(); panel.hidden = false;
+    document.addEventListener('mousedown', outside, true);
+    /* Opening the bell marks everything in it as seen; the list keeps showing
+       which ones were new until it is closed. */
+    if (seen){ rows.forEach(r => { if (seen.ids.indexOf(r.id) === -1) seen.ids.push(r.id); }); writeSeen(); }
+    paintBadge();
+    poll();
+  });
+  panel.addEventListener('click', e => {
+    const li = e.target.closest('li[data-domain]');
+    if (!li) return;
+    const c = clientFor(li.dataset.domain);
+    if (!c) return;
+    close();
+    try{ const m = document.getElementById('modBtnSeo'); if (m) m.click(); }catch(err){}
+    state.activeSeoClientId = c.id;
+    try{ save(); renderSeoAll(); }catch(err){}
+  });
+
+  async function poll(){
+    if (busy) return;
+    const t = tracker();
+    if (!signedIn() || !t.url || !t.key){ btn.hidden = true; return; }
+    btn.hidden = false;
+    busy = true;
+    try{
+      const res = await fetch(t.url + (t.url.indexOf('?') > -1 ? '&' : '?') + 'action=formsRecent&key=' + encodeURIComponent(t.key), {redirect: 'follow'});
+      const data = await res.json();
+      if (data && Array.isArray(data.rows)){
+        const before = new Set(rows.map(r => r.id));
+        rows = data.rows.filter(r => r && r.id && r.ms);
+        lastErr = '';
+        if (!seen){
+          /* First time on this browser: anything older than a day counts as seen. */
+          seen = {ids: rows.filter(r => Date.now() - r.ms > 24 * 3600 * 1000).map(r => r.id)};
+          writeSeen();
+        }
+        const fresh = rows.filter(r => !r.test && !before.has(r.id) && seen.ids.indexOf(r.id) === -1);
+        if (!firstLoad && fresh.length){
+          const c = clientFor(fresh[0].domain);
+          toast(fresh.length === 1 ? 'New form submission — ' + (c ? c.name : (fresh[0].client || fresh[0].domain)) : fresh.length + ' new form submissions');
+        }
+        firstLoad = false;
+      } else {
+        lastErr = data && data.error === 'domain required'
+          ? 'The tracker needs a one-time update before the bell can read submissions.'
+          : 'Submissions couldn’t be loaded' + (data && data.error ? ': ' + data.error : '.');
+      }
+    }catch(e){
+      lastErr = 'Submissions couldn’t be loaded right now.';
+    }finally{
+      busy = false;
+      paintBadge();
+      if (!panel.hidden) paintPanel();
+    }
+  }
+  function start(){
+    clearInterval(timer);
+    timer = setInterval(() => { if (!document.hidden) poll(); }, POLL_MS);
+    poll();
+  }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) poll(); });
+  /* Signing in or out (or another person signing in): start over. */
+  let wasIn = null;
+  setInterval(() => {
+    const now = signedIn();
+    if (now === wasIn) return;
+    wasIn = now;
+    rows = []; firstLoad = true; seen = readSeen(); lastErr = '';
+    if (now) poll(); else { btn.hidden = true; close(); }
+  }, 5000);
+  start();
 })();
 </script>
 <script src="ai-visibility.js"></script>
