@@ -304,6 +304,8 @@ function drawKpis(h, D){
   h.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => openList(b.dataset.go)));
 }
 /* ----- Lead inbox ----- */
+/* Forms are named "site.com - Request a Quote": the site part is noise inside the client's own dashboard. */
+const formLabel = f => String(f || 'Website form').replace(/^[a-z0-9.-]+\.[a-z]{2,}\s*[-–—:|]\s*/i, '') || String(f);
 const IB_FACETS = [['form', 'Form', f => f.form], ['city', 'City', cityOf], ['source', 'Source', f => chGroup(f.channel)], ['page', 'Page', pathOf]];
 function drawInbox(h, D, it){
   const st = S.ui[it.id] = S.ui[it.id] || {q: '', sort: 'new', f: {}};
@@ -328,16 +330,19 @@ function drawInbox(h, D, it){
   const paint = () => {
     const list = shownRows();
     /* filter chips */
-    $('[data-chips]').innerHTML = IB_FACETS.map(([k, label]) => '<div class="fchip"><button type="button" data-chip="' + k + '"' + (st.f[k] ? ' class="on"' : '') + '>' + esc(st.f[k] ? label + ': ' + st.f[k] : label) + ic('down', 14) + '</button></div>').join('');
+    $('[data-chips]').innerHTML = IB_FACETS.map(([k, label]) => '<div class="fchip"><button type="button" data-chip="' + k + '"' + (st.f[k] ? ' class="on"' : '') + '>' + esc(st.f[k] ? label + ': ' + (k === 'form' ? formLabel(st.f[k]) : st.f[k]) : label) + ic('down', 14) + '</button></div>').join('');
     $('[data-chips]').querySelectorAll('[data-chip]').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); chipMenu(b); }));
     /* facets */
-    $('[data-side]').innerHTML = [['city', 'Where they’re from: City'], ['source', 'Source'], ['form', 'Forms'], ['page', 'Pages']].map(([k, title]) => {
+    $('[data-side]').innerHTML = [['city', 'City', 'pin'], ['source', 'Source', 'source'], ['form', 'Form', 'form'], ['page', 'Page', 'book']].map(([k, title, icon]) => {
       const f = IB_FACETS.find(x => x[0] === k)[2];
-      const g = groupBy(rows.filter(r => match(r, k)), f).slice(0, 6);
+      const all = groupBy(rows.filter(r => match(r, k)), f), g = all.slice(0, 6);
       if (!g.length) return '';
-      const max = Math.max(...g.map(x => x.n));
-      const col = x => k === 'source' ? chColor(x.k) : k === 'city' ? '#0f7a58' : k === 'form' ? '#1d7cf2' : '#0f7a58';
-      return '<div><h5>' + esc(title) + '</h5><div class="facet">' + g.map(x => '<button type="button" data-fk="' + k + '" data-fv="' + esc(x.k) + '"' + (st.f[k] === x.k ? ' class="on"' : '') + '><div class="fl"><span>' + (k === 'source' || k === 'form' ? '<i style="background:' + col(x) + '"></i>' : '') + esc(x.k) + '</span><em>' + x.n + '</em></div><div class="tr"><b style="width:' + (x.n / max * 100) + '%;background:' + col(x) + '"></b></div></button>').join('') + '</div></div>';
+      const max = Math.max(...g.map(x => x.n)), tot = all.reduce((a, x) => a + x.n, 0);
+      const col = x => k === 'source' ? chColor(x.k) : k === 'city' ? '#0f9d6b' : k === 'form' ? '#1d7cf2' : '#7c5cff';
+      const lab = x => k === 'form' ? formLabel(x.k) : x.k;
+      return '<section class="fs"><h5><span class="hi" style="--c:' + col(g[0]) + '">' + ic(icon, 13) + '</span>' + esc(title) + (all.length > 6 ? '<small>Top 6 of ' + all.length + '</small>' : '') + '</h5><div class="facet">' +
+        g.map(x => '<button type="button" data-fk="' + k + '" data-fv="' + esc(x.k) + '" title="' + esc(x.k) + '"' + (st.f[k] === x.k ? ' class="on"' : '') + ' style="--c:' + col(x) + '">' +
+          '<div class="fl"><span class="t">' + esc(lab(x)) + '</span><em>' + x.n + '<small>' + pct(x.n, tot) + '</small></em></div><div class="tr"><b style="width:' + Math.max(4, x.n / max * 100) + '%"></b></div></button>').join('') + '</div></section>';
     }).join('') || '<div class="foot-note">Filters appear here once leads come in.</div>';
     $('[data-side]').querySelectorAll('[data-fk]').forEach(b => b.addEventListener('click', () => { const k = b.dataset.fk; st.f[k] = st.f[k] === b.dataset.fv ? '' : b.dataset.fv; limit = 30; paint(); }));
     const active = Object.values(st.f).some(Boolean) || st.q;
@@ -347,7 +352,7 @@ function drawInbox(h, D, it){
       const nm = r.name || r.email || r.phone || 'New submission', city = cityOf(r), g = chGroup(r.channel);
       return '<button class="card" type="button" data-i="' + i + '"><div class="av" style="background:' + hue(nm) + '">' + esc(initials(nm)) + '</div><div class="cb"><div class="ch"><b>' + esc(nm) + '</b><time>' + esc(fullDate(r.at)) + '</time></div>' +
         '<div class="cc">' + esc([r.email, r.phone].filter(Boolean).join(' · ') || r.company || '—') + '</div>' + (r.message ? '<div class="cm">' + esc(r.message) + '</div>' : '') +
-        '<div class="tags"><span class="tag"><i style="background:#1d7cf2"></i>' + esc(r.form) + '</span>' + (city ? '<span class="tag loc">' + ic('pin', 12) + esc(city) + '</span>' : '') +
+        '<div class="tags"><span class="tag" title="' + esc(r.form) + '"><i style="background:#1d7cf2"></i>' + esc(formLabel(r.form)) + '</span>' + (city ? '<span class="tag loc">' + ic('pin', 12) + esc(city) + '</span>' : '') +
         (g !== 'Not recorded' ? '<span class="tag"><i style="background:' + chColor(g) + '"></i>' + esc(r.channel) + '</span>' : '') + '</div></div></button>';
     }).join('') + (list.length > limit ? '<button class="more" type="button" data-more>Show more · ' + fmt(list.length - limit) + ' left</button>' : '')
       : '<div class="empty">' + (rows.length ? 'No submissions match these filters.' : 'No form submissions in this period yet.') + '</div>';
@@ -359,7 +364,7 @@ function drawInbox(h, D, it){
     const k = b.dataset.chip, f = IB_FACETS.find(x => x[0] === k)[2];
     const g = groupBy(rows.filter(r => match(r, k)), f);
     const m = document.createElement('div'); m.className = 'fmenu'; m.dataset.pop = 1;
-    m.innerHTML = '<button type="button" data-v=""' + (!st.f[k] ? ' class="on"' : '') + '><span>All</span><em>' + fmt(rows.filter(r => match(r, k)).length) + '</em></button>' + g.map(x => '<button type="button" data-v="' + esc(x.k) + '"' + (st.f[k] === x.k ? ' class="on"' : '') + '><span>' + esc(x.k) + '</span><em>' + x.n + '</em></button>').join('');
+    m.innerHTML = '<button type="button" data-v=""' + (!st.f[k] ? ' class="on"' : '') + '><span>All</span><em>' + fmt(rows.filter(r => match(r, k)).length) + '</em></button>' + g.map(x => '<button type="button" data-v="' + esc(x.k) + '"' + (st.f[k] === x.k ? ' class="on"' : '') + ' title="' + esc(x.k) + '"><span>' + esc(k === 'form' ? formLabel(x.k) : x.k) + '</span><em>' + x.n + '</em></button>').join('');
     b.parentNode.appendChild(m);
     m.addEventListener('click', e => e.stopPropagation());
     m.querySelectorAll('[data-v]').forEach(x => x.addEventListener('click', () => { st.f[k] = x.dataset.v; closePops(); limit = 30; paint(); }));
