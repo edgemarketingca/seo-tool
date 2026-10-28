@@ -16,7 +16,7 @@ if (!PA) return;
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const KEY = 'edge-workspace-choice';
 const ss = {get(){ try{ return sessionStorage.getItem(KEY) || ''; }catch(e){ return ''; } }, set(v){ try{ sessionStorage.setItem(KEY, v); }catch(e){} }};
-const logoW = 'portal/img/easyleads-logo-white.png';
+const logoW = 'portal/img/easyleads-logo-white.png', logoD = 'portal/img/easyleads-logo.png';
 const say = (m, k) => { try{ if (typeof toast === 'function') toast(m, k); }catch(e){} };
 const IC = {
   arrow: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13M13 6l6 6-6 6"/></svg>',
@@ -33,43 +33,52 @@ function styles(){
   st.textContent = `
 .elws{position:fixed;inset:0;z-index:9000;overflow:auto;font-family:var(--ui,Inter,sans-serif);animation:elwsIn .35s ease;}
 @keyframes elwsIn{from{opacity:0}to{opacity:1}}
-.elws-choose{background:radial-gradient(1000px 520px at 15% -10%,rgba(232,119,34,.22),transparent 60%),radial-gradient(1000px 560px at 100% 110%,rgba(29,148,255,.28),transparent 60%),#10161d;display:flex;align-items:center;justify-content:center;padding:40px 18px;}
-.elws-ch{width:min(980px,100%);}
-.elws-ch h2{font:600 34px var(--display,Poppins,sans-serif);color:#fff;letter-spacing:-.02em;margin:10px 0 6px;}
-.elws-ch p.lead{color:#9fb0c0;margin:0 0 30px;font-size:14.5px;}
-.elws-eyebrow{color:#e8a35f;font-size:11px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;}
-.elws-cards{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
-@media(max-width:760px){.elws-cards{grid-template-columns:1fr}}
-.elws-card{position:relative;text-align:left;border:1px solid rgba(255,255,255,.1);border-radius:24px;padding:28px 28px 24px;cursor:pointer;color:#fff;overflow:hidden;min-height:300px;display:flex;flex-direction:column;
-  transition:transform .2s,box-shadow .2s,border-color .2s;font:inherit;}
-.elws-card:hover,.elws-card:focus-visible{transform:translateY(-4px);box-shadow:0 30px 60px -28px rgba(0,0,0,.7);outline:none;}
-.elws-card.edge{background:linear-gradient(160deg,#1d5a66,#10343d);} .elws-card.edge:hover{border-color:#e87722;}
-.elws-card.el{background:linear-gradient(160deg,#0a3f7d,#052a56);} .elws-card.el:hover{border-color:#1d94ff;}
-.elws-card .lg{height:44px;display:flex;align-items:center;margin-bottom:26px;}
-.elws-card .lg img{height:34px;width:auto;}
-.elws-card .lg .edgebox{background:#fff;border-radius:10px;padding:8px 12px;display:inline-flex;}
-.elws-card .lg .edgebox img{height:22px;}
-.elws-card h3{font:600 24px var(--display,Poppins,sans-serif);margin:0 0 8px;}
-.elws-card p{color:rgba(255,255,255,.72);font-size:14px;line-height:1.55;margin:0;flex:1;}
-.elws-card .tags{display:flex;gap:6px;flex-wrap:wrap;margin:18px 0;}
-.elws-card .tags span{font:600 11px var(--mono,monospace);background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.14);border-radius:20px;padding:4px 10px;}
-.elws-card .go{display:inline-flex;gap:8px;align-items:center;font-weight:700;font-size:14px;}
-.elws-card kbd{position:absolute;top:18px;right:18px;font:600 11px var(--mono,monospace);color:rgba(255,255,255,.5);border:1px solid rgba(255,255,255,.2);border-radius:6px;padding:2px 7px;}
-.elws-card .glow{position:absolute;right:-60px;bottom:-60px;width:220px;height:220px;border-radius:50%;filter:blur(40px);opacity:.35;}
-.elws-card.edge .glow{background:#e87722;} .elws-card.el .glow{background:#1d94ff;}
-.elws-foot{color:#6f8193;font-size:12px;margin-top:22px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+.elws-choose{background:radial-gradient(900px 520px at 8% -8%,rgba(232,119,34,.10),transparent 60%),radial-gradient(900px 560px at 100% 105%,rgba(29,124,242,.12),transparent 60%),linear-gradient(180deg,#fbfcfe,#f3f6fb);display:flex;align-items:center;justify-content:center;padding:48px 20px;color:#0d1726;}
+.elws-ch{width:min(1040px,100%);}
+.elws-hello{display:flex;align-items:center;gap:12px;margin-bottom:22px;}
+.elws-hello img{height:26px;width:auto;}
+.elws-hello .dot{width:4px;height:4px;border-radius:50%;background:#c3ccd8;}
+.elws-hello span{font-size:13px;color:#6b7a90;}
+.elws-ch h2{font:600 38px var(--display,Poppins,sans-serif);color:#0d1726;letter-spacing:-.025em;margin:0 0 8px;}
+.elws-ch p.lead{color:#5b6b80;margin:0 0 34px;font-size:15px;}
+.elws-cards{display:grid;grid-template-columns:1fr 1fr;gap:22px;}
+@media(max-width:780px){.elws-cards{grid-template-columns:1fr}.elws-ch h2{font-size:30px}}
+.elws-card{position:relative;text-align:left;border:1px solid #e3e9f1;border-radius:26px;padding:0;cursor:pointer;color:#0d1726;background:#fff;overflow:hidden;display:flex;flex-direction:column;font:inherit;
+  box-shadow:0 1px 2px rgba(13,23,38,.04),0 18px 40px -30px rgba(13,23,38,.35);transition:transform .25s cubic-bezier(.2,.7,.2,1),box-shadow .25s,border-color .25s;}
+.elws-card:hover,.elws-card:focus-visible{transform:translateY(-5px);box-shadow:0 2px 4px rgba(13,23,38,.04),0 34px 60px -32px rgba(13,23,38,.45);outline:none;}
+.elws-card.edge:hover,.elws-card.edge:focus-visible{border-color:#f3c39a;} .elws-card.el:hover,.elws-card.el:focus-visible{border-color:#a9cdfa;}
+.elws-card .hero{position:relative;height:150px;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+.elws-card.edge .hero{background:radial-gradient(260px 160px at 85% 0%,rgba(232,119,34,.22),transparent 70%),linear-gradient(135deg,#fff7f0,#fdeee2);}
+.elws-card.el .hero{background:radial-gradient(260px 160px at 85% 0%,rgba(29,124,242,.24),transparent 70%),linear-gradient(135deg,#f2f8ff,#e4efff);}
+.elws-card .hero::after{content:"";position:absolute;inset:0;background-image:radial-gradient(rgba(13,23,38,.07) 1px,transparent 1px);background-size:14px 14px;mask-image:linear-gradient(180deg,#000,transparent);-webkit-mask-image:linear-gradient(180deg,#000,transparent);}
+.elws-card .logo{position:relative;z-index:1;background:#fff;border-radius:18px;padding:16px 22px;box-shadow:0 12px 30px -18px rgba(13,23,38,.4);display:flex;align-items:center;}
+.elws-card .logo img{height:34px;width:auto;display:block;}
+.elws-card .bd{padding:24px 26px 24px;display:flex;flex-direction:column;flex:1;}
+.elws-card h3{font:600 23px var(--display,Poppins,sans-serif);margin:0 0 8px;letter-spacing:-.01em;}
+.elws-card p{color:#5b6b80;font-size:14px;line-height:1.6;margin:0;}
+.elws-card ul{list-style:none;padding:0;margin:18px 0 22px;display:grid;gap:9px;flex:1;}
+.elws-card li{display:flex;align-items:center;gap:10px;font-size:13.5px;color:#26354a;font-weight:500;}
+.elws-card li i{width:22px;height:22px;border-radius:7px;display:grid;place-items:center;flex:none;}
+.elws-card.edge li i{background:#fff1e5;color:#d96a15;} .elws-card.el li i{background:#e8f2ff;color:#1d7cf2;}
+.elws-card .go{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.elws-card .cta{display:inline-flex;gap:8px;align-items:center;font-weight:600;font-size:14px;color:#fff;border-radius:13px;padding:11px 16px;transition:gap .2s;}
+.elws-card.edge .cta{background:linear-gradient(180deg,#f08a3a,#e87722);box-shadow:0 10px 20px -12px rgba(232,119,34,.9);}
+.elws-card.el .cta{background:linear-gradient(180deg,#2b88f5,#1d7cf2);box-shadow:0 10px 20px -12px rgba(29,124,242,.9);}
+.elws-card:hover .cta{gap:12px;}
+.elws-card kbd{font:600 11.5px var(--ui,Inter,sans-serif);color:#6b7a90;background:#f3f6fa;border:1px solid #e3e9f1;border-bottom-width:2px;border-radius:7px;padding:3px 8px;}
+.elws-foot{color:#8a98ab;font-size:12.5px;margin-top:24px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+.elws-foot kbd{font:600 11px var(--ui,Inter,sans-serif);background:#fff;border:1px solid #e3e9f1;border-bottom-width:2px;border-radius:6px;padding:1px 6px;color:#4a5a70;}
 
 .elws-app{background:#f3f7fc;color:#0f172a;}
-.elws-top{background:#052a56;color:#fff;position:sticky;top:0;z-index:2;box-shadow:0 8px 24px -16px rgba(5,42,86,.8);}
-.elws-top-in{max-width:1280px;margin:0 auto;padding:14px 22px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
-.elws-top img{height:28px;}
-.elws-top .sep{width:1px;height:26px;background:rgba(255,255,255,.2);}
-.elws-top .t{font:600 14px var(--display,Poppins,sans-serif);} .elws-top .t small{display:block;font:700 9.5px var(--ui,Inter,sans-serif);letter-spacing:.18em;text-transform:uppercase;color:#8fb7e6;}
+.elws-top{background:rgba(255,255,255,.85);backdrop-filter:saturate(1.6) blur(14px);-webkit-backdrop-filter:saturate(1.6) blur(14px);color:#0d1726;position:sticky;top:0;z-index:2;border-bottom:1px solid #e3ebf5;}
+.elws-top-in{max-width:1280px;margin:0 auto;padding:12px 22px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+.elws-top img{height:26px;}
+.elws-top .sep{width:1px;height:26px;background:#e3ebf5;}
+.elws-top .t{font:600 14px var(--display,Poppins,sans-serif);} .elws-top .t small{display:block;font:700 9.5px var(--ui,Inter,sans-serif);letter-spacing:.18em;text-transform:uppercase;color:#8a9bb0;}
 .elws-top .grow{flex:1;}
 .elws-btn{display:inline-flex;align-items:center;gap:7px;border:1px solid #d6e2f0;background:#fff;color:#0f172a;border-radius:10px;padding:8px 13px;font:600 13px var(--ui,Inter,sans-serif);cursor:pointer;white-space:nowrap;text-decoration:none;}
 .elws-btn:hover{border-color:#1d94ff;color:#0b6fd6;}
 .elws-btn.go{background:#1d94ff;border-color:#1d94ff;color:#fff;} .elws-btn.go:hover{background:#0b6fd6;color:#fff;}
-.elws-top .elws-btn{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.2);color:#fff;} .elws-top .elws-btn:hover{background:rgba(255,255,255,.16);}
 .elws-wrap{max-width:1280px;margin:0 auto;padding:26px 22px 60px;}
 .elws-hero{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:20px;}
 .elws-hero h1{font:600 28px var(--display,Poppins,sans-serif);margin:0;letter-spacing:-.02em;}
@@ -103,6 +112,25 @@ function styles(){
 .elws-empty{background:#fff;border:1.5px dashed #d6e2f0;border-radius:16px;padding:40px;text-align:center;color:#5b6b7c;}
 .elws-note{background:#fff;border:1px solid #e3ebf5;border-left:3px solid #1d94ff;border-radius:12px;padding:12px 14px;font-size:12.5px;color:#4c5d70;line-height:1.55;margin-bottom:16px;}
 .hub-switch{display:inline-flex;align-items:center;gap:6px;}
+.elwb-back{position:fixed;inset:0;z-index:9500;background:rgba(13,23,38,.35);backdrop-filter:blur(2px);display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto;font-family:var(--ui,Inter,sans-serif);}
+.elwb{background:#fff;border-radius:22px;width:min(1180px,100%);padding:22px 24px;box-shadow:0 40px 80px -30px rgba(13,23,38,.45);color:#0d1726;}
+.elwb-h{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;}
+.elwb h2{font:600 20px var(--display,Poppins,sans-serif);margin:0 0 4px;} .elwb-h p{margin:0;color:#5b6b80;font-size:13px;line-height:1.55;max-width:760px;}
+.elwb-x{border:0;background:#f3f6fa;border-radius:10px;width:34px;height:34px;font-size:22px;cursor:pointer;line-height:1;}
+.elwb-t{margin-top:16px;border:1px solid #e6ebf2;border-radius:14px;overflow:auto;max-height:60vh;}
+.elwb table{width:100%;border-collapse:collapse;font-size:13px;}
+.elwb th{position:sticky;top:0;background:#f8fafd;text-align:left;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#8a98ab;padding:9px 10px;border-bottom:1px solid #e6ebf2;}
+.elwb td{padding:8px 10px;border-bottom:1px solid #eff3f8;vertical-align:middle;}
+.elwb td b{display:block;font-weight:600;} .elwb td small{color:#8a98ab;font-size:11.5px;}
+.elwb td input[type=text],.elwb td input[type=email]{width:100%;min-width:170px;border:1px solid #e3e9f1;border-radius:9px;padding:7px 9px;font:500 13px var(--ui,Inter,sans-serif);}
+.elwb td input:focus{outline:none;border-color:#1d7cf2;box-shadow:0 0 0 3px #e8f2ff;}
+.elwb code{font:500 12px var(--mono,monospace);background:#f3f6fa;border-radius:7px;padding:4px 7px;white-space:nowrap;}
+.elwb tr.off td{opacity:.45;}
+.elwb-f{display:flex;align-items:center;gap:10px;margin-top:16px;flex-wrap:wrap;} .elwb-f .grow{flex:1;}
+.elwb-prog{display:flex;align-items:center;gap:12px;font-size:12.5px;color:#4a5a70;min-width:300px;} .elwb-prog div{width:160px;height:7px;background:#eef2f7;border-radius:5px;overflow:hidden;} .elwb-prog i{display:block;height:100%;width:0;background:#1d7cf2;transition:width .3s;}
+.elwb-spin{display:inline-block;width:14px;height:14px;border-radius:50%;border:2px solid rgba(29,124,242,.2);border-top-color:#1d7cf2;animation:elwbs .7s linear infinite;vertical-align:-2px;margin-right:6px;}
+.elws-btn.go .elwb-spin{border-color:rgba(255,255,255,.35);border-top-color:#fff;}
+@keyframes elwbs{to{transform:rotate(360deg)}}
 .elws-app ~ .pta-back .pta{--brand:#1d94ff;--brand-deep:#0b6fd6;--brand-wash:#e8f3ff;}
 .elws-app ~ .pta-back .pta h2::before{content:"";display:inline-block;width:22px;height:22px;margin-right:8px;vertical-align:-4px;background:url(portal/img/easyleads-mark.png) center/contain no-repeat;}
 `;
@@ -117,13 +145,21 @@ function chooser(onEdge){
   const el = chooserEl = document.createElement('div');
   el.className = 'elws elws-choose';
   const edgeLogo = window.EDGE_LOGO || '';
-  el.innerHTML = '<div class="elws-ch"><span class="elws-eyebrow">Choose a workspace</span><h2>Where are we working today?</h2><p class="lead">Both use the same clients and the same cloud record.</p>' +
+  const user = (window.fbAuth && fbAuth.currentUser && fbAuth.currentUser.displayName) || '';
+  const first = String(user).split(/\s/)[0];
+  const hr = new Date().getHours(), greet = hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening';
+  const CK = '<i><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg></i>';
+  const li = a => '<ul>' + a.map(x => '<li>' + CK + esc(x) + '</li>').join('') + '</ul>';
+  el.innerHTML = '<div class="elws-ch"><div class="elws-hello"><img src="' + esc(edgeLogo) + '" alt="EDGE"><span class="dot"></span><span>' + esc(greet + (first ? ', ' + first.charAt(0).toUpperCase() + first.slice(1) : '')) + '</span></div>' +
+    '<h2>Where are we working today?</h2><p class="lead">Pick a workspace. Both use the same clients and the same cloud record, and you can switch any time.</p>' +
     '<div class="elws-cards">' +
-    '<button class="elws-card edge" type="button" data-w="edge"><kbd>E</kbd><div class="lg"><span class="edgebox"><img src="' + esc(edgeLogo) + '" alt="EDGE"></span></div><h3>EDGE</h3>' +
-      '<p>The search console: GBP rank grids, live SERP checks and SEO client reporting, with team and client reports.</p><div class="tags"><span>GBP Tracker</span><span>Live SERP</span><span>SEO Clients</span></div><span class="go">Open EDGE ' + IC.arrow + '</span><i class="glow"></i></button>' +
-    '<button class="elws-card el" type="button" data-w="el"><kbd>L</kbd><div class="lg"><img src="' + logoW + '" alt="Easyleads"></div><h3>Easyleads client portal</h3>' +
-      '<p>Every client’s Easyleads account in one place: who’s connected, what data their dashboard can show, and the client logins only EDGE can create and control.</p><div class="tags"><span>Client logins</span><span>Dashboards</span><span>Read-only</span></div><span class="go">Open Easyleads ' + IC.arrow + '</span><i class="glow"></i></button>' +
-    '</div><div class="elws-foot"><span>Press <b>E</b> or <b>L</b> to jump in</span><span>Alt + H opens the EDGE hub from anywhere</span></div></div>';
+    '<button class="elws-card edge" type="button" data-w="edge"><div class="hero"><div class="logo"><img src="' + esc(edgeLogo) + '" alt="EDGE"></div></div><div class="bd"><h3>EDGE</h3>' +
+      '<p>The search console for the whole team.</p>' + li(['GBP rank grids and the GBP Tracker', 'Live SERP checks', 'SEO client reporting, team and client reports']) +
+      '<div class="go"><span class="cta">Open EDGE ' + IC.arrow + '</span><kbd>E</kbd></div></div></button>' +
+    '<button class="elws-card el" type="button" data-w="el"><div class="hero"><div class="logo"><img src="' + logoD + '" alt="Easyleads"></div></div><div class="bd"><h3>Easyleads client portal</h3>' +
+      '<p>Every client’s Easyleads account in one place.</p>' + li(['Who’s connected and what their dashboard can show', 'Client logins only EDGE can create and control', 'Preview any client’s read-only dashboard']) +
+      '<div class="go"><span class="cta">Open Easyleads ' + IC.arrow + '</span><kbd>L</kbd></div></div></button>' +
+    '</div><div class="elws-foot"><span>Press <kbd>E</kbd> or <kbd>L</kbd> to jump in</span><span><kbd>Alt</kbd> + <kbd>H</kbd> opens the EDGE hub from anywhere</span></div></div>';
   document.body.appendChild(el);
   const pick = w => {
     ss.set(w); el.remove(); chooserEl = null; document.removeEventListener('keydown', key);
@@ -143,12 +179,12 @@ function workspace(){
   const el = wsEl = document.createElement('div');
   el.className = 'elws elws-app';
   const mail = (window.fbAuth && fbAuth.currentUser && fbAuth.currentUser.email) || '';
-  el.innerHTML = '<header class="elws-top"><div class="elws-top-in"><img src="' + logoW + '" alt="Easyleads"><span class="sep"></span><div class="t">Client portal console<small>Run by EDGE Marketing</small></div><div class="grow"></div>' +
-    '<span style="font-size:12px;color:#8fb7e6">' + esc(mail) + '</span>' +
-    '<button class="elws-btn" type="button" data-switch>' + IC.swap + 'Switch workspace</button></div></header>' +
+  el.innerHTML = '<header class="elws-top"><div class="elws-top-in"><img src="' + logoD + '" alt="Easyleads"><span class="sep"></span><div class="t">Client portal console<small>Run by EDGE Marketing</small></div><div class="grow"></div>' +
+    '<span style="font-size:12px;color:#6b7a90">' + esc(mail) + '</span>' +
+    '<button class="elws-btn" type="button" data-switch>' + IC.swap + 'Switch workspace</button><button class="elws-btn" type="button" data-signout>Sign out</button></div></header>' +
     '<main class="elws-wrap"><div class="elws-hero"><div><h1>Easyleads clients</h1><p>Connect a client’s Easyleads account once, then give them a login to their own read-only dashboard.</p></div>' +
     '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="elws-btn" type="button" data-copy>' + IC.link + 'Copy client login link</button><button class="elws-btn" type="button" data-check>' + IC.refresh + 'Re-check data access</button>' +
-    '<button class="elws-btn go" type="button" data-new>' + IC.user + 'New client login</button></div></div>' +
+    '<button class="elws-btn" type="button" data-bulk>' + IC.user + 'Bulk create logins</button><button class="elws-btn go" type="button" data-new>' + IC.user + 'New client login</button></div></div>' +
     '<div class="elws-stats" data-stats></div><div data-note></div>' +
     '<div class="elws-bar"><input type="search" data-q placeholder="Find a client by name or website"><div class="elws-seg" data-f>' +
     [['all', 'All'], ['conn', 'Connected'], ['login', 'Has a login'], ['need', 'Needs access']].map((f, i) => '<button type="button" data-v="' + f[0] + '"' + (i ? '' : ' class="on"') + '>' + f[1] + '</button>').join('') + '</div></div>' +
@@ -157,8 +193,8 @@ function workspace(){
   document.body.classList.add('hub-locked');
   const $ = s => el.querySelector(s);
   let data = {users: [], clients: [], scopes: null}, filter = 'all';
-  const LBL = [['forms', 'Forms'], ['calls', 'Calls'], ['contacts', 'Contacts'], ['opps', 'Pipeline'], ['appts', 'Bookings']];
-  const access = d => { const r = data.scopes && data.scopes.d && data.scopes.d[d]; return r ? LBL.map(l => ({k: l[0], label: l[1], ok: typeof r[l[0]] === 'number'})) : null; };
+  const LBL = [['forms', 'Forms'], ['calls', 'Calls'], ['contacts', 'Contacts'], ['opps', 'Pipeline'], ['appts', 'Bookings'], ['emails', 'Email']];
+  const access = d => { const r = data.scopes && data.scopes.d && data.scopes.d[d]; return r ? LBL.map(l => ({k: l[0], label: l[1], ok: typeof r[l[0]] === 'number', unk: r[l[0]] == null})).filter(x => !x.unk) : null; };
   const reload = async () => {
     try{ data = await PA.call('portalAdminList'); draw(); }
     catch(e){ $('[data-grid]').innerHTML = '<div class="elws-empty">' + esc(e.message) + '</div>'; }
@@ -200,6 +236,7 @@ function workspace(){
   $('[data-q]').addEventListener('input', draw);
   el.querySelectorAll('[data-f] button').forEach(b => b.addEventListener('click', () => { filter = b.dataset.v; el.querySelectorAll('[data-f] button').forEach(x => x.classList.toggle('on', x === b)); draw(); }));
   $('[data-new]').addEventListener('click', () => PA.open({onClose: reload}));
+  $('[data-bulk]').addEventListener('click', () => bulk(data, reload));
   $('[data-copy]').addEventListener('click', () => navigator.clipboard.writeText(PA.portalUrl()).then(() => say('Client login link copied')));
   $('[data-check]').addEventListener('click', async e => {
     const b = e.currentTarget; b.disabled = true; const t = b.innerHTML; b.innerHTML = IC.refresh + 'Checking every client… (about a minute)';
@@ -207,8 +244,71 @@ function workspace(){
     catch(err){ say(err.message, 'err'); }
     b.disabled = false; b.innerHTML = t;
   });
+  $('[data-signout]').addEventListener('click', () => { if (window.edgeSignOut) window.edgeSignOut.run(); });
   $('[data-switch]').addEventListener('click', () => { el.remove(); wsEl = null; document.body.classList.remove('hub-locked'); chooser(() => window.EDGE_showHub && window.EDGE_showHub(true, true)); });
   reload();
+}
+
+/* ---------- bulk create: one login per connected client, in one go ---------- */
+function bulk(data, done){
+  const has = d => data.users.some(u => (u.domains || []).indexOf(d) > -1);
+  const todo = data.clients.filter(c => c.connected && !has(c.domain)).sort((a, b) => a.name.localeCompare(b.name));
+  const gen = () => { const a = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%*?'; const r = new Uint32Array(18); crypto.getRandomValues(r); return Array.from(r, x => a[x % a.length]).join(''); };
+  const rows = todo.map(c => ({c, on: true, name: c.name, email: '', pw: gen(), st: ''}));
+  const b = document.createElement('div'); b.className = 'elwb-back';
+  b.innerHTML = '<div class="elwb" role="dialog" aria-modal="true"><div class="elwb-h"><div><h2>Bulk create client logins</h2><p>One login per connected client that doesn’t have one yet. Enter each client’s email; a strong password is generated for each. Passwords are shown only here, so download the list before closing.</p></div><button class="elwb-x" type="button" data-x aria-label="Close">×</button></div>' +
+    (rows.length ? '<div class="elwb-t"><table><thead><tr><th><input type="checkbox" data-all checked aria-label="Select all"></th><th>Business</th><th>Login name</th><th>Email (their username)</th><th>Password</th><th></th></tr></thead><tbody>' +
+      rows.map((r, i) => '<tr data-i="' + i + '"><td><input type="checkbox" data-on checked></td><td><b>' + esc(r.c.name) + '</b><small>' + esc(r.c.domain) + '</small></td><td><input type="text" data-n value="' + esc(r.name) + '"></td><td><input type="email" data-e placeholder="name@' + esc(r.c.domain) + '" autocomplete="off"></td><td><code data-p>' + esc(r.pw) + '</code></td><td data-st></td></tr>').join('') + '</tbody></table></div>' +
+      '<div class="elwb-f"><div class="elwb-prog" hidden><div><i></i></div><span></span></div><div class="grow"></div><button class="elws-btn" type="button" data-csv disabled>Download list (CSV)</button><button class="elws-btn go" type="button" data-go>Create logins</button></div>'
+      : '<div class="elws-empty" style="margin:16px 0 4px">Every connected client already has a login.</div>') + '</div>';
+  document.body.appendChild(b);
+  const q = s => b.querySelector(s);
+  let running = false, made = [];
+  const close = () => { if (running) return; b.remove(); if (made.length) done(); };
+  b.addEventListener('click', e => { if (e.target === b) close(); });
+  q('[data-x]').addEventListener('click', close);
+  if (!rows.length) return;
+  b.querySelectorAll('tr[data-i]').forEach(tr => {
+    const r = rows[Number(tr.dataset.i)];
+    tr.querySelector('[data-on]').addEventListener('change', e => { r.on = e.target.checked; tr.classList.toggle('off', !r.on); });
+    tr.querySelector('[data-n]').addEventListener('input', e => { r.name = e.target.value; });
+    tr.querySelector('[data-e]').addEventListener('input', e => { r.email = e.target.value.trim(); });
+  });
+  q('[data-all]').addEventListener('change', e => b.querySelectorAll('[data-on]').forEach(x => { x.checked = e.target.checked; x.dispatchEvent(new Event('change')); }));
+  const csvOut = () => {
+    const link = PA.portalUrl();
+    const lines = [['Business', 'Website', 'Login name', 'Email', 'Password', 'Login link']].concat(made.map(r => [r.c.name, r.c.domain, r.name, r.email, r.pw, link]));
+    const s = lines.map(l => l.map(v => { v = String(v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }).join(',')).join('\n');
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['﻿' + s], {type: 'text/csv'})); a.download = 'easyleads-client-logins.csv'; document.body.appendChild(a); a.click(); a.remove();
+  };
+  q('[data-csv]').addEventListener('click', csvOut);
+  q('[data-go]').addEventListener('click', async () => {
+    const pick = rows.filter(r => r.on && r.st !== 'ok');
+    if (!pick.length){ say('Select at least one client', 'err'); return; }
+    const bad = pick.filter(r => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(r.email));
+    if (bad.length){ say('Add a valid email for ' + bad[0].c.name + (bad.length > 1 ? ' and ' + (bad.length - 1) + ' more' : ''), 'err'); const tr = b.querySelector('tr[data-i="' + rows.indexOf(bad[0]) + '"] [data-e]'); if (tr) tr.focus(); return; }
+    running = true; const go = q('[data-go]'); go.disabled = true; go.innerHTML = '<span class="elwb-spin"></span>Creating…';
+    b.querySelectorAll('input').forEach(x => { x.disabled = true; });
+    const prog = q('.elwb-prog'); prog.hidden = false;
+    let n = 0;
+    for (const r of pick){
+      const td = b.querySelector('tr[data-i="' + rows.indexOf(r) + '"] [data-st]');
+      td.innerHTML = '<span class="elwb-spin"></span>';
+      prog.querySelector('span').textContent = 'Creating ' + (n + 1) + ' of ' + pick.length + ': ' + r.c.name + '…';
+      try{
+        await PA.call('portalAdminSave', {name: r.name.trim() || r.c.name, email: r.email, password: r.pw, domains: [r.c.domain], disabled: false});
+        r.st = 'ok'; made.push(r); td.innerHTML = '<span class="elws-pill ok">✓ Created</span>';
+      }catch(e){ r.st = 'err'; td.innerHTML = '<span class="elws-pill warn" title="' + esc(e.message) + '">' + esc(e.message.slice(0, 40)) + '</span>'; }
+      n++; prog.querySelector('i').style.width = (n / pick.length * 100) + '%';
+    }
+    running = false;
+    prog.querySelector('span').textContent = made.length + ' login' + (made.length === 1 ? '' : 's') + ' created' + (pick.length - made.length ? ', ' + (pick.length - made.length) + ' failed' : '') + '. Download the list before closing.';
+    const failed = rows.some(r => r.on && r.st === 'err');
+    go.innerHTML = failed ? 'Retry failed' : 'All done ✓'; go.disabled = !failed;
+    b.querySelectorAll('tr[data-i]').forEach(tr => { if (rows[Number(tr.dataset.i)].st === 'err') tr.querySelectorAll('input').forEach(x => { x.disabled = false; }); });
+    q('[data-csv]').disabled = !made.length;
+    if (made.length) csvOut();
+  });
 }
 
 /* The EDGE hub asks here first (see showHub in index.html). */
