@@ -26112,9 +26112,11 @@ function renderHubMeta(){
     chip(nSeoLoc, plural(nSeoLoc, 'location', 'locations'));
 }
 
-function showHub(on){
+function showHub(on, skipGate){
   const hub = $('hubScreen');
   if (!hub) return;
+  /* First stop after signing in: choose EDGE or Easyleads (easyleads-workspace.js). */
+  if (on && !skipGate && !document.body.classList.contains('embed-mode') && window.EL_WS && !window.EL_WS.gate(() => showHub(true, true))) return;
   if (document.body.classList.contains('embed-mode')) on = false;
   hubOpen = !!on;
   hub.classList.toggle('on', hubOpen);
@@ -28646,5 +28648,7 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
 <script src="gsc-widgets.js"></script>
 <script src="reports.js"></script>
 <script src="connections.js"></script>
+<script src="portal-admin.js"></script>
+<script src="easyleads-workspace.js"></script>
 </body>
 </html>
