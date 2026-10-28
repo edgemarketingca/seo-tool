@@ -20,7 +20,7 @@ Setup (one time, in the tracker's Apps Script project):
    Data API" advanced service the tracker already has.
 2. Use the updated formsRecent_() in forms.gs (it merges these rows in and
    sends the bell the list of clients it can hear from).
-3. Run callsSync_ once from the editor. It reads every client and sets up a
+3. Run setupCallsInBell once from the editor. It reads every client and sets up a
    15-minute trigger that keeps the list fresh from then on.
 
 Rows are kept on the "Phone Calls" tab (last 14 days); the clients whose
@@ -80,7 +80,7 @@ function callsFetch_(c) {
   return { rows: out, any: (res.rows || []).length > 0 };
 }
 
-/* Run every 15 minutes (callsSync_ sets the trigger up the first time it runs). */
+/* Run every 15 minutes through syncPhoneCalls (set up the first time it runs). */
 function callsSync_() {
   const rows = [], tracked = [];
   var failed = 0;
@@ -109,8 +109,8 @@ function callsSync_() {
 }
 
 function callsEnsureTrigger_() {
-  const has = ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === 'callsSync_'; });
-  if (!has) ScriptApp.newTrigger('callsSync_').timeBased().everyMinutes(15).create();
+  const has = ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === 'syncPhoneCalls'; });
+  if (!has) ScriptApp.newTrigger('syncPhoneCalls').timeBased().everyMinutes(15).create();
 }
 
 /* What formsRecent_ adds to the bell: the stored call rows, shaped like form
@@ -128,4 +128,15 @@ function callsRecent_() {
   var tracked = [];
   try { tracked = JSON.parse(PropertiesService.getScriptProperties().getProperty('CALLS_TRACKED') || '[]') || []; } catch (e) { tracked = []; }
   return { rows: rows, tracked: tracked };
+}
+
+/* Run this once by hand (select it in the toolbar and press Run): it fills the
+   Phone Calls tab and sets up the 15-minute trigger. */
+function setupCallsInBell() {
+  Logger.log(callsSync_());
+}
+
+/* The 15-minute trigger's handler (trigger handlers can't end in _). */
+function syncPhoneCalls() {
+  callsSync_();
 }
