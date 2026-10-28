@@ -12392,6 +12392,8 @@ function setScreen(which){
     window.EDGE_showHub(which === 'app' || which === 'hub');
   }
   if (inApp) setTimeout(() => { try{ map.invalidateSize(); cmpMap.invalidateSize(); }catch(e){} }, 80);
+  /* a sign-in or sign-out loading screen goes once the next screen is in place */
+  if (which !== 'loading' && window.edgeSplash && window.edgeSplash.on) window.edgeSplash.hide(900);
 }
 function authErrorMessage(err){
   const code = (err && err.code) || '';
@@ -12507,9 +12509,11 @@ async function attemptSignIn(){
   setStatus('authStatus', 'Signing in…', 'busy');
   try{
     try{ localStorage.setItem('edgeSignedInAt', String(Date.now())); localStorage.setItem('edgeIdleLast', String(Date.now())); }catch(e){}
+    try{ window.edgeSplash && window.edgeSplash.show({brand: 'edge', title: 'Signing you in', sub: 'Securing your session and loading your workspace'}); }catch(e){}
     await fbAuth.signInWithEmailAndPassword(email, password);
-    // onAuthStateChanged takes it from here
+    // onAuthStateChanged takes it from here (setScreen lets the loading screen go)
   }catch(err){
+    try{ window.edgeSplash && window.edgeSplash.hide(0); }catch(e){}
     if (err && err.code === 'auth/user-not-found'){
       /* Accounts are created by an admin in the Firebase console only: the
          login form never creates one (open sign-up let anyone in). */
@@ -12524,22 +12528,74 @@ async function attemptSignIn(){
 $('authSubmitBtn').addEventListener('click', attemptSignIn);
 $('authPassword').addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); attemptSignIn(); } });
 $('authEmail').addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); $('authPassword').focus(); } });
+/* A full-screen loading screen (opaque, so nothing behind it ever shows through) for
+   moving between EDGE and Easyleads and for signing out. edgeSplash.show({brand, logo,
+   title, sub}) covers the screen at once; hide() lets it fade away once the next screen is ready. */
+const edgeSplash = (function(){
+  let el = null, shownAt = 0, tok = 0;
+  const css = '.esp{position:fixed;inset:0;z-index:2147483000;display:grid;place-items:center;overflow:hidden;background:#f5f7fb;font-family:Inter,system-ui,sans-serif;color:#0d1726;transition:opacity .38s ease,visibility .38s;--b1:#e87722;--b2:#f6a65e;--o1:rgba(232,119,34,.32);--o2:rgba(29,124,242,.16)}' +
+    '.esp.el{--b1:#1d7cf2;--b2:#62b2ff;--o1:rgba(29,124,242,.30);--o2:rgba(232,119,34,.14)}' +
+    '.esp.out{opacity:0;visibility:hidden;pointer-events:none}' +
+    '.esp::before,.esp::after{content:"";position:absolute;width:640px;height:640px;border-radius:50%;filter:blur(90px);animation:espFloat 8s ease-in-out infinite alternate}' +
+    '.esp::before{background:var(--o1);top:-260px;left:-200px}.esp::after{background:var(--o2);bottom:-280px;right:-220px;animation-delay:-4s}' +
+    '.esp-dots{position:absolute;inset:0;background-image:radial-gradient(rgba(13,23,38,.07) 1px,transparent 1px);background-size:18px 18px;-webkit-mask-image:radial-gradient(circle at center,#000 0,transparent 65%);mask-image:radial-gradient(circle at center,#000 0,transparent 65%)}' +
+    '.esp-in{position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;padding:0 24px;animation:espUp .55s cubic-bezier(.2,.8,.2,1) both}' +
+    '.esp-logo{position:relative;animation:espBreathe 2.6s ease-in-out infinite}' +
+    '.esp-card{position:relative;overflow:hidden;width:200px;height:88px;border-radius:26px;background:#fff;display:grid;place-items:center;box-shadow:0 1px 2px rgba(13,23,38,.06),0 34px 70px -34px rgba(13,23,38,.5)}' +
+    '.esp-card img{max-width:136px;max-height:40px;display:block}' +
+    '.esp-card::after{content:"";position:absolute;inset:0;background:linear-gradient(110deg,transparent 30%,rgba(255,255,255,.85) 50%,transparent 70%);transform:translateX(-120%);animation:espShine 2.2s ease-in-out infinite}' +
+    '.esp-ring{position:absolute;inset:-7px;border-radius:32px;padding:2px;background:conic-gradient(from var(--a,0deg),transparent 0 70%,var(--b2) 82%,var(--b1) 100%);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;animation:espRot 1.6s linear infinite}' +
+    '.esp h3{font:600 22px Poppins,Inter,sans-serif;letter-spacing:-.015em;margin:30px 0 6px}' +
+    '.esp p{margin:0;color:#5b6b80;font-size:13.5px;line-height:1.5;max-width:320px}' +
+    '.esp-bar{margin-top:22px;width:200px;height:4px;border-radius:4px;background:rgba(13,23,38,.08);overflow:hidden}' +
+    '.esp-bar i{display:block;height:100%;width:38%;border-radius:4px;background:linear-gradient(90deg,var(--b1),var(--b2));animation:espBar 1.3s cubic-bezier(.6,.1,.4,.9) infinite}' +
+    '@property --a{syntax:"<angle>";inherits:false;initial-value:0deg}' +
+    '@keyframes espRot{to{--a:360deg}}@keyframes espBar{0%{transform:translateX(-110%)}100%{transform:translateX(290%)}}' +
+    '@keyframes espShine{0%,35%{transform:translateX(-120%)}75%,100%{transform:translateX(120%)}}' +
+    '@keyframes espBreathe{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}' +
+    '@keyframes espFloat{to{transform:translate(60px,40px) scale(1.08)}}@keyframes espUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}' +
+    '@media (prefers-reduced-motion:reduce){.esp *,.esp::before,.esp::after{animation:none!important}}';
+  function show(o){
+    o = o || {};
+    tok++;
+    if (!document.getElementById('edgeSplashCss')){ const st = document.createElement('style'); st.id = 'edgeSplashCss'; st.textContent = css; document.head.appendChild(st); }
+    if (!el){
+      el = document.createElement('div');
+      el.setAttribute('role', 'status'); el.setAttribute('aria-live', 'polite');
+      el.innerHTML = '<div class="esp-dots"></div><div class="esp-in"><div class="esp-logo"><span class="esp-ring"></span><div class="esp-card"><img alt=""></div></div><h3></h3><p></p><div class="esp-bar"><i></i></div></div>';
+      document.body.appendChild(el);
+      shownAt = Date.now();
+    } else if (el.classList.contains('out')) shownAt = Date.now();
+    el.className = 'esp' + (o.brand === 'easyleads' ? ' el' : '');
+    const img = el.querySelector('img');
+    const src = o.logo || window.EDGE_LOGO || '';
+    if (img.getAttribute('src') !== src) img.src = src;
+    img.alt = o.brand === 'easyleads' ? 'Easyleads' : 'EDGE';
+    el.querySelector('h3').textContent = o.title || 'Loading…';
+    el.querySelector('p').textContent = o.sub || '';
+    el.querySelector('p').hidden = !o.sub;
+  }
+  function hide(minMs){
+    if (!el) return;
+    const my = tok, wait = Math.max(0, (minMs == null ? 550 : minMs) - (Date.now() - shownAt));
+    setTimeout(() => {
+      if (my !== tok || !el) return;
+      el.classList.add('out');
+      setTimeout(() => { if (my === tok && el){ el.remove(); el = null; } }, 420);
+    }, wait);
+  }
+  return {show, hide, get on(){ return !!el && !el.classList.contains('out'); }};
+})();
+window.edgeSplash = edgeSplash;
+
 /* Sign out: one click, a clear confirmation, then a "Signing out…" screen straight away.
    A slow network can't leave the button looking dead (which made it feel like it needed a
    second click): the cloud save and leaving the team list each get a few seconds at most. */
 const edgeSignOut = (function(){
-  let busy = false, veil = null;
+  let busy = false;
   const withTimeout = (p, ms) => Promise.race([Promise.resolve(p).catch(() => {}), new Promise(r => setTimeout(r, ms))]);
-  const showVeil = text => {
-    if (!veil){
-      veil = document.createElement('div');
-      veil.style.cssText = 'position:fixed;inset:0;z-index:2147483000;display:grid;place-items:center;background:rgba(246,248,251,.78);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);font:600 14px Inter,system-ui,sans-serif;color:#1b222a';
-      veil.innerHTML = '<div style="display:flex;align-items:center;gap:14px;background:#fff;border:1px solid #e6ebf2;border-radius:18px;padding:20px 26px;box-shadow:0 24px 50px -24px rgba(13,23,38,.35)"><span style="width:20px;height:20px;border-radius:50%;border:2.5px solid rgba(232,119,34,.2);border-top-color:#e87722;animation:edgeSpin .7s linear infinite"></span><span data-t></span></div><style>@keyframes edgeSpin{to{transform:rotate(360deg)}}</style>';
-      document.body.appendChild(veil);
-    }
-    veil.querySelector('[data-t]').textContent = text;
-  };
-  const hideVeil = () => { if (veil){ veil.remove(); veil = null; } };
+  const showVeil = text => edgeSplash.show({brand: 'edge', title: text, sub: 'Saving your work and closing your session securely'});
+  const hideVeil = () => edgeSplash.hide();
   const ask = () => new Promise(resolve => {
     const b = document.createElement('div');
     b.style.cssText = 'position:fixed;inset:0;z-index:2147482999;display:grid;place-items:center;background:rgba(13,23,38,.3);backdrop-filter:blur(2px);font-family:Inter,system-ui,sans-serif';
