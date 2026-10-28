@@ -5129,6 +5129,182 @@ body.embed-clean .rank-dot.wide{box-shadow:0 0 0 2px #fff,0 0 0 3.5px rgba(212,6
 #exportBtn, #importBtn, .rail-foot .mini-row:has(> #exportBtn), .rail-foot .mini-row:has(> [data-claude-sync]), .rail-foot .mini-row:has(> [data-claude-acts]),
 .rail-foot [data-claude-sync], .rail-foot [data-claude-acts], #claudeSyncStatus, #seoClaudeSyncStatus{display:none !important;}
 .rail-foot .mini-row:has(> #signOutBtn){margin-top:0 !important;}
+/* ==========================================================================
+   DEEP TEAL (replaces the near-black graphite everywhere it was used)
+   The console - top bar, rails, home screen - moves from graphite to a
+   petrol teal, and body text from near-black to a dark teal-slate, so no
+   surface in the tool reads as black. Orange stays the signal colour.
+   Kept last in the head so it wins over the earlier token blocks.
+   -------------------------------------------------------------------------- */
+:root{
+  --console:#12424c; --console-2:#175260; --console-3:#1f6676;
+  --console-line:#2a6b79; --console-ink:#eef7f8; --console-ink-2:#a4c3c9;
+  --ink:#1c3942; --ink-2:#4a6770; --ink-3:#7e979f;
+  --teal-50:#f0f8f8; --teal-100:#e0f0f1; --teal-200:#c4e1e4; --teal-500:#2a7f8f; --teal-700:#175260;
+}
+#topNav, .topnav{
+  background:linear-gradient(180deg, #154b57, #113f49);
+  border-bottom-color:#0c3239;
+}
+.rail{
+  background:
+    radial-gradient(420px 240px at 50% 0%, rgba(234,122,32,.11), transparent 68%),
+    linear-gradient(180deg, #154b57 0%, #0f3a44 100%);
+  border-right-color:#0c3239;
+}
+.hub{
+  background-color:#0f3a44;
+  background-image:
+    radial-gradient(1000px 600px at 14% -12%, rgba(234,122,32,.22), transparent 62%),
+    radial-gradient(860px 560px at 96% 4%, rgba(120,210,215,.14), transparent 60%),
+    radial-gradient(700px 500px at 50% 108%, rgba(234,122,32,.10), transparent 64%),
+    linear-gradient(165deg, #1b5d6b 0%, #144a56 54%, #0e3741 100%);
+}
+.hub-ico{ background:linear-gradient(140deg, #23707f, #175260); }
+.hub-key{ background:rgba(255,255,255,.08); }
+.pav{ background:#23707f; }
+.meter{ background:linear-gradient(160deg, #175260, #0f3a44); }
+.tree-row:hover, .tree-kid:hover, .tree-all:hover, .tree-add:hover, .folder-row:hover,
+.rail-nav-btn:hover, .recent-row:hover{ background:#1b5a68; }
+.mini-btn{ background:#175260; }
+.tn-bell-pop{ background:#14495a; }
+#seoDashboardView .seo-stats-grid{ background:#175260; }
+#seoDashboardView .seo-stat-value{ font-size:clamp(18px, 1.75vw, 27px); white-space:nowrap; }
+#seoDashboardView{ --dv-line-on:rgba(255,255,255,.1); --dv-ink-on-3:#97b8bf; --dv-ink-on-2:#b5d0d5; }
+.btn-dark{ background:var(--teal-700); border-color:var(--teal-700); }
+.btn-dark:hover{ background:#1f6676; border-color:#1f6676; }
+
+/* ---- client logos: own logo, else the website's icon, initials underneath ---- */
+.seo-logo{ position:relative; overflow:hidden; }
+.seo-logo .seo-logo-ini{ font:inherit; }
+.seo-logo .seo-logo-img{
+  position:absolute; inset:0; width:100%; height:100%; object-fit:contain;
+  background:#fff; opacity:0; transition:opacity .2s;
+}
+#seoDashboardView .seo-avatar.seo-logo .seo-logo-img{ padding:8px; border-radius:inherit; }
+
+/* sidebar: a small logo tile per client, status dot on its corner */
+.tree-row .seo-tree-logo{
+  position:relative; flex:0 0 auto; width:26px; height:26px; margin-right:2px;
+  display:grid; place-items:center; border-radius:8px;
+  background:#e7f2f3; color:#175260; font:700 10px/1 var(--display); letter-spacing:-.02em;
+  box-shadow:0 0 0 1px rgba(255,255,255,.12);
+}
+.tree-row .seo-tree-logo .seo-logo-img{ padding:3px; border-radius:8px; }
+.tree-row .seo-tree-logo .seo-status-dot{
+  position:absolute; right:-3px; bottom:-3px; width:9px; height:9px; margin:0;
+  box-shadow:0 0 0 2px #134552; z-index:1;
+}
+.tree-row.on .seo-tree-logo{ box-shadow:0 0 0 2px var(--brand-hi); }
+
+/* quick links: each one shows the icon of the place it opens */
+.seo-ext-ic{ position:relative; display:grid; place-items:center; width:22px; height:22px; flex:0 0 auto; }
+.seo-ext-ic > svg{ width:16px; height:16px; }
+.seo-ext-ic img{
+  position:absolute; inset:0; width:22px; height:22px; border-radius:6px;
+  background:#fff; opacity:0; transition:opacity .2s;
+}
+
+/* ==========================================================================
+   KEYWORDS TAB
+   Rank is the reading that matters, so each keyword's position is a solid
+   tile in the tool's mono numerals, coloured on the same scale as the mix
+   bars. Locations are calm cards; the open one is marked with a teal edge.
+   Actions sit quietly to the right until a row is hovered.
+   -------------------------------------------------------------------------- */
+#seoview-keywords{ max-width:1320px; }
+#seoview-keywords > .card, #seoview-keywords .seo-kw-toolbar{
+  border-radius:18px; border-color:var(--line); box-shadow:0 1px 0 rgba(20,60,70,.04), 0 18px 40px -32px rgba(15,58,68,.35);
+}
+#seoview-keywords .seo-kw-add .f > label{
+  font:500 12.5px/1.2 var(--ui); text-transform:none; letter-spacing:0; color:var(--ink-3);
+}
+#seoview-keywords .seo-kw-add input, #seoview-keywords .seo-kw-add select{ height:44px; border-radius:12px; font-size:14px; }
+#seoview-keywords .seo-kw-add .btn-dark{ height:44px; border-radius:12px; padding:0 18px; font-weight:600; }
+#seoview-keywords .seo-kw-loc{ border-radius:12px; background:var(--teal-50); border:1px solid var(--teal-100); }
+#seoview-keywords .seo-kw-loc-cap{ text-transform:none; letter-spacing:0; font-size:12.5px; color:var(--teal-700); }
+#seoview-keywords .seo-kw-actions .btn-go{ height:40px; border-radius:11px; padding:0 16px; }
+
+/* location cards */
+#seoview-keywords .seo-lg-card{
+  border-radius:16px; border:1px solid var(--line); background:var(--card);
+  box-shadow:0 1px 0 rgba(20,60,70,.03); margin-bottom:12px; overflow:hidden;
+  transition:box-shadow .2s var(--ease), border-color .2s var(--ease);
+}
+#seoview-keywords .seo-lg-card.open{
+  border-color:var(--teal-200); box-shadow:inset 3px 0 0 var(--teal-500), 0 16px 36px -28px rgba(15,58,68,.45);
+}
+#seoview-keywords .seo-lg-head{ padding:16px 20px; gap:12px; }
+#seoview-keywords .seo-lg-head:hover{ background:var(--teal-50); }
+#seoview-keywords .seo-lg-label{ font:600 16px/1.2 var(--display); letter-spacing:-.01em; color:var(--ink); }
+#seoview-keywords .seo-mix{ width:132px; height:8px; border-radius:99px; gap:2px; background:none; }
+#seoview-keywords .seo-mix i{ border-radius:99px; }
+#seoview-keywords .seo-lg-count{
+  font:600 12px/1 var(--ui); padding:6px 10px; border-radius:999px;
+  background:var(--teal-50); color:var(--teal-700); border:1px solid var(--teal-100);
+}
+
+/* keyword rows */
+#seoview-keywords .seo-lg-body{ border-top:1px solid var(--line-2); }
+#seoview-keywords .seo-lg-row{ padding:16px 20px 14px; border-top:1px solid var(--line-2); transition:background .15s var(--ease); }
+#seoview-keywords .seo-lg-row:first-child{ border-top:0; }
+#seoview-keywords .seo-lg-row:hover{ background:#f7fbfb; }
+#seoview-keywords .seo-lg-top{ align-items:center; gap:14px; }
+#seoview-keywords .seo-lg-text{ font:600 15px/1.35 var(--ui); color:var(--ink); }
+#seoview-keywords .seo-lg-metrics{ gap:8px; align-items:center; }
+/* the rank tile and the change label are wider than the original columns, so the
+   columns grow to the widest of each ("Not ranking", "▼ lost ⚠") and rows stay aligned */
+#seoview-keywords .seo-lg-metrics{ grid-template-columns:64px 96px 76px 32px 32px auto 32px; column-gap:8px; }
+
+/* the rank tile */
+#seoview-keywords .rank-pill{
+  display:inline-grid; place-items:center; min-width:52px; height:34px; padding:0 10px;
+  border-radius:11px; font:600 15px/1 var(--mono); letter-spacing:-.02em; white-space:nowrap;
+  box-shadow:inset 0 0 0 1px color-mix(in srgb, currentColor 22%, transparent);
+}
+#seoview-keywords .seo-lg-head .rank-pill{ min-width:44px; height:28px; font-size:13px; border-radius:9px; }
+#seoview-keywords .rank-pill.rp-good{ background:#0f7a58; color:#fff; box-shadow:0 6px 14px -8px rgba(15,122,88,.8); }
+#seoview-keywords .rank-pill.rp-mid{ background:#e3f4ea; color:#1b6d40; }
+#seoview-keywords .rank-pill.rp-warn{ background:#fdf1de; color:#8f560a; }
+#seoview-keywords .rank-pill.rp-bad{ background:#fbe9e4; color:#a93c27; }
+#seoview-keywords .rank-pill.rp-lost{ background:#f6e4e1; color:#8a2318; font:600 12.5px/1 var(--ui); letter-spacing:0; }
+#seoview-keywords .rank-pill.rp-none{ background:var(--teal-50); color:var(--ink-3); font:600 12px/1 var(--ui); letter-spacing:0; }
+
+#seoview-keywords .seo-loc-delta{ font:600 12px/1 var(--mono); padding:5px 7px; border-radius:7px; white-space:nowrap; }
+#seoview-keywords .seo-spark polyline{ stroke:var(--teal-500); }
+#seoview-keywords .seo-spark circle{ fill:var(--teal-500); }
+
+/* row actions: quiet icon buttons, clearer on hover */
+#seoview-keywords .seo-kw-source, #seoview-keywords .seo-kw-copy, #seoview-keywords .seo-loc-del{
+  width:32px; height:32px; display:inline-grid; place-items:center; border-radius:9px;
+  color:var(--ink-3); opacity:.7; transition:opacity .15s, background .15s, color .15s;
+}
+#seoview-keywords .seo-lg-row:hover .seo-kw-source, #seoview-keywords .seo-lg-row:hover .seo-kw-copy,
+#seoview-keywords .seo-lg-row:hover .seo-loc-del, #seoview-keywords .seo-lg-row :focus-visible{ opacity:1; }
+#seoview-keywords .seo-kw-source:hover, #seoview-keywords .seo-kw-copy:hover{ background:var(--teal-100); color:var(--teal-700); }
+#seoview-keywords .seo-loc-del:hover{ background:#fbe9e4; color:#a93c27; }
+#seoview-keywords .seo-loc-scan-btn{
+  height:32px; border-radius:9px; padding:0 12px; font-weight:600;
+  background:#fff; color:var(--teal-700); border:1px solid var(--teal-200);
+}
+#seoview-keywords .seo-loc-scan-btn:hover{ background:var(--teal-700); border-color:var(--teal-700); color:#fff; }
+
+/* the scan read-out under each keyword */
+#seoview-keywords .seo-loc-bottom{ margin-top:6px; }
+#seoview-keywords .seo-loc-bottom .status{ font-size:12px; line-height:1.55; color:var(--ink-3); }
+#seoview-keywords .seo-loc-bottom .err{
+  display:inline-block; font-size:12px; color:#a93c27; background:#fbe9e4;
+  padding:4px 9px; border-radius:8px;
+}
+#seoview-keywords .seo-loc-adv > summary{ font-size:12px; color:var(--teal-500); font-weight:600; margin-top:4px; }
+#seoview-keywords .seo-copy-link-btn{ color:var(--teal-500); }
+
+@media (max-width:760px){
+  #seoview-keywords .seo-lg-top{ flex-wrap:wrap; }
+  #seoview-keywords .seo-mix{ width:80px; }
+  #seoview-keywords .seo-lg-metrics{ grid-template-columns:64px 96px 76px repeat(4, auto); }
+  #seoview-keywords .seo-lg-row{ padding:14px 14px 12px; }
+}
 </style>
 </head>
 <body>
@@ -22894,7 +23070,7 @@ function seoClientRowEl(c, folderHint){
   const bestHtml = best != null ? '<span class="seo-tree-rank">#' + best + '</span>' : '';
   const healthHtml = seoHealthPillHtml(seoClientHealth(c), 'seo-health-pill-sm');
   const hintHtml = folderHint ? '<span class="tree-folder-hint">' + esc(folderHint) + '</span>' : '';
-  row.innerHTML = '<span class="seo-status-dot ' + seoStatusDotClass(c.status) + '" title="' + esc(c.status || 'Active') + '"></span>' +
+  row.innerHTML = '<span class="seo-tree-logo seo-logo">' + seoLogoInner(c) + '<span class="seo-status-dot ' + seoStatusDotClass(c.status) + '" title="' + esc(c.status || 'Active') + '"></span></span>' +
     '<span class="tree-name">' + esc(c.name || 'Untitled') + '</span>' +
     (typeof presSlot === 'function' ? presSlot('seo', c.id) : '') +
     hintHtml +
@@ -23108,25 +23284,30 @@ function seoInitials(name){
   if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
   return (words[0][0] + words[1][0]).toUpperCase();
 }
+/* A client's logo: its own logo (logoUrl) when one is set, otherwise the
+   icon its website publishes, read through Google's icon service. The
+   initials sit underneath and show until (or unless) the picture loads; a
+   site with no icon of its own comes back as a 16px globe, which is dropped
+   so the initials stay. */
+function seoLogoUrl(c){
+  const own = c && c.logoUrl && String(c.logoUrl).trim();
+  if (own) return own;
+  const dom = cleanDomain((c && c.website) || '');
+  return dom ? 'https://www.google.com/s2/favicons?sz=128&domain=' + encodeURIComponent(dom) : '';
+}
+function seoLogoInner(c){
+  const url = seoLogoUrl(c);
+  return '<b class="seo-logo-ini">' + esc(seoInitials((c && c.name) || '')) + '</b>' +
+    (url ? '<img class="seo-logo-img" src="' + esc(url) + '" alt="" loading="lazy" referrerpolicy="no-referrer"' +
+      ' onload="if(this.naturalWidth<17)this.remove();else this.style.opacity=1" onerror="this.remove()">' : '');
+}
 function seoBuildAvatar(c){
-  const hasLogo = c.logoUrl && c.logoUrl.trim();
-  if (!hasLogo){
-    const div = document.createElement('div');
-    div.className = 'seo-avatar';
-    div.textContent = seoInitials(c.name);
-    return div;
-  }
-  const img = document.createElement('img');
-  img.className = 'seo-avatar seo-avatar-img';
-  img.src = c.logoUrl.trim();
-  img.alt = (c.name || 'Client') + ' logo';
-  img.onerror = () => {
-    const div = document.createElement('div');
-    div.className = 'seo-avatar';
-    div.textContent = seoInitials(c.name);
-    img.replaceWith(div);
-  };
-  return img;
+  const el = document.createElement('div');
+  el.className = 'seo-avatar seo-logo';
+  el.setAttribute('role', 'img');
+  el.setAttribute('aria-label', ((c && c.name) || 'Client') + ' logo');
+  el.innerHTML = seoLogoInner(c);
+  return el;
 }
 function renderSeoProfileHead(c){
   const el = $('seoProfileHead');
@@ -23311,13 +23492,27 @@ setTimeout(seoRunDueSchedules, 10000);
 
 const SEO_CLIENT_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1RxJIePQoMlcjytGTWa8MPiv4uGoSYthcnV8siOKScmc/edit?usp=sharing';
 
+/* Quick links show the icon of the site they open (Agency Analytics,
+   Basecamp, Google Sheets…), over the generic icon in case it can't load. */
+function seoExtIcon(href, enabled, iconSvg){
+  if (!enabled) return iconSvg;
+  let q = '';
+  try{
+    const u = new URL(String(href).trim());
+    /* Google Docs, Sheets and Slides share one host; their own icons come from the app's path. */
+    q = u.hostname === 'docs.google.com' ? 'domain_url=' + encodeURIComponent(u.origin + '/' + (u.pathname.split('/')[1] || '') + '/') : 'domain=' + encodeURIComponent(u.hostname);
+  }catch(e){}
+  if (!q) return iconSvg;
+  return '<span class="seo-ext-ic">' + iconSvg + '<img src="https://www.google.com/s2/favicons?sz=64&' + q + '" alt="" loading="lazy" referrerpolicy="no-referrer"' +
+    ' onload="if(this.naturalWidth<17)this.remove();else this.style.opacity=1" onerror="this.remove()"></span>';
+}
 function seoExtLinkBtn(href, label, iconSvg, disabledReason){
   const enabled = href && href.trim();
   const tag = enabled ? 'a' : 'span';
   const attrs = enabled ? ' href="' + esc(href.trim()) + '" target="_blank" rel="noopener"' : '';
   const title = enabled ? 'Opens in a new tab' : (disabledReason || 'Not set yet \u2014 add it in Edit');
   return '<' + tag + ' class="seo-ext-btn' + (enabled ? '' : ' disabled') + '"' + attrs + ' title="' + esc(title) + '">' +
-    iconSvg + '<span>' + esc(label) + '</span>' +
+    seoExtIcon(href, enabled, iconSvg) + '<span>' + esc(label) + '</span>' +
     (enabled ? '<svg class="seo-ext-go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg>' : '') +
     '</' + tag + '>';
 }
@@ -27861,10 +28056,10 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
     const name = String(c ? c.name : ((r && (r.client || r.domain)) || '?'));
     const dom = c ? cleanDomain(c.website || '') : ((r && r.domain) || '');
     const ini = name.replace(/[^\p{L}\p{N}\s]/gu, '').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?';
-    const logo = (c && c.logoUrl) || (dom ? 'https://www.google.com/s2/favicons?sz=64&domain=' + encodeURIComponent(dom) : '');
+    const logo = (c && c.logoUrl) || (dom ? 'https://www.google.com/s2/favicons?sz=128&domain=' + encodeURIComponent(dom) : '');
     const k = r ? kindOf(r) : '';
     return '<span class="tn-bell-av" style="--av:' + hueOf(name) + '"><b>' + esc(ini) + '</b>' +
-      (logo ? '<img src="' + esc(logo) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onload="this.style.opacity=1" onerror="this.remove()">' : '') +
+      (logo ? '<img src="' + esc(logo) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onload="if(this.naturalWidth<17)this.remove();else this.style.opacity=1" onerror="this.remove()">' : '') +
       (k ? '<span class="tn-bell-k ' + k + '">' + (isCall(r) ? ICON.phone : ICON.form) + '</span>' : '') + '</span>';
   }
   const dayLabel = ms => {
