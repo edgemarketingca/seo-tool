@@ -31,8 +31,10 @@ function styles(){
   if (document.getElementById('elwsStyles')) return;
   const st = document.createElement('style'); st.id = 'elwsStyles';
   st.textContent = `
-.elws{position:fixed;inset:0;z-index:9000;overflow:auto;font-family:var(--ui,Inter,sans-serif);animation:elwsIn .35s ease;}
-@keyframes elwsIn{from{opacity:0}to{opacity:1}}
+.elws{position:fixed;inset:0;z-index:9000;overflow:auto;font-family:var(--ui,Inter,sans-serif);background:#f3f7fc;}
+/* the screen itself is opaque from the first frame; only its content eases in */
+.elws-ch,.elws-wrap{animation:elwsIn .45s cubic-bezier(.2,.8,.2,1) both;}
+@keyframes elwsIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 .elws-choose{background:radial-gradient(900px 520px at 8% -8%,rgba(232,119,34,.10),transparent 60%),radial-gradient(900px 560px at 100% 105%,rgba(29,124,242,.12),transparent 60%),linear-gradient(180deg,#fbfcfe,#f3f6fb);display:flex;align-items:center;justify-content:center;padding:48px 20px;color:#0d1726;}
 .elws-ch{width:min(1040px,100%);}
 .elws-hello{display:flex;align-items:center;gap:12px;margin-bottom:22px;}
@@ -162,8 +164,12 @@ function chooser(onEdge){
     '</div><div class="elws-foot"><span>Press <kbd>E</kbd> or <kbd>L</kbd> to jump in</span><span><kbd>Alt</kbd> + <kbd>H</kbd> opens the EDGE hub from anywhere</span></div></div>';
   document.body.appendChild(el);
   const pick = w => {
-    ss.set(w); el.remove(); chooserEl = null; document.removeEventListener('keydown', key);
-    if (w === 'el') workspace(); else onEdge();
+    ss.set(w); document.removeEventListener('keydown', key);
+    const sp = window.edgeSplash;
+    if (w === 'el'){ workspace(); el.remove(); chooserEl = null; return; }
+    if (sp) sp.show({brand: 'edge', title: 'Opening EDGE', sub: 'Getting your clients, rank grids and reports ready'});
+    el.remove(); chooserEl = null; onEdge();
+    if (sp) sp.hide(700);
   };
   const key = e => { if (e.target.closest && e.target.closest('input,textarea')) return; const k = e.key.toLowerCase(); if (k === 'e') pick('edge'); if (k === 'l') pick('el'); };
   document.addEventListener('keydown', key);
@@ -175,6 +181,8 @@ function chooser(onEdge){
 let wsEl = null;
 function workspace(){
   styles();
+  const sp = window.edgeSplash;
+  if (sp) sp.show({brand: 'easyleads', logo: logoD, title: 'Opening Easyleads', sub: 'Loading your clients, logins and data access'});
   if (wsEl) wsEl.remove();
   const el = wsEl = document.createElement('div');
   el.className = 'elws elws-app';
@@ -245,8 +253,17 @@ function workspace(){
     b.disabled = false; b.innerHTML = t;
   });
   $('[data-signout]').addEventListener('click', () => { if (window.edgeSignOut) window.edgeSignOut.run(); });
-  $('[data-switch]').addEventListener('click', () => { el.remove(); wsEl = null; document.body.classList.remove('hub-locked'); chooser(() => window.EDGE_showHub && window.EDGE_showHub(true, true)); });
-  reload();
+  $('[data-switch]').addEventListener('click', () => {
+    if (sp) sp.show({brand: 'edge', title: 'Switching workspace', sub: 'One moment'});
+    chooser(() => window.EDGE_showHub && window.EDGE_showHub(true, true));
+    el.remove(); wsEl = null;
+    if (sp) sp.hide(450);
+  });
+  /* the console is revealed once its clients are in (never longer than 12 seconds) */
+  let shown = false;
+  const reveal = () => { if (!shown){ shown = true; if (sp) sp.hide(700); } };
+  setTimeout(reveal, 12000);
+  reload().then(reveal, reveal);
 }
 
 /* ---------- bulk create: one login per connected client, in one go ---------- */
