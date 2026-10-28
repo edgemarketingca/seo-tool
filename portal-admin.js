@@ -12,6 +12,29 @@ if (!AIV || !AIV.tracker || !document.getElementById('seoPublishAllBtn')) return
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const portalUrl = () => location.origin + location.pathname.replace(/[^\/]*$/, '') + 'portal/';
 const say = (m, k) => { try{ if (typeof toast === 'function') toast(m, k); }catch(e){} };
+/* A loading screen over the whole portal panel while a login is created, saved or removed:
+   the steps tick through as the work goes, then a check mark once it's done. */
+function busy(host, o){
+  const el = document.createElement('div'); el.className = 'pta-busy';
+  const steps = o.steps || [];
+  el.innerHTML = '<div class="pta-busy-in"><div class="lg"><img src="portal/img/easyleads-mark.png" alt=""><span class="ck">\u2713</span></div><h3></h3><p></p>' +
+    (steps.length ? '<ul class="pta-steps">' + steps.map(t => '<li><i></i><span></span></li>').join('') + '</ul>' : '') + '<div class="pta-bar"><i></i></div></div>';
+  const set = (t, sub) => { el.querySelector('h3').textContent = t; el.querySelector('p').textContent = sub || ''; };
+  set(o.title, o.sub);
+  el.querySelectorAll('.pta-steps span').forEach((sp, i) => { sp.textContent = steps[i]; });
+  host.appendChild(el);
+  let cur = -1;
+  const lis = el.querySelectorAll('.pta-steps li'), bar = el.querySelector('.pta-bar i');
+  const step = i => { cur = i; lis.forEach((li, j) => { li.className = j < i ? 'ok' : j === i ? 'on' : ''; }); bar.style.width = Math.round(((i + .5) / Math.max(1, steps.length)) * 90) + '%'; };
+  if (steps.length) step(0);
+  /* the server does it all in one go, so the later steps follow on a gentle timer */
+  const timers = steps.slice(1).map((_, i) => setTimeout(() => { if (cur < i + 1) step(i + 1); }, 700 * (i + 1)));
+  return {
+    done(t, sub){ timers.forEach(clearTimeout); lis.forEach(li => { li.className = 'ok'; }); bar.style.width = '100%'; el.classList.add('done'); set(t, sub);
+      return new Promise(r => setTimeout(r, 1100)); },
+    close(){ timers.forEach(clearTimeout); el.remove(); }
+  };
+}
 async function call(action, body){
   const s = AIV.tracker() || {};
   if (!s.url || !s.key) throw new Error('Connect the AI Visibility Tracker first (AI Visibility tab, ⚙).');
@@ -68,6 +91,32 @@ function styles(){
 .pta-spin{width:30px;height:30px;border-radius:50%;border:3px solid rgba(29,124,242,.18);border-top-color:var(--brand,#1d7cf2);animation:ptas .7s linear infinite;margin-bottom:6px;}
 .pta-ok{width:36px;height:36px;border-radius:50%;background:#e5f6ee;color:#0f9d6b;display:grid;place-items:center;font-weight:700;font-size:18px;margin-bottom:4px;}
 @keyframes ptas{to{transform:rotate(360deg)}}
+.pta{position:relative;}
+.pta-err{display:none;font-size:12.5px;font-weight:600;color:#b5352a;background:#fdf1ef;border:1px solid #f6d5cf;border-radius:10px;padding:9px 11px;line-height:1.5;}
+.pta-err.on{display:block;animation:ptaShake .35s;}
+@keyframes ptaShake{20%,60%{transform:translateX(-4px)}40%,80%{transform:translateX(4px)}}
+.pta-pc{display:block;margin-top:6px;font-size:11.5px;color:var(--ink-3,#8b98a3);} .pta-pc.ok{color:#0f9d6b;} .pta-pc.bad{color:#b5352a;}
+.pta-busy{position:absolute;inset:0;z-index:20;border-radius:18px;background:rgba(247,249,252,.94);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:flex;align-items:flex-start;justify-content:center;padding-top:min(18vh,160px);animation:ptaFade .2s ease;}
+@keyframes ptaFade{from{opacity:0}to{opacity:1}}
+.pta-busy-in{display:flex;flex-direction:column;align-items:center;text-align:center;width:min(360px,90%);position:sticky;top:120px;}
+.pta-busy .lg{position:relative;width:76px;height:76px;border-radius:50%;background:#fff;display:grid;place-items:center;box-shadow:0 26px 50px -26px rgba(13,23,38,.5);}
+.pta-busy .lg img{width:40px;height:auto;}
+.pta-busy .lg::before{content:"";position:absolute;inset:-7px;border-radius:50%;border:2.5px solid rgba(29,124,242,.14);border-top-color:#1d7cf2;animation:ptas .9s linear infinite;}
+.pta-busy.done .lg::before{border-color:#0f9d6b;animation:none;}
+.pta-busy.done .lg{background:#e9f8f1;}
+.pta-busy .lg .ck{display:none;color:#0f9d6b;font-size:30px;font-weight:700;}
+.pta-busy.done .lg img{display:none;} .pta-busy.done .lg .ck{display:block;animation:ptaPop .35s cubic-bezier(.2,1.6,.4,1);}
+@keyframes ptaPop{from{transform:scale(.4);opacity:0}to{transform:none;opacity:1}}
+.pta-busy h3{font:600 18px var(--display,Poppins,sans-serif);margin:22px 0 4px;letter-spacing:-.01em;}
+.pta-busy p{margin:0;font-size:13px;color:var(--ink-2,#57646f);line-height:1.5;}
+.pta-steps{list-style:none;padding:0;margin:18px 0 0;display:grid;gap:8px;width:100%;text-align:left;}
+.pta-steps li{display:flex;align-items:center;gap:10px;font-size:13px;color:#93a1b5;background:#fff;border:1px solid #e9eef4;border-radius:12px;padding:9px 12px;transition:color .2s,border-color .2s;}
+.pta-steps li i{width:18px;height:18px;border-radius:50%;border:2px solid #dbe3ec;flex:none;display:grid;place-items:center;font-style:normal;font-size:11px;font-weight:700;}
+.pta-steps li.on{color:#0d1726;border-color:#cfe2fb;} .pta-steps li.on i{border-color:rgba(29,124,242,.2);border-top-color:#1d7cf2;animation:ptas .7s linear infinite;}
+.pta-steps li.ok{color:#26354a;} .pta-steps li.ok i{border:0;background:#0f9d6b;color:#fff;animation:none;}
+.pta-steps li.ok i::after{content:"\u2713";}
+.pta-bar{margin-top:18px;width:100%;height:4px;border-radius:4px;background:#e6ecf3;overflow:hidden;}
+.pta-bar i{display:block;height:100%;width:0;border-radius:4px;background:linear-gradient(90deg,#1d7cf2,#62b2ff);transition:width .5s ease;}
 .pta-empty{background:#fff;border:1.5px dashed var(--line,#e4e9ed);border-radius:14px;padding:30px;text-align:center;color:var(--ink-2,#57646f);font-size:13px;}
 `;
   document.head.appendChild(st);
@@ -122,6 +171,7 @@ function open(opts){
   }
   async function act(a, u){
     if (!u) return;
+    let cv = null;
     try{
       if (a === 'edit') return form(u);
       if (a === 'as'){
@@ -131,14 +181,19 @@ function open(opts){
         return;
       }
       if (a === 'toggle'){
+        cv = busy(back.querySelector('.pta'), {title: u.disabled ? 'Turning the login back on' : 'Turning the login off', sub: u.name || u.email, steps: u.disabled ? ['Updating the account', 'Letting them sign in again'] : ['Updating the account', 'Signing them out everywhere']});
         await call('portalAdminSave', {id: u.id, email: u.email, name: u.name, domains: u.domains, disabled: !u.disabled, signOut: !u.disabled});
+        await cv.done(u.disabled ? 'Login enabled' : 'Login disabled', u.disabled ? 'They can sign in again.' : 'They’re signed out on every device.'); cv.close();
         say(u.disabled ? 'Login enabled' : 'Login disabled: they’re signed out everywhere'); return load();
       }
       if (a === 'del'){
         if (!confirm('Delete the login for ' + (u.name || u.email) + '? They won’t be able to sign in again. Their Easyleads data isn’t touched.')) return;
-        await call('portalAdminDelete', {id: u.id}); say('Login deleted'); return load();
+        cv = busy(back.querySelector('.pta'), {title: 'Deleting the login', sub: u.name || u.email, steps: ['Signing them out everywhere', 'Removing the account']});
+        await call('portalAdminDelete', {id: u.id});
+        await cv.done('Login deleted', 'Their Easyleads data wasn’t touched.'); cv.close();
+        say('Login deleted'); return load();
       }
-    }catch(e){ say(e.message, 'err'); }
+    }catch(e){ if (cv) cv.close(); say(e.message, 'err'); }
   }
   function form(u, preset){
     u = u || null;
@@ -147,10 +202,11 @@ function open(opts){
     F.innerHTML = '<div class="pta-form"><b style="font-size:14px">' + (u ? 'Edit ' + esc(u.name || u.email) : 'New client login') + '</b>' +
       '<div class="pta-row"><div><label>Name</label><input type="text" data-n value="' + esc(u ? u.name : '') + '" placeholder="e.g. Robert at Black Rock Garage"></div>' +
       '<div><label>Email (their username)</label><input type="email" data-e value="' + esc(u ? u.email : '') + '" placeholder="name@business.com" autocomplete="off"></div></div>' +
-      '<div><label>' + (u ? 'New password (leave blank to keep the current one)' : 'Password') + '</label><div class="pta-pw"><input type="text" data-p autocomplete="new-password" placeholder="At least 12 characters"><button class="pta-b" type="button" data-gen>Generate strong password</button><button class="pta-b" type="button" data-cp>Copy</button></div>' +
+      '<div><label>' + (u ? 'New password (leave blank to keep the current one)' : 'Password') + '</label><div class="pta-pw"><input type="text" data-p autocomplete="new-password" placeholder="At least 12 characters"><button class="pta-b" type="button" data-gen>Generate strong password</button><button class="pta-b" type="button" data-cp>Copy</button></div><small class="pta-pc" data-pc></small>' +
       (u ? '<label style="display:flex;gap:6px;align-items:center;text-transform:none;letter-spacing:0;font-size:12.5px;font-weight:600;color:var(--ink-2);margin-top:8px"><input type="checkbox" data-so> Sign them out of every device</label>' : '') + '</div>' +
       '<div><label>Businesses they can see</label><input type="text" data-q placeholder="Find a business" style="margin-bottom:8px"><div class="pta-biz" data-biz></div></div>' +
       '<div class="pta-note">The password is shown only here. Copy it and send it to the client separately from the link (for example the link by email and the password by text). It isn’t stored anywhere it can be read back.</div>' +
+      '<div class="pta-err" data-err role="alert"></div>' +
       '<div style="display:flex;gap:8px;justify-content:flex-end"><button class="pta-b" type="button" data-cancel>Cancel</button><button class="pta-b go" type="button" data-save>' + (u ? 'Save changes' : 'Create login') + '</button></div></div>';
     const biz = () => {
       const q = F.querySelector('[data-q]').value.trim().toLowerCase();
@@ -160,26 +216,41 @@ function open(opts){
       F.querySelectorAll('[data-biz] input').forEach(i => i.addEventListener('change', () => { if (i.checked) picked.add(i.value); else picked.delete(i.value); i.parentNode.classList.toggle('on', i.checked); }));
     };
     biz(); redrawBiz = biz;
+    const errEl = F.querySelector('[data-err]');
+    const fail = m => { errEl.textContent = m; errEl.classList.remove('on'); void errEl.offsetWidth; errEl.classList.add('on'); errEl.scrollIntoView({behavior: 'smooth', block: 'nearest'}); };
+    const pc = () => {
+      const v = F.querySelector('[data-p]').value, el = F.querySelector('[data-pc]');
+      if (!v){ el.textContent = u ? '' : 'At least 12 characters'; el.className = 'pta-pc'; return; }
+      el.textContent = v.length >= 12 ? '\u2713 ' + v.length + ' characters' : v.length + ' of 12 characters minimum';
+      el.className = 'pta-pc ' + (v.length >= 12 ? 'ok' : 'bad');
+    };
+    pc();
+    F.querySelector('[data-p]').addEventListener('input', () => { pc(); errEl.classList.remove('on'); });
     F.querySelector('[data-q]').addEventListener('input', biz);
-    F.querySelector('[data-gen]').addEventListener('click', () => { F.querySelector('[data-p]').value = genPassword(); });
+    F.querySelector('[data-gen]').addEventListener('click', () => { F.querySelector('[data-p]').value = genPassword(); pc(); errEl.classList.remove('on'); });
     F.querySelector('[data-cp]').addEventListener('click', () => { const v = F.querySelector('[data-p]').value; if (v) navigator.clipboard.writeText(v).then(() => say('Password copied')); });
     F.querySelector('[data-cancel]').addEventListener('click', () => { F.innerHTML = ''; redrawBiz = null; });
     F.querySelector('[data-save]').addEventListener('click', async ev => {
       const btn = ev.currentTarget, pw = F.querySelector('[data-p]').value;
-      if (pw && pw.length < 12){ say('Use a password of at least 12 characters', 'err'); return; }
-      if (!u && !pw){ say('Set a password, or click Generate', 'err'); return; }
+      const em = F.querySelector('[data-e]').value.trim();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)){ fail('Enter the client’s email address: it’s their username.'); return; }
+      if (!u && !pw){ fail('Set a password, or click Generate strong password.'); return; }
+      if (pw && pw.length < 12){ fail('The password needs at least 12 characters (this one has ' + pw.length + '). Add a few more, or click Generate strong password.'); return; }
       if (!picked.size && !confirm('No business is linked, so they’ll see nothing yet. Save anyway?')) return;
+      errEl.classList.remove('on');
       btn.disabled = true; btn.textContent = u ? 'Saving…' : 'Creating…';
-      const cover = document.createElement('div'); cover.className = 'pta-cover'; cover.innerHTML = '<span class="pta-spin"></span><b>' + (u ? 'Saving changes…' : 'Creating the login…') + '</b><small>' + (u ? 'Updating their access' : 'Securing the password and linking the business') + '</small>';
-      F.querySelector('.pta-form').appendChild(cover);
+      const n = picked.size;
+      const cover = busy(back.querySelector('.pta'), u
+        ? {title: 'Saving changes', sub: u.name || u.email, steps: ['Checking the details', pw ? 'Securing the new password' : 'Keeping their password', 'Updating ' + n + ' business' + (n === 1 ? '' : 'es')]}
+        : {title: 'Creating the login', sub: em, steps: ['Checking the details', 'Securing the password', 'Linking ' + n + ' business' + (n === 1 ? '' : 'es'), 'Getting their dashboard ready']});
       try{
         await call('portalAdminSave', {id: u && u.id, name: F.querySelector('[data-n]').value.trim(), email: F.querySelector('[data-e]').value.trim(),
           password: pw || undefined, domains: Array.from(picked), disabled: u ? u.disabled : false, signOut: !!(F.querySelector('[data-so]') && F.querySelector('[data-so]').checked)});
-        cover.innerHTML = '<span class="pta-ok">✓</span><b>' + (u ? 'Saved' : 'Login created') + '</b><small>' + (u ? '' : 'Send the link and the password to the client.') + '</small>';
-        await new Promise(r => setTimeout(r, 900));
+        await cover.done(u ? 'Changes saved' : 'Login created', u ? 'Their access is up to date.' : 'Send them the link, and the password separately.');
+        cover.close();
         say(u ? 'Login updated' : 'Login created. Send the link and password to the client.');
         F.innerHTML = ''; redrawBiz = null; load();
-      }catch(e){ cover.remove(); say(e.message, 'err'); btn.disabled = false; btn.textContent = u ? 'Save changes' : 'Create login'; }
+      }catch(e){ cover.close(); fail(e.message); btn.disabled = false; btn.textContent = u ? 'Save changes' : 'Create login'; }
     });
     F.scrollIntoView({behavior: 'smooth', block: 'start'});
   }
