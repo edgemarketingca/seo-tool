@@ -12562,6 +12562,7 @@ const edgeSignOut = (function(){
     busy = true;
     try{
       if (!opts.skipConfirm && !(await ask())) return;
+      try{ window.dispatchEvent(new Event('edge:signing-out')); }catch(e){}
       showVeil('Signing out…');
       /* anything not yet in the cloud goes up first: the keys leave this browser at sign-out */
       await withTimeout(flushBeforeSignOut(), 5000);
@@ -28254,6 +28255,15 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
   const btn = TRAYS.forms.btn, panel = TRAYS.forms.panel;
 
   const signedIn = () => { try{ return !!(fbAuth && fbAuth.currentUser); }catch(e){ return false; } };
+  /* Leads belong to the EDGE interface only: never on the sign-in or loading
+     screen, the EDGE / Easyleads chooser, the Easyleads console or the hub. */
+  const onScreen = id => { const el = document.getElementById(id); return !!(el && el.classList.contains('on')); };
+  const inEdge = () => {
+    if (!signedIn() || onScreen('loginScreen') || onScreen('loadingScreen')) return false;
+    const b = document.body, shell = document.getElementById('appShell');
+    if (b.classList.contains('hub-locked') || b.classList.contains('embed-mode') || (shell && shell.classList.contains('hidden'))) return false;
+    return !document.querySelector('.elws,.elwb-back,.pta-back');
+  };
   const tracker = () => { const s = (state.settings && state.settings.aiTracker) || {}; return {url: s.url || '', key: s.key || ''}; };
   const clientFor = domain => (state.seoClients || []).find(c => cleanDomain(c.website) === domain) || null;
   const unread = k => seen ? rows.filter(r => !r.test && (!k || TRAYS[k].match(r)) && seen.ids.indexOf(r.id) === -1) : [];
@@ -28460,6 +28470,7 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
     if (!inside) close();
   }
   function openTray(k){
+    if (!inEdge()) return;
     const t = TRAYS[k];
     close();
     if (pop) pop.hidden = true;
@@ -28478,6 +28489,7 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
      front - a desktop notification, if this person allowed them. */
   let pop = null, lastFresh = [];
   function notify(fresh){
+    if (!inEdge() || !fresh.length) return;
     const first = fresh[0], c = clientFor(first.domain);
     lastFresh = fresh;
     const who = c ? c.name : (first.client || first.domain);
@@ -28496,7 +28508,7 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
       pop.addEventListener('click', e => {
         const x = e.target.closest('.tn-bell-pop-x');
         pop.hidden = true;
-        if (!x){ if (lastFresh.length === 1) openDetail(lastFresh[0]); else openTray(lastFresh.every(isCall) ? 'calls' : 'forms'); }
+        if (!x && inEdge()){ if (lastFresh.length === 1) openDetail(lastFresh[0]); else openTray(lastFresh.every(isCall) ? 'calls' : 'forms'); }
       });
     }
     pop.innerHTML = '<b>' + esc(title) + '</b><span>' + esc(line) + '</span><button type="button" class="tn-bell-pop-x" aria-label="Dismiss">×</button>';
@@ -28508,7 +28520,7 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
     try{
       if (window.Notification && Notification.permission === 'granted' && (document.hidden || !document.hasFocus())){
         const n = new Notification(title, {body: line, tag: 'edge-lead-' + first.id});
-        n.onclick = () => { try{ window.focus(); }catch(e){} n.close(); if (fresh.length === 1) openDetail(first); else openTray(allCalls ? 'calls' : 'forms'); };
+        n.onclick = () => { try{ window.focus(); }catch(e){} n.close(); if (!inEdge()) return; if (fresh.length === 1) openDetail(first); else openTray(allCalls ? 'calls' : 'forms'); };
       }
     }catch(e){}
   }
@@ -28570,7 +28582,7 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
       '<button type="button" class="btn btn-sm btn-go tn-sub-done">Done</button></footer></div>';
   }
   async function openDetail(r){
-    if (!r) return;
+    if (!r || !inEdge()) return;
     close();
     if (pop) pop.hidden = true;
     markSeen(r);
@@ -28644,9 +28656,12 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
     if (!signedIn() || !t.url || !t.key){ showButtons(false); return; }
     showButtons(true);
     busy = true;
+    const who = (fbAuth.currentUser && fbAuth.currentUser.uid) || '';
     try{
       const res = await fetch(t.url + (t.url.indexOf('?') > -1 ? '&' : '?') + 'action=formsRecent&key=' + encodeURIComponent(t.key), {redirect: 'follow'});
       const data = await res.json();
+      /* Signed out (or someone else signed in) while this was loading: drop it. */
+      if (!signedIn() || ((fbAuth.currentUser && fbAuth.currentUser.uid) || '') !== who) return;
       if (data && Array.isArray(data.rows)){
         const before = new Set(rows.map(r => r.id));
         rows = data.rows.filter(r => r && r.id && r.ms);
@@ -28659,7 +28674,8 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
           writeSeen();
         }
         const fresh = rows.filter(r => !r.test && !before.has(r.id) && seen.ids.indexOf(r.id) === -1);
-        if (!firstLoad && fresh.length) notify(fresh);
+        /* Leads that arrive while another screen is showing simply wait on the badge. */
+        if (!firstLoad && fresh.length && inEdge()) notify(fresh);
         firstLoad = false;
       } else {
         lastErr = data && data.error === 'domain required'
@@ -28683,13 +28699,25 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
   window.addEventListener('focus', () => poll());
   /* Signing in or out (or another person signing in): start over. */
   let wasIn = null;
-  setInterval(() => {
+  /* Anything lead-related on screen goes the moment the EDGE interface isn't the one showing. */
+  function hideAll(){
+    if (pop) pop.hidden = true;
+    close();
+    try{ closeDrawer(); }catch(e){}
+    if (drawer){ drawer.hidden = true; drawer.classList.remove('out'); drawer.innerHTML = ''; }
+  }
+  function guard(){
     const now = signedIn();
-    if (now === wasIn) return;
-    wasIn = now;
-    rows = []; tracked = null; lastLead = null; firstLoad = true; seen = readSeen(); lastErr = '';
-    if (now) poll(); else { showButtons(false); close(); }
-  }, 5000);
+    if (now !== wasIn){
+      wasIn = now;
+      rows = []; tracked = null; lastLead = null; firstLoad = true; seen = readSeen(); lastErr = ''; lastFresh = [];
+      Object.keys(TRAYS).forEach(k => { TRAYS[k].panel.innerHTML = ''; });
+      if (now) poll(); else { showButtons(false); hideAll(); }
+    }
+    if (!inEdge()) hideAll();
+  }
+  setInterval(guard, 400);
+  window.addEventListener('edge:signing-out', () => { showButtons(false); hideAll(); rows = []; lastFresh = []; });
   start();
 })();
 </script>
