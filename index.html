@@ -12490,6 +12490,9 @@ function initCloud(){
       { const pw = $('authPassword'); if (pw) pw.value = ''; }
       { const st = $('authStatus'); if (st && /\bbusy\b/.test(st.className)) setStatus('authStatus', '', ''); }
       setScreen('login');
+      try{ window.edgeSignOut && window.edgeSignOut.hideVeil(); }catch(e){}
+      /* nothing from the signed-in session stays on top of the login screen */
+      document.querySelectorAll('.elws,.elwb-back,.pta-back').forEach(x => x.remove()); document.body.classList.remove('hub-locked');
       const btn = $('authSubmitBtn');
       if (btn) btn.disabled = false;
     }
@@ -12503,6 +12506,7 @@ async function attemptSignIn(){
   $('authSubmitBtn').disabled = true;
   setStatus('authStatus', 'Signing in…', 'busy');
   try{
+    try{ localStorage.setItem('edgeSignedInAt', String(Date.now())); localStorage.setItem('edgeIdleLast', String(Date.now())); }catch(e){}
     await fbAuth.signInWithEmailAndPassword(email, password);
     // onAuthStateChanged takes it from here
   }catch(err){
@@ -12520,17 +12524,64 @@ async function attemptSignIn(){
 $('authSubmitBtn').addEventListener('click', attemptSignIn);
 $('authPassword').addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); attemptSignIn(); } });
 $('authEmail').addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); $('authPassword').focus(); } });
-$('signOutBtn').addEventListener('click', async () => {
-  if (!fbAuth) return;
-  if (!confirm('Sign out of EDGE SEO Reporter on this computer?')) return;
-  /* anything not yet in the cloud goes up first: the keys leave this browser at sign-out */
-  await flushBeforeSignOut();
-  /* leave the team list before the credentials go */
-  try{ await presLeave(); }catch(e){}
-  stopLiveSync();
-  presStop();
-  try{ await fbAuth.signOut(); }catch(e){}
-});
+/* Sign out: one click, a clear confirmation, then a "Signing out…" screen straight away.
+   A slow network can't leave the button looking dead (which made it feel like it needed a
+   second click): the cloud save and leaving the team list each get a few seconds at most. */
+const edgeSignOut = (function(){
+  let busy = false, veil = null;
+  const withTimeout = (p, ms) => Promise.race([Promise.resolve(p).catch(() => {}), new Promise(r => setTimeout(r, ms))]);
+  const showVeil = text => {
+    if (!veil){
+      veil = document.createElement('div');
+      veil.style.cssText = 'position:fixed;inset:0;z-index:2147483000;display:grid;place-items:center;background:rgba(246,248,251,.78);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);font:600 14px Inter,system-ui,sans-serif;color:#1b222a';
+      veil.innerHTML = '<div style="display:flex;align-items:center;gap:14px;background:#fff;border:1px solid #e6ebf2;border-radius:18px;padding:20px 26px;box-shadow:0 24px 50px -24px rgba(13,23,38,.35)"><span style="width:20px;height:20px;border-radius:50%;border:2.5px solid rgba(232,119,34,.2);border-top-color:#e87722;animation:edgeSpin .7s linear infinite"></span><span data-t></span></div><style>@keyframes edgeSpin{to{transform:rotate(360deg)}}</style>';
+      document.body.appendChild(veil);
+    }
+    veil.querySelector('[data-t]').textContent = text;
+  };
+  const hideVeil = () => { if (veil){ veil.remove(); veil = null; } };
+  const ask = () => new Promise(resolve => {
+    const b = document.createElement('div');
+    b.style.cssText = 'position:fixed;inset:0;z-index:2147482999;display:grid;place-items:center;background:rgba(13,23,38,.3);backdrop-filter:blur(2px);font-family:Inter,system-ui,sans-serif';
+    b.innerHTML = '<div role="alertdialog" aria-modal="true" style="background:#fff;border-radius:20px;padding:24px;width:min(380px,calc(100vw - 32px));box-shadow:0 30px 60px -24px rgba(13,23,38,.45);color:#1b222a">' +
+      '<div style="font:600 18px Poppins,Inter,sans-serif;margin-bottom:6px">Sign out?</div><div style="font-size:13.5px;color:#57646f;line-height:1.5">You’ll need your password to get back into EDGE on this computer.</div>' +
+      '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px"><button type="button" data-no style="font:600 13px Inter,sans-serif;border:1px solid #e4e9ed;background:#fff;border-radius:10px;padding:9px 14px;cursor:pointer">Cancel</button>' +
+      '<button type="button" data-yes style="font:600 13px Inter,sans-serif;border:0;background:#e87722;color:#fff;border-radius:10px;padding:9px 16px;cursor:pointer">Sign out</button></div></div>';
+    document.body.appendChild(b);
+    const done = v => { b.remove(); document.removeEventListener('keydown', k, true); resolve(v); };
+    const k = e => { if (e.key === 'Escape'){ e.preventDefault(); done(false); } else if (e.key === 'Enter'){ e.preventDefault(); done(true); } };
+    document.addEventListener('keydown', k, true);
+    b.addEventListener('click', e => { if (e.target === b) done(false); });
+    b.querySelector('[data-no]').addEventListener('click', () => done(false));
+    b.querySelector('[data-yes]').addEventListener('click', () => done(true));
+    setTimeout(() => b.querySelector('[data-yes]').focus(), 30);
+  });
+  async function run(opts){
+    opts = opts || {};
+    if (busy || !fbAuth || !fbAuth.currentUser) return;
+    busy = true;
+    try{
+      if (!opts.skipConfirm && !(await ask())) return;
+      showVeil('Signing out…');
+      /* anything not yet in the cloud goes up first: the keys leave this browser at sign-out */
+      await withTimeout(flushBeforeSignOut(), 5000);
+      /* leave the team list before the credentials go */
+      await withTimeout(presLeave(), 1500);
+      try{ stopLiveSync(); }catch(e){}
+      try{ presStop(); }catch(e){}
+      try{ sessionStorage.removeItem('edge-workspace-choice'); }catch(e){}
+      try{ localStorage.removeItem('edgeSignedInAt'); }catch(e){}
+      await withTimeout(fbAuth.signOut(), 5000);
+    } finally {
+      busy = false;
+      /* the login screen is up by now (onAuthStateChanged); never leave the veil behind */
+      setTimeout(hideVeil, 250);
+    }
+  }
+  return {run, showVeil, hideVeil};
+})();
+window.edgeSignOut = edgeSignOut;
+$('signOutBtn').addEventListener('click', e => { e.preventDefault(); edgeSignOut.run(); });
 
 /* ---------- sign out after 5 minutes without activity ----------
    Clicking (or tapping), scrolling and typing count as activity; just moving
@@ -12576,11 +12627,7 @@ $('signOutBtn').addEventListener('click', async () => {
   const signOutNow = async () => {
     if (out) return;
     out = true; hide();
-    try{ await flushBeforeSignOut(); }catch(e){}
-    try{ await presLeave(); }catch(e){}
-    try{ stopLiveSync(); }catch(e){}
-    try{ presStop(); }catch(e){}
-    try{ await fbAuth.signOut(); }catch(e){}
+    try{ await window.edgeSignOut.run({skipConfirm: true}); }catch(e){}
     try{ setStatus('authStatus', 'You were signed out after 5 minutes without activity. Sign in again to continue.', 'err'); }catch(e){}
   };
   setInterval(() => {
@@ -12588,7 +12635,9 @@ $('signOutBtn').addEventListener('click', async () => {
     /* A session kept from before this page opened: only if there was activity in the last 5 minutes. */
     if (!checked){
       checked = true;
-      const u = fbAuth.currentUser, at = Date.parse((u && u.metadata && u.metadata.lastSignInTime) || '') || 0;
+      const u = fbAuth.currentUser;
+      /* lastSignInTime can lag behind a sign-in that just happened, so a sign-in made in this browser counts too */
+      const at = Math.max(Date.parse((u && u.metadata && u.metadata.lastSignInTime) || '') || 0, (() => { try{ return Number(localStorage.getItem('edgeSignedInAt')) || 0; }catch(e){ return 0; } })());
       if (Date.now() - at > LIMIT && (!atLoad || Date.now() - atLoad >= LIMIT)){ signOutNow(); return; }
     }
     last = Math.max(last, shared());
@@ -26296,7 +26345,7 @@ document.querySelectorAll('#hubGrid .hub-card').forEach(card => {
 });
 ['hubSignOutBtn','tnSignOut','seoSignOutBtn','serpSignOutBtn'].forEach(id => {
   const b = $(id);
-  if (b) b.addEventListener('click', () => { const s = $('signOutBtn'); if (s) s.click(); });
+  if (b) b.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); if (window.edgeSignOut) window.edgeSignOut.run(); });
 });
 if ($('serpToGbpBtn')) $('serpToGbpBtn').addEventListener('click', () => EDGE.go('gbp'));
 if ($('gbpToSerpBtn')) $('gbpToSerpBtn').addEventListener('click', () => EDGE.go('serp'));
