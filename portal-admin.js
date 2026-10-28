@@ -62,6 +62,12 @@ function styles(){
 .pta-biz label.on{border-color:var(--brand,#e87722);background:var(--brand-wash,#fdf1e6);}
 .pta-biz span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .pta-note{font-size:12px;color:var(--ink-2,#57646f);background:#fffbe6;border:1px solid #f3e3a1;border-radius:10px;padding:9px 11px;line-height:1.5;}
+.pta-form{position:relative;}
+.pta-cover{position:absolute;inset:0;border-radius:14px;background:rgba(255,255,255,.9);backdrop-filter:blur(2px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;z-index:2;}
+.pta-cover b{font-size:14.5px;} .pta-cover small{color:var(--ink-2,#57646f);font-size:12.5px;}
+.pta-spin{width:30px;height:30px;border-radius:50%;border:3px solid rgba(29,124,242,.18);border-top-color:var(--brand,#1d7cf2);animation:ptas .7s linear infinite;margin-bottom:6px;}
+.pta-ok{width:36px;height:36px;border-radius:50%;background:#e5f6ee;color:#0f9d6b;display:grid;place-items:center;font-weight:700;font-size:18px;margin-bottom:4px;}
+@keyframes ptas{to{transform:rotate(360deg)}}
 .pta-empty{background:#fff;border:1.5px dashed var(--line,#e4e9ed);border-radius:14px;padding:30px;text-align:center;color:var(--ink-2,#57646f);font-size:13px;}
 `;
   document.head.appendChild(st);
@@ -89,7 +95,7 @@ function open(opts){
   const nameOf = d => (data.clients.find(c => c.domain === d) || {}).name || d;
   const okOf = d => (data.clients.find(c => c.domain === d) || {}).connected;
   /* What each business's Easyleads token can read, from the tracker's last check (portalCheckScopes). */
-  const LBL = {calls: 'Calls', contacts: 'Contacts', opps: 'Pipeline', appts: 'Appointments', forms: 'Forms'};
+  const LBL = {calls: 'Calls', contacts: 'Contacts', opps: 'Pipeline', appts: 'Appointments', forms: 'Forms', emails: 'Email'};
   const missing = d => { const r = data.scopes && data.scopes.d && data.scopes.d[d]; return r ? Object.keys(LBL).filter(k => r[k] === 'scope').map(k => LBL[k]) : []; };
 
   async function load(){
@@ -163,13 +169,17 @@ function open(opts){
       if (pw && pw.length < 12){ say('Use a password of at least 12 characters', 'err'); return; }
       if (!u && !pw){ say('Set a password, or click Generate', 'err'); return; }
       if (!picked.size && !confirm('No business is linked, so they’ll see nothing yet. Save anyway?')) return;
-      btn.disabled = true; btn.textContent = 'Saving…';
+      btn.disabled = true; btn.textContent = u ? 'Saving…' : 'Creating…';
+      const cover = document.createElement('div'); cover.className = 'pta-cover'; cover.innerHTML = '<span class="pta-spin"></span><b>' + (u ? 'Saving changes…' : 'Creating the login…') + '</b><small>' + (u ? 'Updating their access' : 'Securing the password and linking the business') + '</small>';
+      F.querySelector('.pta-form').appendChild(cover);
       try{
         await call('portalAdminSave', {id: u && u.id, name: F.querySelector('[data-n]').value.trim(), email: F.querySelector('[data-e]').value.trim(),
           password: pw || undefined, domains: Array.from(picked), disabled: u ? u.disabled : false, signOut: !!(F.querySelector('[data-so]') && F.querySelector('[data-so]').checked)});
+        cover.innerHTML = '<span class="pta-ok">✓</span><b>' + (u ? 'Saved' : 'Login created') + '</b><small>' + (u ? '' : 'Send the link and the password to the client.') + '</small>';
+        await new Promise(r => setTimeout(r, 900));
         say(u ? 'Login updated' : 'Login created. Send the link and password to the client.');
         F.innerHTML = ''; redrawBiz = null; load();
-      }catch(e){ say(e.message, 'err'); btn.disabled = false; btn.textContent = u ? 'Save changes' : 'Create login'; }
+      }catch(e){ cover.remove(); say(e.message, 'err'); btn.disabled = false; btn.textContent = u ? 'Save changes' : 'Create login'; }
     });
     F.scrollIntoView({behavior: 'smooth', block: 'start'});
   }
