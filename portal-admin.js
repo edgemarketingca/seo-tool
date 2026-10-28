@@ -85,7 +85,7 @@ function open(opts){
   back.addEventListener('click', e => { if (e.target === back) close(); });
   $('.pta-x').addEventListener('click', close);
   $('[data-copy]').addEventListener('click', () => navigator.clipboard.writeText(portalUrl()).then(() => say('Link copied')));
-  let data = {users: [], clients: []};
+  let data = {users: [], clients: []}, loaded = false, redrawBiz = null;
   const nameOf = d => (data.clients.find(c => c.domain === d) || {}).name || d;
   const okOf = d => (data.clients.find(c => c.domain === d) || {}).connected;
   /* What each business's Easyleads token can read, from the tracker's last check (portalCheckScopes). */
@@ -94,7 +94,8 @@ function open(opts){
 
   async function load(){
     try{
-      data = await call('portalAdminList'); list();
+      data = await call('portalAdminList'); loaded = true; list();
+      if (redrawBiz) redrawBiz();
       if (opts.newFor){ const d = opts.newFor; opts.newFor = null; form(null, [d]); }
       if (opts.editId){ const u = data.users.find(x => x.id === opts.editId); opts.editId = null; if (u) form(u); }
     }
@@ -148,15 +149,15 @@ function open(opts){
     const biz = () => {
       const q = F.querySelector('[data-q]').value.trim().toLowerCase();
       const cs = data.clients.slice().sort((a, b) => (b.connected - a.connected) || a.name.localeCompare(b.name)).filter(c => !q || (c.name + ' ' + c.domain).toLowerCase().indexOf(q) > -1);
-      F.querySelector('[data-biz]').innerHTML = cs.map(c => '<label class="' + (picked.has(c.domain) ? 'on' : '') + '"><input type="checkbox" value="' + esc(c.domain) + '"' + (picked.has(c.domain) ? ' checked' : '') + '><span title="' + esc(c.domain) + '">' + esc(c.name) + '</span>' +
+      F.querySelector('[data-biz]').innerHTML = !loaded ? '<div style="font-size:12.5px;color:var(--ink-2,#57646f);padding:6px">Loading businesses\u2026</div>' : !cs.length ? '<div style="font-size:12.5px;color:var(--ink-2,#57646f);padding:6px">No businesses match.</div>' : cs.map(c => '<label class="' + (picked.has(c.domain) ? 'on' : '') + '"><input type="checkbox" value="' + esc(c.domain) + '"' + (picked.has(c.domain) ? ' checked' : '') + '><span title="' + esc(c.domain) + '">' + esc(c.name) + '</span>' +
         '<span class="pta-chip ' + (c.connected ? 'ok' : 'no') + '" style="flex:none;margin:0">' + (c.connected ? 'Easyleads' : 'not connected') + '</span></label>').join('');
       F.querySelectorAll('[data-biz] input').forEach(i => i.addEventListener('change', () => { if (i.checked) picked.add(i.value); else picked.delete(i.value); i.parentNode.classList.toggle('on', i.checked); }));
     };
-    biz();
+    biz(); redrawBiz = biz;
     F.querySelector('[data-q]').addEventListener('input', biz);
     F.querySelector('[data-gen]').addEventListener('click', () => { F.querySelector('[data-p]').value = genPassword(); });
     F.querySelector('[data-cp]').addEventListener('click', () => { const v = F.querySelector('[data-p]').value; if (v) navigator.clipboard.writeText(v).then(() => say('Password copied')); });
-    F.querySelector('[data-cancel]').addEventListener('click', () => { F.innerHTML = ''; });
+    F.querySelector('[data-cancel]').addEventListener('click', () => { F.innerHTML = ''; redrawBiz = null; });
     F.querySelector('[data-save]').addEventListener('click', async ev => {
       const btn = ev.currentTarget, pw = F.querySelector('[data-p]').value;
       if (pw && pw.length < 12){ say('Use a password of at least 12 characters', 'err'); return; }
@@ -167,7 +168,7 @@ function open(opts){
         await call('portalAdminSave', {id: u && u.id, name: F.querySelector('[data-n]').value.trim(), email: F.querySelector('[data-e]').value.trim(),
           password: pw || undefined, domains: Array.from(picked), disabled: u ? u.disabled : false, signOut: !!(F.querySelector('[data-so]') && F.querySelector('[data-so]').checked)});
         say(u ? 'Login updated' : 'Login created. Send the link and password to the client.');
-        F.innerHTML = ''; load();
+        F.innerHTML = ''; redrawBiz = null; load();
       }catch(e){ say(e.message, 'err'); btn.disabled = false; btn.textContent = u ? 'Save changes' : 'Create login'; }
     });
     F.scrollIntoView({behavior: 'smooth', block: 'start'});
