@@ -1,1 +1,0 @@
-Redeploy 2026-10-19: publish PR #22 (report builder) after GitHub Pages incident.
