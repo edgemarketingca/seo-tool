@@ -5305,6 +5305,166 @@ body.embed-clean .rank-dot.wide{box-shadow:0 0 0 2px #fff,0 0 0 3.5px rgba(212,6
   #seoview-keywords .seo-lg-metrics{ grid-template-columns:64px 96px 76px repeat(4, auto); }
   #seoview-keywords .seo-lg-row{ padding:14px 14px 12px; }
 }
+/* ==========================================================================
+   SHARED KEYWORD REPORT, in the house style of the client dashboards it is
+   embedded in (Agency Analytics): a light grey canvas, white widgets with a
+   small title bar, KPI tiles that read label-then-number, square-ish 6px
+   corners, hairline borders, a blue accent for what is selected, and the
+   rankings as proper tables with column headings. Scoped to the report.
+   -------------------------------------------------------------------------- */
+.report-mode .kwr-root{
+  --rp-bg:#f4f6f9; --rp-card:#ffffff; --rp-line:#e3e8ef; --rp-line-2:#eef2f6;
+  --rp-ink:#22303f; --rp-ink-2:#5b6878; --rp-ink-3:#8a96a6;
+  --rp-blue:#2f6fde; --rp-blue-wash:#eaf1fd; --rp-r:6px;
+  --rp-sh:0 1px 2px rgba(34,48,63,.06);
+  background:var(--rp-bg); color:var(--rp-ink);
+  font-family:var(--ui); font-size:14px;
+}
+.report-mode .kwr-root .kwr-shell{ max-width:1180px; padding:24px 24px 32px; gap:16px; }
+
+/* widgets share one frame */
+.report-mode .kwr-root .kwr-head,
+.report-mode .kwr-root .kwr-stat,
+.report-mode .kwr-root .kwr-panel,
+.report-mode .kwr-root .kwr-locbar,
+.report-mode .kwr-root .seo-lg-card{
+  background:var(--rp-card); border:1px solid var(--rp-line); border-radius:var(--rp-r);
+  box-shadow:var(--rp-sh); background-image:none;
+}
+
+/* report header: left-aligned title, like a report cover line */
+.report-mode .kwr-root .kwr-head{ padding:18px 22px; text-align:left; justify-content:flex-start; }
+.report-mode .kwr-root .kwr-head-text{ text-align:left; align-items:flex-start; }
+.report-mode .kwr-root .kwr-title{
+  font:600 20px/1.3 var(--ui); letter-spacing:-.01em; color:var(--rp-ink); text-align:left; margin:0;
+}
+
+/* KPI tiles: label on top, the number below, a quiet hint under it */
+.report-mode .kwr-root .kwr-stats{ gap:16px; }
+.report-mode .kwr-root .kwr-stat{
+  display:flex; flex-direction:column; align-items:flex-start; justify-content:flex-start; text-align:left;
+  padding:16px 20px 18px; min-height:0; border-left:1px solid var(--rp-line); overflow:hidden; position:relative;
+  transition:border-color .15s, box-shadow .15s; transform:none;
+}
+.report-mode .kwr-root .kwr-stat::before, .report-mode .kwr-root .kwr-stat::after{ display:none; }
+.report-mode .kwr-root .kwr-stat:hover{ border-color:#c9d3df; box-shadow:0 2px 8px rgba(34,48,63,.08); transform:none; }
+.report-mode .kwr-root .kwr-stat > span:not(.kwr-stat-hint){
+  order:-1; font:600 13px/1.3 var(--ui); text-transform:none; letter-spacing:0; color:var(--rp-ink-2); margin:0 0 10px;
+}
+.report-mode .kwr-root .kwr-stat > b{
+  font:600 30px/1.1 var(--ui); letter-spacing:-.02em; color:var(--rp-ink); font-variant-numeric:tabular-nums;
+}
+.report-mode .kwr-root .kwr-stat.good > b{ color:#1f8a52; }
+.report-mode .kwr-root .kwr-stat-hint{ font-size:12px; color:var(--rp-ink-3); margin-top:6px; }
+/* the tile that is filtering the list gets the accent along its bottom */
+.report-mode .kwr-root .kwr-stat.is-on{ box-shadow:var(--rp-sh), inset 0 -3px 0 var(--rp-blue); }
+
+/* position breakdown widget */
+.report-mode .kwr-root .kwr-panel-head{
+  padding:14px 20px; border-bottom:1px solid var(--rp-line-2); background:none;
+  font:600 14px/1.3 var(--ui); color:var(--rp-ink);
+}
+.report-mode .kwr-root .kwr-panel-head svg{ color:var(--rp-blue); }
+.report-mode .kwr-root .kwr-panel-note{ font-size:12px; color:var(--rp-ink-3); }
+.report-mode .kwr-root .kwr-hero{ border-right:1px solid var(--rp-line-2); background:none; }
+.report-mode .kwr-root .kwr-hero-num{ font:600 44px/1 var(--ui); letter-spacing:-.03em; color:var(--rp-ink); }
+.report-mode .kwr-root .kwr-hero-lbl{ font:600 13px/1.3 var(--ui); text-transform:none; letter-spacing:0; color:var(--rp-ink-2); margin-top:10px; }
+.report-mode .kwr-root .kwr-hero-sub{ font-size:12px; color:var(--rp-ink-3); }
+.report-mode .kwr-root .kwr-band{ border-radius:4px; padding:6px 8px; }
+.report-mode .kwr-root .kwr-band:hover{ background:var(--rp-line-2); }
+.report-mode .kwr-root .kwr-band-lbl{ font:500 13px/1.2 var(--ui); color:var(--rp-ink); }
+.report-mode .kwr-root .kwr-band-dot{ border-radius:2px; }
+.report-mode .kwr-root .kwr-band-track{ height:8px; border-radius:4px; background:var(--rp-line-2); }
+.report-mode .kwr-root .kwr-band-fill{ border-radius:4px; }
+.report-mode .kwr-root .kwr-band-n{ font:600 13px/1 var(--ui); color:var(--rp-ink); font-variant-numeric:tabular-nums; }
+
+/* location filter: segmented pills */
+.report-mode .kwr-root .kwr-locbar{ padding:12px 16px; gap:8px; }
+.report-mode .kwr-root .kwr-locbar-lbl{ font:600 13px/1 var(--ui); text-transform:none; letter-spacing:0; color:var(--rp-ink-2); }
+.report-mode .kwr-root .kwr-chip{
+  height:32px; padding:0 12px; border-radius:4px; font:500 13px/1 var(--ui);
+  background:#fff; color:var(--rp-ink-2); border:1px solid var(--rp-line); box-shadow:none;
+}
+.report-mode .kwr-root .kwr-chip:hover{ border-color:#c9d3df; color:var(--rp-ink); }
+.report-mode .kwr-root .kwr-chip.is-on, .report-mode .kwr-root .kwr-chip.on, .report-mode .kwr-root .kwr-chip[aria-pressed="true"]{
+  background:var(--rp-blue-wash); color:var(--rp-blue); border-color:var(--rp-blue);
+}
+.report-mode .kwr-root .kwr-chip svg{ color:currentColor; }
+.report-mode .kwr-root .kwr-chip b{ color:var(--rp-ink-3); font-weight:600; }
+.report-mode .kwr-root .kwr-chip.is-on b{ color:var(--rp-blue); opacity:.75; }
+
+/* search + count */
+.report-mode .kwr-root .kwr-toolbar{ gap:12px; }
+.report-mode .kwr-root .kwr-search{
+  height:36px; border-radius:4px; border:1px solid var(--rp-line); background:#fff; box-shadow:none;
+}
+.report-mode .kwr-root .kwr-search:focus-within{ border-color:var(--rp-blue); box-shadow:0 0 0 3px rgba(47,111,222,.15); }
+.report-mode .kwr-root .kwr-search input{ font-size:13.5px; }
+.report-mode .kwr-root .kwr-count{ font-size:13px; color:var(--rp-ink-3); }
+.report-mode .kwr-root .kwr-count b{ color:var(--rp-ink); font-weight:600; }
+.report-mode .kwr-root .kwr-clear{ color:var(--rp-blue); font-size:13px; }
+
+/* each location is a table widget */
+.report-mode .kwr-root .seo-lg-card{ overflow:hidden; margin-bottom:16px; }
+.report-mode .kwr-root .seo-lg-head{
+  padding:12px 16px; gap:10px; background:#fff; border-bottom:1px solid var(--rp-line-2);
+}
+.report-mode .kwr-root .seo-lg-head:hover{ background:#fafbfd; }
+.report-mode .kwr-root .seo-lg-label{ font:600 14px/1.3 var(--ui); color:var(--rp-ink); }
+.report-mode .kwr-root .seo-lg-pin{ color:var(--rp-blue); }
+.report-mode .kwr-root .kwr-mix{ height:6px; border-radius:3px; gap:2px; }
+.report-mode .kwr-root .kwr-mix i{ border-radius:3px; }
+.report-mode .kwr-root .seo-lg-count{
+  font:500 12px/1 var(--ui); padding:5px 8px; border-radius:4px;
+  background:var(--rp-line-2); color:var(--rp-ink-2); border:0;
+}
+.report-mode .kwr-root .seo-lg-body{ padding:0; border:0; }
+
+/* one grid for the heading row and every keyword row, so columns line up */
+.report-mode .kwr-root .kwr-colhead,
+.report-mode .kwr-root .seo-lg-top{
+  display:grid; grid-template-columns:minmax(0, 1fr) 168px 72px 72px 80px; align-items:center; column-gap:16px;
+}
+.report-mode .kwr-root .kwr-colhead{
+  padding:9px 16px; background:#f8fafc; border-bottom:1px solid var(--rp-line-2);
+  font:600 12px/1.2 var(--ui); color:var(--rp-ink-3);
+}
+.report-mode .kwr-root .kwr-colhead > span:nth-child(n+4){ text-align:center; }
+.report-mode .kwr-root .seo-lg-row{
+  padding:11px 16px 10px; margin:0; border:0; border-bottom:1px solid var(--rp-line-2); border-radius:0; background:#fff;
+}
+.report-mode .kwr-root .seo-lg-row:last-child{ border-bottom:0; }
+.report-mode .kwr-root .seo-lg-row:hover{ background:#f8fafc; }
+.report-mode .kwr-root .seo-lg-text{ display:flex; align-items:center; gap:9px; min-width:0; font:500 14px/1.35 var(--ui); color:var(--rp-ink); }
+.report-mode .kwr-root .kwr-kw-name{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.report-mode .kwr-root .kwr-kw-dot{ width:8px; height:8px; border-radius:2px; flex:0 0 auto; }
+.report-mode .kwr-root .kwr-track-holder, .report-mode .kwr-root .kwr-track{ width:100%; }
+.report-mode .kwr-root .kwr-track{ display:block; height:6px; border-radius:3px; background:var(--rp-line-2); overflow:hidden; }
+.report-mode .kwr-root .kwr-track i{ display:block; height:100%; border-radius:3px; }
+.report-mode .kwr-root .seo-spark-pad{ width:auto; justify-self:center; }
+.report-mode .kwr-root .kwr-rank{ justify-self:center; }
+/* rank reads as a number in a table, with its band as a soft background */
+.report-mode .kwr-root .kwr-pos{
+  display:inline-grid; place-items:center; min-width:44px; height:26px; padding:0 8px; border-radius:4px;
+  font:600 14px/1 var(--ui); font-variant-numeric:tabular-nums; box-shadow:none; border:0;
+}
+.report-mode .kwr-root .kwr-delta{ justify-self:center; font:600 13px/1 var(--ui); color:var(--rp-ink-3); font-variant-numeric:tabular-nums; white-space:nowrap; }
+.report-mode .kwr-root .kwr-delta.up, .report-mode .kwr-root .kwr-delta .up{ color:#1f8a52; }
+.report-mode .kwr-root .kwr-delta.down, .report-mode .kwr-root .kwr-delta .down{ color:#d6453d; }
+.report-mode .kwr-root .kwr-meta{ padding:3px 0 0 17px; font-size:12px; }
+.report-mode .kwr-root .kwr-meta a{ color:var(--rp-blue); text-decoration:none; border:0; box-shadow:none; outline-offset:2px; }
+.report-mode .kwr-root .kwr-meta a:hover{ text-decoration:underline; }
+
+.report-mode .kwr-root .kwr-foot{ color:var(--rp-ink-3); font-size:12px; }
+.report-mode .kwr-root .kwr-foot a{ color:var(--rp-ink-2); }
+
+@media (max-width:720px){
+  .report-mode .kwr-root .kwr-shell{ padding:14px 12px 24px; }
+  .report-mode .kwr-root .kwr-colhead, .report-mode .kwr-root .seo-lg-top{ grid-template-columns:minmax(0, 1fr) 64px 56px; }
+  .report-mode .kwr-root .kwr-colhead > span:nth-child(2), .report-mode .kwr-root .kwr-colhead > span:nth-child(3),
+  .report-mode .kwr-root .kwr-track-holder, .report-mode .kwr-root .seo-spark-pad{ display:none; }
+  .report-mode .kwr-root .kwr-stat > b{ font-size:24px; }
+}
 </style>
 </head>
 <body>
@@ -27632,6 +27792,12 @@ function renderSeoReport(data){
 
       const body = document.createElement('div');
       body.className = 'seo-lg-body';
+      /* Column headings, so each location reads as a table. */
+      const colHead = document.createElement('div');
+      colHead.className = 'kwr-colhead';
+      colHead.setAttribute('aria-hidden', 'true');
+      colHead.innerHTML = '<span>Keyword</span><span>Position</span><span></span><span>Rank</span><span>Change</span>';
+      body.appendChild(colHead);
       keep.forEach(k => { k.__label = g.label; body.appendChild(buildRow(k)); });
       card.appendChild(body);
       list.appendChild(card);
