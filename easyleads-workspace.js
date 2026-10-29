@@ -118,6 +118,8 @@ function styles(){
 .elws-rf[disabled]{cursor:default;color:#1d94ff;} .elws-rf[disabled] svg{animation:elwbs .8s linear infinite;}
 .elws-c.checking .elws-access{opacity:.45;transition:opacity .2s;}
 .elws-botrow{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
+.elws-safe{display:inline-flex;align-items:center;gap:6px;font:600 12px var(--ui,Inter,sans-serif);color:#0f8a5f;background:#e3f6ee;border-radius:999px;padding:5px 12px;margin-bottom:12px;}
+.elws-safe.off{color:#8a5a00;background:#fff3e1;}
 .elws-keyrow{display:flex;gap:14px;align-items:center;flex-wrap:wrap;} .elws-keyrow>div{flex:1;min-width:240px;}
 .elws-keyrow form{display:flex;gap:8px;} .elws-keyrow input{width:260px;max-width:60vw;border:1px solid #d6e2f0;border-radius:10px;padding:8px 11px;font:500 13px var(--ui,Inter,sans-serif);}
 .elws-keyrow input:focus{outline:none;border-color:#1d94ff;box-shadow:0 0 0 3px #e6f2ff;}
@@ -244,8 +246,16 @@ function workspace(){
   const markCard = (domain, on) => { const card = el.querySelector('[data-card="' + CSS.escape(domain) + '"]'); if (!card) return; card.classList.toggle('checking', on); const b = card.querySelector('[data-recheck]'); if (b) b.disabled = on; };
   const LBL = [['forms', 'Forms'], ['calls', 'Calls'], ['contacts', 'Contacts'], ['opps', 'Pipeline'], ['appts', 'Bookings'], ['emails', 'Email']];
   const access = d => { const r = data.scopes && data.scopes.d && data.scopes.d[d]; return r ? LBL.map(l => ({k: l[0], label: l[1], ok: typeof r[l[0]] === 'number', unk: r[l[0]] == null})).filter(x => !x.unk) : null; };
+  /* The tracker's settings safety net: switched on (and a backup taken) the first time the console opens. */
+  const safety = async () => {
+    try{
+      let st = await PA.call('portalAdminSettingsState');
+      if (!st.safety){ const tr = (window.AIVis && window.AIVis.tracker && window.AIVis.tracker()) || {}; st = Object.assign(st, await PA.call('portalAdminSafety', {url: tr.url || ''})); }
+      data.safe = Object.assign({loaded: true}, st); draw();
+    }catch(e){ /* older tracker: nothing to show */ }
+  };
   const reload = async () => {
-    try{ data = await PA.call('portalAdminList'); draw(); }
+    try{ const keep = data.safe; data = await PA.call('portalAdminList'); data.safe = keep; draw(); }
     catch(e){ $('[data-grid]').innerHTML = '<div class="elws-empty">' + esc(e.message) + '</div>'; }
   };
   function draw(){
@@ -262,7 +272,11 @@ function workspace(){
     ].map(s => '<div class="elws-stat"><b>' + s[0] + '</b><span>' + s[1] + '</span></div>').join('');
     const botNote = !data.botReady ? '<div class="elws-note elws-keyrow"><div><b>Connect the AI assistant.</b> Paste your OpenRouter key once; it is checked with OpenRouter and kept on the tracker, never shown again.</div>' +
       '<form data-botkey><input type="password" autocomplete="off" spellcheck="false" placeholder="sk-or-…" aria-label="OpenRouter key"><button class="elws-btn go" type="submit">Save key</button></form></div>' : '';
-    $('[data-note]').innerHTML = botNote + (conn.filter(needs).length ? '<div class="elws-note"><b>Some dashboards can only show form submissions.</b> To show calls, contacts, pipeline and bookings too, open that client’s Easyleads sub-account → Settings → Private Integrations → <i>EDGE SEO tool</i> → Edit → Scopes, add View Conversation Messages, View Contacts, View Opportunities, View Calendars and View Calendar Events (all read-only), then click Update and <b>Re-check data access</b> here.</div>' : '');
+    const sf = data.safe || {};
+    const sw = typeof state !== 'undefined' && state.settings ? state.settings : {};
+    const dfsNote = sf.loaded && !sf.dfs && sw.dfsLogin && sw.dfsPassword ? '<div class="elws-note elws-keyrow"><div><b>The tracker has lost its DataForSEO login.</b> The SEO tool still has it; copy it across in one click.</div><button class="elws-btn go" type="button" data-dfs>Copy DataForSEO login to the tracker</button></div>' : '';
+    const safeNote = sf.loaded ? '<div class="elws-safe' + (sf.safety ? '' : ' off') + '">' + (sf.safety ? '✓ Settings safety net on · ' + (sf.backups || 0) + ' backup' + (sf.backups === 1 ? '' : 's') + (sf.lastBackup ? ', last ' + new Date(sf.lastBackup).toLocaleString('en-CA', {month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'}) : '') : 'Settings safety net is starting…') + '</div>' : '';
+    $('[data-note]').innerHTML = safeNote + dfsNote + botNote + (conn.filter(needs).length ? '<div class="elws-note"><b>Some dashboards can only show form submissions.</b> To show calls, contacts, pipeline and bookings too, open that client’s Easyleads sub-account → Settings → Private Integrations → <i>EDGE SEO tool</i> → Edit → Scopes, add View Conversation Messages, View Contacts, View Opportunities, View Calendars and View Calendar Events (all read-only), then click Update and <b>Re-check data access</b> here.</div>' : '');
     const q = $('[data-q]').value.trim().toLowerCase();
     const rows = (filter === 'gone' ? gone : live).slice().sort((a, b) => (b.connected - a.connected) || (usersOf(b.domain).length - usersOf(a.domain).length) || a.name.localeCompare(b.name))
       .filter(c => !q || (c.name + ' ' + c.domain).toLowerCase().indexOf(q) > -1)
@@ -285,6 +299,15 @@ function workspace(){
     }).join('') : '<div class="elws-empty">No clients match.</div>';
     el.querySelectorAll('[data-recheck]').forEach(b => b.addEventListener('click', () => recheck(b.dataset.recheck)));
     el.querySelectorAll('[data-bot]').forEach(b => b.addEventListener('click', () => toggleBot(b.dataset.bot)));
+    const dfb = el.querySelector('[data-dfs]');
+    if (dfb) dfb.addEventListener('click', async () => {
+      dfb.disabled = true; dfb.textContent = 'Copying…';
+      try{
+        await PA.call('portalAdminSetSetting', {name: 'DATAFORSEO_LOGIN', value: state.settings.dfsLogin});
+        await PA.call('portalAdminSetSetting', {name: 'DATAFORSEO_PASSWORD', value: state.settings.dfsPassword});
+        data.safe.dfs = true; draw(); say('DataForSEO login is back on the tracker');
+      }catch(err){ say(err.message, 'err'); dfb.disabled = false; dfb.textContent = 'Copy DataForSEO login to the tracker'; }
+    });
     const kf = el.querySelector('[data-botkey]');
     if (kf) kf.addEventListener('submit', async e => {
       e.preventDefault();
@@ -396,7 +419,7 @@ function workspace(){
   const reveal = () => { if (!shown){ shown = true; if (sp) sp.hide(700); } };
   setTimeout(reveal, 12000);
   /* A client connected since the last check is checked on its own, so its card fills in by itself. */
-  reload().then(() => { reveal(); data.clients.filter(c => c.connected && !c.hidden && !access(c.domain)).reduce((p, c) => p.then(() => recheck(c.domain, true)), Promise.resolve()); }, reveal);
+  reload().then(() => { reveal(); safety(); data.clients.filter(c => c.connected && !c.hidden && !access(c.domain)).reduce((p, c) => p.then(() => recheck(c.domain, true)), Promise.resolve()); }, reveal);
 }
 
 /* ---------- bulk create: one login per connected client, in one go ---------- */
