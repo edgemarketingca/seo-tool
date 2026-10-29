@@ -1742,7 +1742,9 @@ function drawPathTree(host, ctx, M, roots, opts){
   const place = (n, col) => {
     n.col = col;
     n.again = !n.kind && !n.root && !!n.path && n.path.slice(0, -1).indexOf(n.k) > -1;
-    const canOpen = n.kind === 'more' ? !!(n.rest && n.rest.length) : !n.kind && !n.again && n.depth < 12 && (n.root || Math.round(n.v) >= 1);
+    let canOpen = n.kind === 'more' ? !!(n.rest && n.rest.length) : !n.kind && !n.again && n.depth < 12 && (n.root || Math.round(n.v) >= 1);
+    /* A page only gets a + when there is somewhere to go from it (not just "Ended here"). */
+    if (canOpen && !n.root && !n.kind){ if (!n.kids) n.kids = pwKids(M, n); canOpen = n.kids.some(k => k.kind !== 'end'); }
     n.canOpen = canOpen;
     if (canOpen && open.has(keyOf(n)) && !n.kids) n.kids = n.kind === 'more' ? n.rest : n.root && n.rootKids ? n.rootKids : pwKids(M, n);
     n.isOpen = canOpen && open.has(keyOf(n)) && n.kids && n.kids.length > 0;
