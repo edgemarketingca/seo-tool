@@ -53,7 +53,7 @@ const P = {
   donut: 'M12 3a9 9 0 1 0 9 9h-9zM15 3.5A9 9 0 0 1 20.5 9H15z',
   funnel: 'M3 4h18l-7 9v6l-4 2v-8z',
   in: 'M17 7 7 17M7 8v9h9', out: 'M7 17 17 7M8 7h9v9', missed: 'M3 3l18 18M17 7 7 17',
-  plus: 'M12 5v14M5 12h14', x: 'M6 6l12 12M18 6 6 18', grid: 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z',
+  plus: 'M12 5v14M5 12h14', send: 'M4.5 12 20 4.5 15.5 20l-3.2-6.3zM12.3 13.7 20 4.5', x: 'M6 6l12 12M18 6 6 18', grid: 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z',
   edit: 'M4 20h4L19 9l-4-4L4 16zM14 6l4 4', lock: 'M6 11h12v10H6zM8 11V7a4 4 0 0 1 8 0v4', bolt: 'M13 2 4 14h7l-1 8 9-12h-7z',
   source: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18',
   pin: 'M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21zM12 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z',
@@ -813,6 +813,7 @@ function renderApp(){
     '<div class="grid" data-grid></div></main>';
   wireTop(); drawGrid(dash);
   bellCheck();
+  botMount();
 }
 const rangeText = () => { const r = range(); return new Date(r.s).toLocaleDateString('en-CA', {month: 'short', day: 'numeric', year: 'numeric'}) + ' – ' + new Date(r.e).toLocaleDateString('en-CA', {month: 'short', day: 'numeric', year: 'numeric'}); };
 
@@ -1086,6 +1087,7 @@ let signingOut = false;
 function signOut(silent){
   if (signingOut) return;
   signingOut = true;
+  if (BOT.el){ BOT.el.remove(); BOT.el = null; }
   ls.del(SKEY); const was = S.session; S.session = null; S.me = null; S.cache = {}; S.ui = {};
   closePops();
   if (silent || !was){ renderLogin(silent ? 'Your session ended. Please sign in again.' : ''); signingOut = false; return; }
@@ -1121,4 +1123,119 @@ setInterval(() => { if (S.me && !document.hidden && !S.editing && !document.quer
     startWith(session, j);
   }catch(e){ if (app.querySelector('form')) return; renderLogin(S.preview ? 'This preview link has expired. Open it again from the EDGE tool.' : ''); }
 })();
+
+
+/* ==========================================================================
+   DASHBOARD ASSISTANT
+   Shown only when EDGE has switched it on for this client. It answers from
+   this dashboard's own data for the period on screen (the tracker does the
+   reading and the asking), and nothing else. The EDGE team's faces take
+   turns: a new one each time it opens and with every answer.
+   ========================================================================== */
+const BOT = {el: null, open: false, conv: {}, busy: false, face: Math.floor(Math.random() * 8), t: null};
+const botClient = () => { const c = S.me && S.me.clients.find(x => x.domain === S.domain); return c && c.bot ? c : null; };
+const botTeam = () => (S.me && Array.isArray(S.me.team) ? S.me.team : []).filter(m => m && /^https:\/\//.test(m.img || ''));
+const botNext = () => { const t = botTeam(); if (!t.length) return null; BOT.face = (BOT.face + 1) % t.length; return t[BOT.face]; };
+const botFace = (m, cls) => m ? '<img class="' + (cls || '') + '" src="' + esc(m.img) + '" alt="' + esc(m.n) + '" title="' + esc(m.n + ', ' + m.r) + '" loading="lazy" referrerpolicy="no-referrer">' : '<span class="' + (cls || '') + ' bot-mono">' + ic('spark', 16) + '</span>';
+const BOT_SUG = {easyleads: ['How many leads did I get?', 'Where are my leads coming from?', 'Any missed calls to follow up?', 'What’s in my pipeline?'],
+  site: ['How many leads did I get?', 'Which pages bring in leads?', 'Which form is used most?', 'How many calls came from the website?']};
+function botConv(){
+  const d = S.domain;
+  if (!BOT.conv[d]){
+    let saved = null;
+    try{ saved = JSON.parse(sessionStorage.getItem('el_bot_' + d) || 'null'); }catch(e){}
+    BOT.conv[d] = saved && Array.isArray(saved.msgs) ? saved : {id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7), msgs: []};
+  }
+  return BOT.conv[d];
+}
+const botSave = () => { try{ sessionStorage.setItem('el_bot_' + S.domain, JSON.stringify(botConv())); }catch(e){} };
+/* Light formatting for answers: paragraphs, bullets and bold, everything else as text. */
+function botFormat(t){
+  const lines = String(t || '').split(/\n/);
+  let h = '', list = false;
+  lines.forEach(l => {
+    const b = /^\s*(?:[-*•]|\d+[.)])\s+(.*)$/.exec(l);
+    const inl = x => esc(x).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+    if (b){ if (!list){ h += '<ul>'; list = true; } h += '<li>' + inl(b[1]) + '</li>'; return; }
+    if (list){ h += '</ul>'; list = false; }
+    if (l.trim()) h += '<p>' + inl(l.replace(/^#+\s*/, '')) + '</p>';
+  });
+  return h + (list ? '</ul>' : '');
+}
+function botMount(){
+  const c = botClient();
+  if (!c){ if (BOT.el){ BOT.el.remove(); BOT.el = null; } clearInterval(BOT.t); return; }
+  if (!BOT.el){
+    const el = BOT.el = document.createElement('div');
+    el.className = 'botw';
+    el.innerHTML = '<button type="button" class="bot-fab" data-bopen aria-label="Ask about your dashboard"><span class="bot-faces" data-faces></span><span class="bot-fab-t"><b>Questions about your numbers?</b><small>Ask the EDGE assistant</small></span></button>' +
+      '<aside class="bot" role="dialog" aria-label="Dashboard assistant" aria-hidden="true">' +
+        '<header class="bot-h"><span class="bot-hav" data-hav></span><div class="bot-ht"><b>Ask about your dashboard</b><small><i></i>AI assistant · EDGE Marketing team</small></div>' +
+        '<button type="button" class="bot-x" data-bnew title="Start a new conversation">' + ic('plus', 15) + '</button><button type="button" class="bot-x" data-bclose aria-label="Close">' + ic('x', 16) + '</button></header>' +
+        '<div class="bot-msgs" data-msgs></div>' +
+        '<form class="bot-in" data-bform><textarea rows="1" data-bq maxlength="600" placeholder="Ask about your leads, calls, pipeline…"></textarea><button type="submit" class="bot-send" aria-label="Send">' + ic('send', 17) + '</button></form>' +
+        '<div class="bot-foot" data-bfoot></div></aside>';
+    document.body.appendChild(el);
+    const q = s => el.querySelector(s);
+    q('[data-bopen]').addEventListener('click', () => botOpen(true));
+    q('[data-bclose]').addEventListener('click', () => botOpen(false));
+    q('[data-bnew]').addEventListener('click', () => { BOT.conv[S.domain] = null; try{ sessionStorage.removeItem('el_bot_' + S.domain); }catch(e){} botDraw(); });
+    const ta = q('[data-bq]');
+    ta.addEventListener('input', () => { ta.style.height = 'auto'; ta.style.height = Math.min(120, ta.scrollHeight) + 'px'; });
+    ta.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); botAsk(ta.value); } });
+    q('[data-bform]').addEventListener('submit', e => { e.preventDefault(); botAsk(ta.value); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && BOT.open) botOpen(false); });
+    /* the launcher's faces take turns */
+    const spin = () => { const t = botTeam(), f = q('[data-faces]'); if (!f || !t.length) return; const i = BOT.face; f.innerHTML = [0, 1, 2].map(k => botFace(t[(i + k) % t.length], 'bf' + k)).join(''); BOT.face = (BOT.face + 1) % t.length; };
+    spin(); clearInterval(BOT.t); BOT.t = setInterval(() => { if (!BOT.open) spin(); }, 3600);
+  }
+  botDraw();
+}
+function botOpen(on){
+  if (!BOT.el) return;
+  BOT.open = on;
+  BOT.el.classList.toggle('open', on);
+  BOT.el.querySelector('.bot').setAttribute('aria-hidden', on ? 'false' : 'true');
+  if (on){ BOT.el.querySelector('[data-hav]').innerHTML = botFace(botNext(), 'bot-hface'); botDraw(); setTimeout(() => { const t = BOT.el && BOT.el.querySelector('[data-bq]'); if (t) t.focus(); }, 220); }
+}
+function botDraw(){
+  if (!BOT.el) return;
+  const c = botClient(), cv = botConv(), box = BOT.el.querySelector('[data-msgs]');
+  BOT.el.querySelector('[data-bfoot]').textContent = 'Answers use ' + (c ? c.name : 'this dashboard') + '’s data for ' + rangeText() + '. AI can make mistakes; EDGE can read these chats.';
+  const hav = BOT.el.querySelector('[data-hav]'); if (!hav.innerHTML) hav.innerHTML = botFace(botTeam()[BOT.face % (botTeam().length || 1)], 'bot-hface');
+  if (!cv.msgs.length){
+    const sug = BOT_SUG[(c && c.source) === 'site' ? 'site' : 'easyleads'];
+    box.innerHTML = '<div class="bot-hello"><div class="bot-team">' + botTeam().slice(0, 5).map(m => botFace(m)).join('') + '</div><b>Hi' + (S.me && S.me.user.name ? ' ' + esc(S.me.user.name.split(' ')[0]) : '') + ', what would you like to know?</b>' +
+      '<p>Ask anything about the numbers on this dashboard. For anything else, the EDGE team is a message away.</p>' +
+      '<div class="bot-sug">' + sug.map(s => '<button type="button" data-sug="' + esc(s) + '">' + esc(s) + '</button>').join('') + '</div></div>';
+    box.querySelectorAll('[data-sug]').forEach(b => b.addEventListener('click', () => botAsk(b.dataset.sug)));
+    return;
+  }
+  box.innerHTML = cv.msgs.map(m => m.role === 'user'
+    ? '<div class="bm me"><div class="bb">' + esc(m.content) + '</div></div>'
+    : '<div class="bm"><span class="bav">' + botFace(m.face || null) + '</span><div class="bb' + (m.err ? ' err' : '') + '">' + botFormat(m.content) + '</div></div>').join('') +
+    (BOT.busy ? '<div class="bm"><span class="bav">' + botFace(BOT.pending || null) + '</span><div class="bb typing"><i></i><i></i><i></i></div></div>' : '');
+  box.scrollTop = box.scrollHeight;
+}
+async function botAsk(text){
+  text = String(text || '').trim();
+  if (!text || BOT.busy || !BOT.el) return;
+  const ta = BOT.el.querySelector('[data-bq]'); ta.value = ''; ta.style.height = 'auto';
+  const cv = botConv(), dom = S.domain;
+  cv.msgs.push({role: 'user', content: text.slice(0, 600)});
+  BOT.busy = true; BOT.pending = botNext(); botDraw();
+  const r = range();
+  const widgets = []; try{ layout().dashes.forEach(d => d.items.filter(visIt).forEach(it => { if (W[it.t] && it.t !== 'note') widgets.push(d.name + ': ' + (it.title || W[it.t].t)); })); }catch(e){}
+  let reply;
+  try{
+    const j = await api('portalChat', {session: S.session, domain: dom, start: iso(r.s), end: iso(r.e), conv: cv.id, widgets,
+      messages: cv.msgs.filter(m => !m.err).slice(-10).map(m => ({role: m.role, content: m.content}))});
+    reply = j && j.ok ? {role: 'assistant', content: j.answer} : {role: 'assistant', content: (j && j.error) || 'Something went wrong. Please try again.', err: true};
+  }catch(e){ reply = {role: 'assistant', content: e.message || 'Something went wrong. Please try again.', err: true}; }
+  reply.face = BOT.pending;
+  (BOT.conv[dom] || cv).msgs.push(reply);
+  BOT.busy = false; BOT.pending = null;
+  if (BOT.el && BOT.open){ const h = BOT.el.querySelector('[data-hav]'); if (h && reply.face) h.innerHTML = botFace(reply.face, 'bot-hface'); }
+  botSave(); botDraw();
+}
 })();
