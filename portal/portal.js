@@ -192,6 +192,12 @@ const SITE_K = {forms: 1, calls: 1};
 const srcOf = () => ((S.me && S.me.clients.find(c => c.domain === S.domain)) || {}).source || 'easyleads';
 const okFor = t => { const w = W[t]; if (!w) return false; if (t === 'note' || srcOf() === 'easyleads') return true; if (w.el) return false; return w.soft ? w.needs.some(k => SITE_K[k]) : w.needs.every(k => SITE_K[k]); };
 const needsOf = it => it.t === 'note' ? (it.about && W[it.about] && it.about !== 'note' ? W[it.about].needs : []) : W[it.t].needs;
+/* Anything a business can't have yet is left out of its report entirely (it stays in the layout, so it shows up by itself once available). */
+const visIt = it => it.t === 'note' ? (!it.about || okFor(it.about)) : okFor(it.t);
+const visDash = d => d.items.some(it => it.t !== 'note' && visIt(it));
+const arranging = () => !!(S.editing && canEdit());
+const dashList = () => { const L = layout(); const v = arranging() ? L.dashes : L.dashes.filter(visDash); return v.length ? v : L.dashes.slice(0, 1); };
+const curDash = () => { const L = layout(), v = dashList(), d = L.dashes[Math.min(S.dash, L.dashes.length - 1)]; return v.indexOf(d) >= 0 ? d : v[0]; };
 const item = (t, c, x) => Object.assign({id: uid(), t, c: c || W[t].c}, x || {});
 const DEFAULT_DASHES = src => (src || srcOf()) === 'site' ? [
   {id: 'd1', name: 'Overview', items: [item('note', 12, {title: 'Your leads at a glance', about: 'kpis'}), item('kpis'), item('trend'), item('sources'), item('inbox'), item('locations'), item('pages')]},
@@ -204,6 +210,7 @@ const DEFAULT_DASHES = src => (src || srcOf()) === 'site' ? [
 
 function errHtml(e){
   if (e && e.code === 'scope') return '<div class="err">' + ic('lock', 22) + '<br><b>Not switched on yet</b><br>This needs “' + esc(e.scope) + '” access on your ' + esc(BRAND) + ' account. EDGE Marketing can turn it on for you.</div>';
+  if (e && e.code === 'hidden') return '<div class="err">' + ic('lock', 22) + '<br><b>Hidden from this business</b><br>They don’t see this widget. It shows up for them by itself once it’s available.</div>';
   if (e && e.code === 'notavailable') return '<div class="err">' + ic('lock', 22) + '<br><b>Not available for this business</b><br>This widget needs an ' + esc(BRAND) + ' account. EDGE Marketing can tell you more.</div>';
   if (e && e.code === 'notconnected') return '<div class="err"><b>Your ' + esc(BRAND) + ' account isn’t connected yet.</b><br>EDGE Marketing will let you know when it’s ready.</div>';
   return '<div class="err">Couldn’t load this right now.<br><span style="font-size:12px">' + esc(e && e.message || e) + '</span></div>';
@@ -789,13 +796,13 @@ function renderShell(){
     [[12, 'kpis'], [8, 'chart'], [4, 'chart'], [12, 'inbox']].map(x => '<section class="w" style="--c:' + x[0] + '"><div class="wh"><div class="sk" style="width:38px;height:38px;border-radius:12px"></div><div style="flex:1"><div class="sk" style="width:160px;height:13px"></div><div class="sk" style="width:240px;height:10px;margin-top:7px"></div></div></div>' + SK[x[1]]() + '</section>').join('') + '</div></main>';
 }
 function renderApp(){
-  const me = S.me, L = layout(), dash = L.dashes[Math.min(S.dash, L.dashes.length - 1)];
+  const me = S.me, L = layout(), dash = curDash(), VD = dashList();
   const c = me.clients.find(x => x.domain === S.domain) || me.clients[0] || {};
   app.innerHTML = header(me, c) +
     '<main class="wrap' + (S.editing ? ' editing' : '') + '">' +
     '<div class="seg mob-period" data-period>' + PERIODS.map(p => '<button type="button" data-p="' + p[0] + '"' + (p[0] === S.period ? ' class="on"' : '') + '>' + p[1] + '</button>').join('') + '</div>' +
     (me.edge ? '<div class="edgebar">' + ic('edit', 15) + '<div><b>You’re arranging this dashboard as EDGE.</b> Whatever you set here is exactly what ' + esc(me.user.name || me.user.email) + ' sees.</div></div>' : '') +
-    (L.dashes.length > 1 || canEdit() ? '<div class="tabs" role="tablist">' + L.dashes.map((d, i) => '<button class="tab' + (d === dash ? ' on' : '') + '" type="button" role="tab" data-dash="' + i + '">' + esc(d.name) + '</button>').join('') +
+    (VD.length > 1 || canEdit() ? '<div class="tabs" role="tablist">' + VD.map(d => { const hid = !visDash(d); return '<button class="tab' + (d === dash ? ' on' : '') + '" type="button" role="tab" data-dash="' + L.dashes.indexOf(d) + '"' + (hid ? ' style="opacity:.5" title="Hidden from this business until something on it is available"' : '') + '>' + esc(d.name) + (hid ? ' · hidden' : '') + '</button>'; }).join('') +
       (canEdit() ? '<button class="tab add" type="button" data-newdash>' + ic('plus', 14) + ' New dashboard</button>' : '') + '</div>' : '') +
     '<div class="bar"><div><h2>' + esc(dash.name) + '</h2><div class="sub">' + ic('cal', 13) + esc(rangeText()) + ' <span style="opacity:.5">·</span> <span class="ro">' + ic('lock', 12) + (srcOf() === 'site' ? 'Read-only view of your website leads' : 'Read-only view of your ' + esc(BRAND) + ' account') + '</span></div></div><div class="grow"></div>' +
       (S.editing ? '<button class="btn" type="button" data-addw>' + ic('plus', 15) + 'Add widget</button><button class="btn" type="button" data-addnote>' + ic('spark', 15) + 'Add heading</button><button class="btn" type="button" data-rename>' + ic('edit', 15) + 'Rename</button>' +
@@ -819,8 +826,8 @@ function wireTop(){
     S.dash = layout().dashes.length - 1; S.editing = true; saveLayout(); renderApp();
   });
   const ed = q('[data-edit]'); if (ed) ed.addEventListener('click', () => { S.editing = !S.editing; renderApp(); });
-  const an = q('[data-addnote]'); if (an) an.addEventListener('click', () => { const dd = layout().dashes[Math.min(S.dash, layout().dashes.length - 1)]; const n = item('note', 12, {title: 'Summary'}); dd.items.unshift(n); saveLayout(); renderApp(); noteEditor(n, dd, () => renderApp()); });
-  const L = layout(), dash = L.dashes[Math.min(S.dash, L.dashes.length - 1)];
+  const an = q('[data-addnote]'); if (an) an.addEventListener('click', () => { const dd = curDash(); const n = item('note', 12, {title: 'Summary'}); dd.items.unshift(n); saveLayout(); renderApp(); noteEditor(n, dd, () => renderApp()); });
+  const L = layout(), dash = curDash();
   const aw = q('[data-addw]'); if (aw) aw.addEventListener('click', () => catalog(dash));
   const rn = q('[data-rename]'); if (rn) rn.addEventListener('click', () => { const n = prompt('Dashboard name:', dash.name); if (n && n.trim()){ dash.name = n.trim().slice(0, 40); saveLayout(); renderApp(); } });
   const dd = q('[data-deldash]'); if (dd) dd.addEventListener('click', () => { if (!confirm('Delete the “' + dash.name + '” dashboard?')) return; L.dashes.splice(L.dashes.indexOf(dash), 1); S.dash = 0; saveLayout(); renderApp(); });
@@ -839,8 +846,9 @@ const MINH = 160, MAXH = 1600;
 function drawGrid(dash){
   const grid = app.querySelector('[data-grid]');
   grid.innerHTML = '';
-  if (!dash.items.length){ grid.innerHTML = '<div class="w" style="--c:12"><div class="empty">This dashboard is empty.' + (canEdit() ? ' Click <b>Customize</b>, then <b>Add widget</b>.' : '') + '</div></div>'; return; }
-  dash.items.forEach(it => {
+  const shown = arranging() ? dash.items : dash.items.filter(visIt);
+  if (!shown.length){ grid.innerHTML = '<div class="w" style="--c:12"><div class="empty">This dashboard is empty.' + (canEdit() ? ' Click <b>Customize</b>, then <b>Add widget</b>.' : '') + '</div></div>'; return; }
+  shown.forEach(it => {
     const def = W[it.t]; if (!def) return;
     const el = document.createElement('section');
     const cols = Math.max(3, Math.min(12, it.c || def.c));
@@ -858,13 +866,13 @@ function drawGrid(dash){
     if (ro) ro.observe(el); else fitRow(el);
     const body = el.querySelector('[data-body]');
     const needs = needsOf(it);
-    if (it.t !== 'note' && !okFor(it.t)){ body.innerHTML = errHtml({code: 'notavailable'}); }
+    if (!visIt(it)){ body.innerHTML = errHtml({code: 'hidden'}); el.style.opacity = '.6'; }
     else Promise.all(needs.filter(k => srcOf() === 'easyleads' || SITE_K[k]).map(k => get(k).then(v => [k, v], e => [k, null, e]))).then(res => {
       if (!body.isConnected) return;
       const D = {}, errs = [];
       res.forEach(r => { if (r[1]) D[r[0]] = r[1]; else errs.push(r[2]); });
       const hard = it.t !== 'note' && needs.length && (errs.length === res.length || (!def.soft && errs.length));
-      if (hard){ body.innerHTML = errHtml(errs[0]); return; }
+      if (hard){ const ec = errs[0] && errs[0].code; if (!arranging() && (ec === 'scope' || ec === 'notavailable')){ if (ro) ro.unobserve(el); el.remove(); return; } body.innerHTML = errHtml(errs[0]); return; }
       try{ def.draw(body, D, it); }catch(e){ console.warn(e); body.innerHTML = errHtml(e); }
       fitRow(el);
     });
