@@ -24,6 +24,7 @@ const IC = {
   link: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>',
   user: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/></svg>',
   eye: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>',
+  chat: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.4A8 8 0 1 1 21 12z"/></svg>',
   trash: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>',
   refresh: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4L21 8M21 3v5h-5"/></svg>'
 };
@@ -116,6 +117,32 @@ function styles(){
 .elws-rf:hover{border-color:#1d94ff;color:#0b6fd6;background:#f3f8ff;}
 .elws-rf[disabled]{cursor:default;color:#1d94ff;} .elws-rf[disabled] svg{animation:elwbs .8s linear infinite;}
 .elws-c.checking .elws-access{opacity:.45;transition:opacity .2s;}
+.elws-botrow{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
+.elws-bot{display:inline-flex;align-items:center;gap:7px;border:1px solid #e3ebf5;background:#f7fafd;border-radius:999px;padding:4px 11px 4px 5px;font:600 11.5px var(--ui,Inter,sans-serif);color:#6b7c8f;cursor:pointer;transition:all .15s;}
+.elws-bot i{width:26px;height:16px;border-radius:999px;background:#d5dee9;position:relative;transition:background .2s;flex:none;}
+.elws-bot i::after{content:"";position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);transition:transform .2s;}
+.elws-bot.on{background:#eef6ff;border-color:#bcdcff;color:#0b6fd6;}
+.elws-bot.on i{background:#1d94ff;} .elws-bot.on i::after{transform:translateX(10px);}
+.elws-chats{display:inline-flex;align-items:center;gap:5px;border:0;background:none;font:600 11.5px var(--ui,Inter,sans-serif);color:#0b6fd6;cursor:pointer;padding:4px 6px;border-radius:8px;}
+.elws-chats:hover{background:#eef6ff;}
+.elws-cback{position:fixed;inset:0;z-index:2147482000;background:rgba(10,25,48,.42);backdrop-filter:blur(3px);display:grid;place-items:center;padding:20px;}
+.elws-cm{width:min(980px,100%);height:min(680px,calc(100vh - 40px));background:#fff;border-radius:20px;box-shadow:0 40px 90px -30px rgba(5,42,86,.5);display:flex;flex-direction:column;overflow:hidden;font-family:var(--ui,Inter,sans-serif);}
+.elws-cm-h{display:flex;justify-content:space-between;align-items:center;padding:16px 18px;border-bottom:1px solid #edf2f8;}
+.elws-cm-h b{display:block;font-size:16px;color:#0f172a;} .elws-cm-h small{color:#8a9bb0;font-size:12.5px;}
+.elws-cm-b{flex:1;display:flex;min-height:0;}
+.elws-cm-b>.elws-empty{flex:1;}
+.elws-cl{flex:0 0 300px;border-right:1px solid #edf2f8;overflow-y:auto;padding:8px;}
+.elws-cl button{display:block;width:100%;text-align:left;border:0;background:none;border-radius:12px;padding:10px 12px;cursor:pointer;font:inherit;color:#0f172a;margin-bottom:2px;}
+.elws-cl button:hover{background:#f5f8fc;} .elws-cl button.on{background:#eef6ff;}
+.elws-cl b{display:block;font-size:13px;} .elws-cl b em{font-style:normal;font-size:10.5px;font-weight:700;color:#b86a00;background:#fff3e1;border-radius:999px;padding:1px 6px;margin-left:4px;}
+.elws-cl span{display:block;font-size:12.5px;color:#4c5d70;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:2px 0;}
+.elws-cl small{font-size:11.5px;color:#8a9bb0;}
+.elws-ct{flex:1;overflow-y:auto;padding:16px 20px;background:#f8fafd;}
+.elws-ctm{font-size:13px;margin-bottom:12px;color:#0f172a;} .elws-ctm span{color:#8a9bb0;font-size:12px;}
+.elws-ct .q{margin:12px 0 6px auto;max-width:80%;width:fit-content;background:#1d94ff;color:#fff;border-radius:14px 14px 4px 14px;padding:9px 12px;font-size:13px;line-height:1.45;}
+.elws-ct .q small{display:block;font-size:10.5px;opacity:.8;margin-bottom:2px;}
+.elws-ct .a{max-width:85%;background:#fff;border:1px solid #e3ebf5;border-radius:14px 14px 14px 4px;padding:9px 12px;font-size:13px;line-height:1.5;color:#1f2d3d;}
+@media (max-width:720px){.elws-cm-b{flex-direction:column}.elws-cl{flex:0 0 auto;max-height:200px;border-right:0;border-bottom:1px solid #edf2f8}}
 .elws-rm{opacity:0;transition:opacity .15s,border-color .15s,color .15s,background .15s;}
 .elws-c:hover .elws-rm,.elws-rm:focus-visible{opacity:1;}
 .elws-rm:hover{border-color:#f0b4ac;color:#c0392b;background:#fdf1ef;}
@@ -230,7 +257,8 @@ function workspace(){
       [data.users.filter(u => (u.lastLogin || 0) > week || (u.lastSeen || 0) > week).length, 'Active this week'],
       [conn.filter(needs).length, 'Need more data access']
     ].map(s => '<div class="elws-stat"><b>' + s[0] + '</b><span>' + s[1] + '</span></div>').join('');
-    $('[data-note]').innerHTML = conn.filter(needs).length ? '<div class="elws-note"><b>Some dashboards can only show form submissions.</b> To show calls, contacts, pipeline and bookings too, open that client’s Easyleads sub-account → Settings → Private Integrations → <i>EDGE SEO tool</i> → Edit → Scopes, add View Conversation Messages, View Contacts, View Opportunities, View Calendars and View Calendar Events (all read-only), then click Update and <b>Re-check data access</b> here.</div>' : '';
+    const botNote = !data.botReady && data.clients.some(c => c.bot) ? '<div class="elws-note"><b>The AI assistant is switched on but not connected yet.</b> In the tracker’s Apps Script project, open Project Settings → Script properties and add <b>OPENROUTER_KEY</b> with your OpenRouter key. Optional: <b>OPENROUTER_MODEL</b> (default openai/gpt-4o-mini).</div>' : '';
+    $('[data-note]').innerHTML = botNote + (conn.filter(needs).length ? '<div class="elws-note"><b>Some dashboards can only show form submissions.</b> To show calls, contacts, pipeline and bookings too, open that client’s Easyleads sub-account → Settings → Private Integrations → <i>EDGE SEO tool</i> → Edit → Scopes, add View Conversation Messages, View Contacts, View Opportunities, View Calendars and View Calendar Events (all read-only), then click Update and <b>Re-check data access</b> here.</div>' : '');
     const q = $('[data-q]').value.trim().toLowerCase();
     const rows = (filter === 'gone' ? gone : live).slice().sort((a, b) => (b.connected - a.connected) || (usersOf(b.domain).length - usersOf(a.domain).length) || a.name.localeCompare(b.name))
       .filter(c => !q || (c.name + ' ' + c.domain).toLowerCase().indexOf(q) > -1)
@@ -243,6 +271,8 @@ function workspace(){
         '<button class="elws-rf" type="button" data-recheck="' + esc(c.domain) + '" title="Refresh this client: picks up a new Easyleads connection and re-checks what its dashboard can show" aria-label="Refresh ' + esc(c.name) + '">' + IC.refresh + '</button></div>' +
         (c.connected ? (a ? '<div class="elws-access" title="What this client’s dashboard can show">' + a.map(x => '<span class="' + (x.ok ? 'y' : '') + '">' + (x.ok ? '✓ ' : '✕ ') + x.label + '</span>').join('') + '</div>' : '<div class="elws-access"><span>Data access not checked yet</span></div>')
           : '<div class="elws-access"><span class="y">✓ Forms</span><span class="y">✓ Calls (GA4)</span><span>Leads from the website forms EDGE tracks</span></div>') +
+        (c.hidden ? '' : '<div class="elws-botrow"><button type="button" class="elws-bot' + (c.bot ? ' on' : '') + '" data-bot="' + esc(c.domain) + '" role="switch" aria-checked="' + !!c.bot + '" title="A chat assistant on this client’s dashboard that answers questions about its numbers"><i></i>AI assistant ' + (c.bot ? 'on' : 'off') + '</button>' +
+          (c.bot ? '<button type="button" class="elws-chats" data-chats="' + esc(c.domain) + '">' + IC.chat + 'Read chats</button>' : '') + '</div>') +
         '<div class="elws-logins">' + (us.length ? us.map(u => '<div class="elws-login"><span class="av">' + esc((u.name || u.email).slice(0, 2).toUpperCase()) + '</span><span class="who">' + esc(u.name || u.email) + ' <small>' + esc(u.email) + (u.disabled ? ' · disabled' : u.lastLogin ? '' : ' · not signed in yet') + '</small></span>' +
           '<button type="button" data-as="' + esc(u.id) + '" title="Open their dashboard as they see it">' + IC.eye + '</button><button type="button" data-edit="' + esc(u.id) + '">Edit</button></div>').join('') : '<div style="font-size:12px;color:#8a9bb0">No client login yet.</div>') + '</div>' +
         (c.hidden ? '<div class="acts"><button class="elws-btn go" type="button" data-restore="' + esc(c.domain) + '">' + IC.refresh + 'Put back in the console</button></div></div>' :
@@ -250,6 +280,8 @@ function workspace(){
         (us[0] ? '<button class="elws-btn" type="button" data-as="' + esc(us[0].id) + '" title="Opens their dashboard as they see it; arrange it there">' + IC.eye + 'Open &amp; arrange dashboard</button>' : '') + '</div></div>');
     }).join('') : '<div class="elws-empty">No clients match.</div>';
     el.querySelectorAll('[data-recheck]').forEach(b => b.addEventListener('click', () => recheck(b.dataset.recheck)));
+    el.querySelectorAll('[data-bot]').forEach(b => b.addEventListener('click', () => toggleBot(b.dataset.bot)));
+    el.querySelectorAll('[data-chats]').forEach(b => b.addEventListener('click', () => chats(b.dataset.chats)));
     el.querySelectorAll('[data-rm]').forEach(b => b.addEventListener('click', () => removeClient(b.dataset.rm, true)));
     el.querySelectorAll('[data-restore]').forEach(b => b.addEventListener('click', () => removeClient(b.dataset.restore, false)));
     checking.forEach(d => markCard(d, true));
@@ -277,6 +309,44 @@ function workspace(){
       }
     }catch(err){ if (!quiet) say(err.message, 'err'); }
     checking.delete(domain); mark(false);
+  }
+  /* The dashboard assistant: on or off per client. */
+  async function toggleBot(domain){
+    const c = data.clients.find(x => x.domain === domain); if (!c) return;
+    const on = !c.bot;
+    try{
+      const j = await PA.call('portalAdminBot', {domain, on});
+      c.bot = on; draw();
+      say(on ? (j.ready ? 'AI assistant is on for ' + c.name : 'AI assistant switched on for ' + c.name + '. It answers once the OpenRouter key is added to the tracker.') : 'AI assistant is off for ' + c.name);
+    }catch(err){ say(err.message, 'err'); }
+  }
+  /* What clients asked the assistant, conversation by conversation. */
+  async function chats(domain){
+    const c = data.clients.find(x => x.domain === domain) || {name: domain};
+    const back = document.createElement('div');
+    back.className = 'elws-cback';
+    back.innerHTML = '<div class="elws-cm" role="dialog" aria-modal="true"><div class="elws-cm-h"><div><b>AI assistant chats</b><small>' + esc(c.name) + '</small></div><button type="button" class="elws-btn" data-x>Close</button></div><div class="elws-cm-b"><div class="elws-empty">Loading chats…</div></div></div>';
+    document.body.appendChild(back);
+    const close = () => back.remove();
+    back.addEventListener('click', e => { if (e.target === back || e.target.closest('[data-x]')) close(); });
+    try{
+      const j = await PA.call('portalAdminChats', {domain});
+      const by = {};
+      (j.rows || []).forEach(r => { const k = (r.conv || '') + '|' + r.email; (by[k] = by[k] || []).push(r); });
+      const convs = Object.values(by).map(rs => rs.sort((a, b) => a.t - b.t)).sort((a, b) => b[b.length - 1].t - a[a.length - 1].t);
+      const body = back.querySelector('.elws-cm-b');
+      if (!convs.length){ body.innerHTML = '<div class="elws-empty">No questions yet. Chats show here as soon as ' + esc(c.name) + ' uses the assistant.</div>'; return; }
+      const when = t => new Date(t).toLocaleString('en-CA', {month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'});
+      body.innerHTML = '<div class="elws-cl">' + convs.map((rs, i) => '<button type="button" data-cv="' + i + '"' + (i ? '' : ' class="on"') + '><b>' + esc(rs[0].name || rs[0].email) + (rs[0].as === 'EDGE' ? ' <em>EDGE preview</em>' : '') + '</b><span>' + esc(rs[0].q) + '</span><small>' + when(rs[rs.length - 1].t) + ' · ' + rs.length + ' question' + (rs.length === 1 ? '' : 's') + '</small></button>').join('') + '</div><div class="elws-ct" data-ct></div>';
+      const show = i => {
+        const rs = convs[i];
+        body.querySelectorAll('[data-cv]').forEach(b => b.classList.toggle('on', Number(b.dataset.cv) === i));
+        body.querySelector('[data-ct]').innerHTML = '<div class="elws-ctm"><b>' + esc(rs[0].name || rs[0].email) + '</b> <span>' + esc(rs[0].email) + ' · ' + esc(rs[0].period || '') + '</span></div>' +
+          rs.map(r => '<div class="q"><small>' + when(r.t) + '</small>' + esc(r.q) + '</div><div class="a">' + esc(r.a).replace(/\n/g, '<br>') + '</div>').join('');
+      };
+      body.querySelectorAll('[data-cv]').forEach(b => b.addEventListener('click', () => show(Number(b.dataset.cv))));
+      show(0);
+    }catch(err){ back.querySelector('.elws-cm-b').innerHTML = '<div class="elws-empty">' + esc(err.message) + '</div>'; }
   }
   /* Remove a client from this console, or put it back. Its data, Easyleads connection and logins stay as they are. */
   async function removeClient(domain, hide){
