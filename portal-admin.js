@@ -163,9 +163,10 @@ function open(opts){
       '<div class="pta-av">' + esc((u.name || u.email).slice(0, 2).toUpperCase()) + '</div><div class="who"><b>' + esc(u.name || u.email) + '</b><small>' + esc(u.email) + ' · ' +
       (u.lastLogin ? 'last signed in ' + esc(new Date(u.lastLogin).toLocaleDateString('en-CA', {month: 'short', day: 'numeric'})) : 'hasn’t signed in yet') + '</small><div>' +
       (u.disabled ? '<span class="pta-chip off">Disabled</span>' : '') +
-      (u.domains.length ? u.domains.map(d => '<span class="pta-chip ' + (okOf(d) ? 'ok' : 'no') + '" title="' + (okOf(d) ? 'Easyleads connected' : 'Easyleads not connected for this business yet') + '">' + esc(nameOf(d)) + '</span>').join('') : '<span class="pta-chip no">No business linked</span>') +
+      (u.domains.length ? u.domains.map(d => '<span class="pta-chip ' + (okOf(d) ? 'ok' : 'no') + '" title="' + (okOf(d) ? 'Data from Easyleads' : 'Data from the website forms EDGE tracks') + '">' + esc(nameOf(d)) + '</span>').join('') : '<span class="pta-chip no">No business linked</span>') +
+      '<span class="pta-chip' + (u.locked ? '' : ' ok') + '" title="' + (u.locked ? 'Only EDGE arranges this dashboard' : 'They can arrange their own dashboard') + '">' + (u.locked ? '🔒 EDGE arranges their dashboard' : 'Can customize') + '</span>' +
       u.domains.filter(d => missing(d).length).map(d => '<span class="pta-chip no" title="Add these read-only scopes to the Private Integration in this Easyleads sub-account">' + esc(nameOf(d)) + ' needs access to: ' + esc(missing(d).join(', ')) + '</span>').join('') +
-      '</div></div><div class="pta-acts"><button class="pta-b" type="button" data-a="as">Open as client</button><button class="pta-b" type="button" data-a="edit">Edit</button>' +
+      '</div></div><div class="pta-acts"><button class="pta-b" type="button" data-a="as" title="Opens their dashboard as they see it. You can arrange it there.">Open &amp; arrange dashboard</button><button class="pta-b" type="button" data-a="edit">Edit</button>' +
       '<button class="pta-b" type="button" data-a="toggle">' + (u.disabled ? 'Enable' : 'Disable') + '</button><button class="pta-b bad" type="button" data-a="del">Delete</button></div></div>').join('');
     L.querySelectorAll('[data-a]').forEach(b => b.addEventListener('click', () => act(b.dataset.a, data.users.find(u => u.id === b.closest('[data-id]').dataset.id))));
   }
@@ -204,6 +205,7 @@ function open(opts){
       '<div><label>Email (their username)</label><input type="email" data-e value="' + esc(u ? u.email : '') + '" placeholder="name@business.com" autocomplete="off"></div></div>' +
       '<div><label>' + (u ? 'New password (leave blank to keep the current one)' : 'Password') + '</label><div class="pta-pw"><input type="text" data-p autocomplete="new-password" placeholder="At least 12 characters"><button class="pta-b" type="button" data-gen>Generate strong password</button><button class="pta-b" type="button" data-cp>Copy</button></div><small class="pta-pc" data-pc></small>' +
       (u ? '<label style="display:flex;gap:6px;align-items:center;text-transform:none;letter-spacing:0;font-size:12.5px;font-weight:600;color:var(--ink-2);margin-top:8px"><input type="checkbox" data-so> Sign them out of every device</label>' : '') + '</div>' +
+      '<label style="display:flex;gap:8px;align-items:center;text-transform:none;letter-spacing:0;font-size:13px;font-weight:600;color:var(--ink,#1b222a)"><input type="checkbox" data-cust' + ((u ? !u.locked : [...picked].some(d => okOf(d))) ? ' checked' : '') + '> Let them customize their own dashboard <span style="font-weight:500;color:var(--ink-3,#8b98a3)">(off: only EDGE arranges it, from “Open &amp; arrange dashboard”)</span></label>' +
       '<div><label>Businesses they can see</label><input type="text" data-q placeholder="Find a business" style="margin-bottom:8px"><div class="pta-biz" data-biz></div></div>' +
       '<div class="pta-note">The password is shown only here. Copy it and send it to the client separately from the link (for example the link by email and the password by text). It isn’t stored anywhere it can be read back.</div>' +
       '<div class="pta-err" data-err role="alert"></div>' +
@@ -212,7 +214,7 @@ function open(opts){
       const q = F.querySelector('[data-q]').value.trim().toLowerCase();
       const cs = data.clients.slice().sort((a, b) => (b.connected - a.connected) || a.name.localeCompare(b.name)).filter(c => !q || (c.name + ' ' + c.domain).toLowerCase().indexOf(q) > -1);
       F.querySelector('[data-biz]').innerHTML = !loaded ? '<div style="font-size:12.5px;color:var(--ink-2,#57646f);padding:6px">Loading businesses\u2026</div>' : !cs.length ? '<div style="font-size:12.5px;color:var(--ink-2,#57646f);padding:6px">No businesses match.</div>' : cs.map(c => '<label class="' + (picked.has(c.domain) ? 'on' : '') + '"><input type="checkbox" value="' + esc(c.domain) + '"' + (picked.has(c.domain) ? ' checked' : '') + '><span title="' + esc(c.domain) + '">' + esc(c.name) + '</span>' +
-        '<span class="pta-chip ' + (c.connected ? 'ok' : 'no') + '" style="flex:none;margin:0">' + (c.connected ? 'Easyleads' : 'not connected') + '</span></label>').join('');
+        '<span class="pta-chip ' + (c.connected ? 'ok' : 'no') + '" style="flex:none;margin:0">' + (c.connected ? 'Easyleads' : 'Website forms') + '</span></label>').join('');
       F.querySelectorAll('[data-biz] input').forEach(i => i.addEventListener('change', () => { if (i.checked) picked.add(i.value); else picked.delete(i.value); i.parentNode.classList.toggle('on', i.checked); }));
     };
     biz(); redrawBiz = biz;
@@ -245,7 +247,7 @@ function open(opts){
         : {title: 'Creating the login', sub: em, steps: ['Checking the details', 'Securing the password', 'Linking ' + n + ' business' + (n === 1 ? '' : 'es'), 'Getting their dashboard ready']});
       try{
         await call('portalAdminSave', {id: u && u.id, name: F.querySelector('[data-n]').value.trim(), email: F.querySelector('[data-e]').value.trim(),
-          password: pw || undefined, domains: Array.from(picked), disabled: u ? u.disabled : false, signOut: !!(F.querySelector('[data-so]') && F.querySelector('[data-so]').checked)});
+          password: pw || undefined, domains: Array.from(picked), disabled: u ? u.disabled : false, signOut: !!(F.querySelector('[data-so]') && F.querySelector('[data-so]').checked), locked: !F.querySelector('[data-cust]').checked});
         await cover.done(u ? 'Changes saved' : 'Login created', u ? 'Their access is up to date.' : 'Send them the link, and the password separately.');
         cover.close();
         say(u ? 'Login updated' : 'Login created. Send the link and password to the client.');
