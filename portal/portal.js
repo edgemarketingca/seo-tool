@@ -11,7 +11,7 @@ const API = (window.PORTAL_CONFIG || {}).api || '';
 const BRAND = (window.PORTAL_CONFIG || {}).brand || 'Easyleads';
 const app = document.getElementById('app');
 const SKEY = 'el_portal_session';
-const LAYOUT_V = 2;
+const LAYOUT_V = 3;
 const ls = {
   get(k, d){ try{ const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); }catch(e){ return d; } },
   set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} },
@@ -66,6 +66,7 @@ const P = {
   book: 'M4 4h11a3 3 0 0 1 3 3v13H7a3 3 0 0 1-3-3zM18 20a2 2 0 0 0 2-2V6',
   out2: 'M15 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4M10 17l5-5-5-5M15 12H3',
   reset: 'M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5', eye: 'M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+  move: 'M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3', size: 'M4 9V4h5M20 15v5h-5M4 4l6 6M20 20l-6-6', check: 'M5 12l5 5 9-10',
   chev: 'M9 6l6 6-6 6', chevl: 'M15 6l-6 6 6 6', spark: 'M12 3l1.9 5.8L20 10l-6.1 1.2L12 17l-1.9-5.8L4 10l6.1-1.2z'
 };
 const ic = (k, sz) => '<svg viewBox="0 0 24 24" width="' + (sz || 18) + '" height="' + (sz || 18) + '" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="' + (P[k] || P.grid) + '"/></svg>';
@@ -76,7 +77,8 @@ const SK = {
   kpis: n => '<div class="sk-kpis">' + Array.from({length: n || 5}, () => '<div class="sk"></div>').join('') + '</div>',
   chart: () => '<div class="sk chart"></div><div style="display:flex;gap:12px;margin-top:12px"><div class="sk" style="height:10px;width:90px"></div><div class="sk" style="height:10px;width:70px"></div></div>',
   inbox: () => SK.kpis(4) + '<div class="sk" style="height:44px;margin:14px 0;border-radius:14px"></div><div class="ib-body"><div>' + SK.list(4) + '</div><div>' + Array.from({length: 3}, () => '<div class="sk" style="height:104px;border-radius:16px;margin-bottom:10px"></div>').join('') + '</div></div>',
-  table: () => '<div class="sk" style="height:42px;border-radius:14px;margin-bottom:12px"></div>' + SK.list(7)
+  table: () => '<div class="sk" style="height:42px;border-radius:14px;margin-bottom:12px"></div>' + SK.list(7),
+  note: () => '<div class="sk" style="height:12px;width:92%"></div><div class="sk" style="height:12px;width:80%;margin-top:9px"></div><div class="sk" style="height:12px;width:64%;margin-top:9px"></div>'
 };
 function veil(text){
   const v = document.createElement('div'); v.className = 'veil';
@@ -167,25 +169,34 @@ const pathOf = r => { const p = String(r.page || '').split('?')[0]; return p || 
 /* ---------- widgets ---------- */
 const T = {forms: '#1d7cf2', calls: '#0f9d6b', contacts: '#7c3aed', opps: '#d97706', appts: '#db2777', mix: '#14b8a6', email: '#6d5cf6', loc: '#e8590c'};
 const W = {
-  kpis: {g: 'Overview', t: 'At a glance', d: 'Leads, calls, new contacts, bookings and pipeline, compared with the period before.', ic: 'bolt', tint: T.mix, c: 12, sk: 'kpis', needs: ['forms', 'calls', 'contacts', 'appts', 'opps'], soft: true, draw: drawKpis},
+  kpis: {g: 'Overview', t: 'At a glance', d: 'Leads, calls, new contacts, bookings and pipeline, compared with the period before.', ic: 'bolt', tint: T.mix, c: 12, sk: 'kpis', needs: ['forms', 'calls', 'contacts', 'appts', 'opps'], soft: true, ds: 'Form leads and calls from your website, compared with the period before.', draw: drawKpis},
   inbox: {g: 'Leads', t: 'Lead inbox', d: 'Every form submission in one searchable inbox: filter by city, source, form and page.', ic: 'inbox', tint: '#0f7a58', c: 12, sk: 'inbox', needs: ['forms'], draw: drawInbox},
-  trend: {g: 'Leads', t: 'Leads over time', d: 'Form submissions, calls and new contacts, day by day.', ic: 'line', tint: T.forms, c: 8, sk: 'chart', needs: ['forms', 'calls', 'contacts'], soft: true, draw: drawTrend},
+  trend: {g: 'Leads', t: 'Leads over time', d: 'Form submissions, calls and new contacts, day by day.', ic: 'line', tint: T.forms, c: 8, sk: 'chart', needs: ['forms', 'calls', 'contacts'], soft: true, ds: 'Form leads and calls from your website, day by day.', draw: drawTrend},
   sources: {g: 'Leads', t: 'Lead sources', d: 'Where your form leads came from: organic, paid, direct, social and more.', ic: 'donut', tint: '#16a37a', c: 4, sk: 'chart', needs: ['forms'], draw: drawSources},
   locations: {g: 'Leads', t: 'Where leads come from', d: 'Leads by city and by province, with the change from the period before.', ic: 'pin', tint: T.loc, c: 6, sk: 'list', needs: ['forms', 'contacts'], soft: true, draw: drawLocations},
   forms_by: {g: 'Leads', t: 'Leads by form', d: 'Which forms bring in the most leads.', ic: 'bars', tint: T.forms, c: 6, sk: 'list', needs: ['forms'], draw: drawFormsBy},
   pages: {g: 'Leads', t: 'Top pages for leads', d: 'The pages people were on when they sent a form.', ic: 'book', tint: '#0891b2', c: 6, sk: 'list', needs: ['forms'], draw: drawPages},
-  email: {g: 'Marketing', t: 'Email marketing', d: 'Emails sent, replies, opens, and the leads and pipeline that came from email.', ic: 'mail', tint: T.email, c: 12, sk: 'inbox', needs: ['emails', 'forms', 'contacts', 'opps'], soft: true, draw: drawEmail},
+  email: {g: 'Marketing', t: 'Email marketing', d: 'Campaigns that went out, how many were delivered, who replied, and the leads and pipeline that came from email.', ic: 'mail', tint: T.email, c: 12, sk: 'inbox', needs: ['emails', 'forms', 'contacts', 'opps'], soft: true, el: true, draw: drawEmail},
   calls_mix: {g: 'Calls', t: 'Calls answered vs missed', d: 'How many calls were answered, missed or went to voicemail.', ic: 'donut', tint: T.calls, c: 4, sk: 'chart', needs: ['calls'], draw: drawCallMix},
   calls_list: {g: 'Calls', t: 'Recent calls', d: 'Inbound and outbound calls with their status and length.', ic: 'phone', tint: T.calls, c: 6, sk: 'list', needs: ['calls'], draw: drawCalls},
   forms_list: {g: 'Leads', t: 'Latest form submissions', d: 'A compact list of the newest submissions.', ic: 'form', tint: T.forms, c: 6, sk: 'list', needs: ['forms'], draw: drawForms},
   contacts_list: {g: 'Contacts', t: 'New contacts', d: 'People added to your account in the period.', ic: 'users', tint: T.contacts, c: 6, sk: 'list', needs: ['contacts'], draw: drawContacts},
-  people: {g: 'Contacts', t: 'Contact list', d: 'Your full contact list: search anyone by name, email, phone or company.', ic: 'users', tint: '#4f46e5', c: 12, sk: 'table', needs: [], draw: drawPeople},
+  people: {g: 'Contacts', t: 'Contact list', d: 'Your full contact list: search anyone by name, email, phone or company.', ic: 'users', tint: '#4f46e5', c: 12, sk: 'table', needs: [], el: true, draw: drawPeople},
   pipeline: {g: 'Sales', t: 'Pipeline by stage', d: 'Open opportunities in each stage, with their value.', ic: 'funnel', tint: T.opps, c: 6, sk: 'list', needs: ['opps'], draw: drawPipeline},
   opps_list: {g: 'Sales', t: 'Latest opportunities', d: 'New and updated deals, with value and status.', ic: 'money', tint: T.opps, c: 6, sk: 'list', needs: ['opps'], draw: drawOpps},
-  appts: {g: 'Sales', t: 'Appointments', d: 'Upcoming bookings, and the ones in the period.', ic: 'cal', tint: T.appts, c: 6, sk: 'list', needs: ['appts'], draw: drawAppts}
+  appts: {g: 'Sales', t: 'Appointments', d: 'Upcoming bookings, and the ones in the period.', ic: 'cal', tint: T.appts, c: 6, sk: 'list', needs: ['appts'], draw: drawAppts},
+  note: {g: 'Text', t: 'Heading & summary', d: 'A heading and a short write-up. Attach it to a widget and it explains that widget’s numbers in plain words.', ic: 'spark', tint: '#475569', c: 12, sk: 'note', needs: [], draw: drawNote}
 };
-const item = (t, c) => ({id: uid(), t, c: c || W[t].c});
-const DEFAULT_DASHES = () => [
+/* Where this business's data comes from: its Easyleads account, or the EDGE tracker (website forms, phone taps). */
+const SITE_K = {forms: 1, calls: 1};
+const srcOf = () => ((S.me && S.me.clients.find(c => c.domain === S.domain)) || {}).source || 'easyleads';
+const okFor = t => { const w = W[t]; if (!w) return false; if (t === 'note' || srcOf() === 'easyleads') return true; if (w.el) return false; return w.soft ? w.needs.some(k => SITE_K[k]) : w.needs.every(k => SITE_K[k]); };
+const needsOf = it => it.t === 'note' ? (it.about && W[it.about] && it.about !== 'note' ? W[it.about].needs : []) : W[it.t].needs;
+const item = (t, c, x) => Object.assign({id: uid(), t, c: c || W[t].c}, x || {});
+const DEFAULT_DASHES = src => (src || srcOf()) === 'site' ? [
+  {id: 'd1', name: 'Overview', items: [item('note', 12, {title: 'Your leads at a glance', about: 'kpis'}), item('kpis'), item('trend'), item('sources'), item('inbox'), item('locations'), item('pages')]},
+  {id: 'd2', name: 'Leads', items: [item('forms_by'), item('calls_list'), item('forms_list'), item('calls_mix')]}
+] : [
   {id: 'd1', name: 'Overview', items: [item('kpis'), item('trend'), item('sources'), item('inbox'), item('locations'), item('calls_list'), item('forms_by'), item('appts')]},
   {id: 'd2', name: 'Marketing', items: [item('email'), item('locations'), item('pages'), item('contacts_list')]},
   {id: 'd3', name: 'Sales', items: [item('pipeline'), item('opps_list'), item('calls_mix', 4), item('calls_list', 8), item('people')]}
@@ -193,6 +204,7 @@ const DEFAULT_DASHES = () => [
 
 function errHtml(e){
   if (e && e.code === 'scope') return '<div class="err">' + ic('lock', 22) + '<br><b>Not switched on yet</b><br>This needs “' + esc(e.scope) + '” access on your ' + esc(BRAND) + ' account. EDGE Marketing can turn it on for you.</div>';
+  if (e && e.code === 'notavailable') return '<div class="err">' + ic('lock', 22) + '<br><b>Not available for this business</b><br>This widget needs an ' + esc(BRAND) + ' account. EDGE Marketing can tell you more.</div>';
   if (e && e.code === 'notconnected') return '<div class="err"><b>Your ' + esc(BRAND) + ' account isn’t connected yet.</b><br>EDGE Marketing will let you know when it’s ready.</div>';
   return '<div class="err">Couldn’t load this right now.<br><span style="font-size:12px">' + esc(e && e.message || e) + '</span></div>';
 }
@@ -213,6 +225,7 @@ function listWith(h, rows, toRow, onOpen, empty, n){
   draw();
 }
 const callState = c => {
+  if (c.tap) return {k: 'ok', label: c.ads ? 'From an ad' : 'Tapped to call', cls: c.ads ? 'warn' : 'blue'};
   const s = String(c.status || '').toLowerCase();
   if (/voicemail/.test(s)) return {k: 'vm', label: 'Voicemail', cls: 'warn'};
   if (/no-answer|busy|failed|cancel|missed/.test(s) || (c.dir === 'inbound' && !c.dur)) return {k: 'missed', label: 'Missed', cls: 'bad'};
@@ -222,10 +235,10 @@ const groupBy = (rows, f) => { const m = {}; rows.forEach(r => { const k = f(r);
 function ranked(h, items, color, opt){
   opt = opt || {};
   const max = Math.max(1, ...items.map(x => x.n)), tot = items.reduce((s, x) => s + x.n, 0) || 1;
-  h.innerHTML = items.length ? '<div class="rank fade-in">' + items.map((x, i) => '<div class="it' + (opt.onClick ? ' click' : '') + '" data-i="' + i + '"><span class="no">' + (i + 1) + '</span><div class="nm"><span title="' + esc(x.k) + '">' + esc(x.k) + '</span><div class="tr"><i style="width:' + Math.max(2, x.n / max * 100) + '%;background:' + (x.color || color) + '"></i></div></div>' +
+  h.innerHTML = items.length ? '<div class="rank fade-in">' + items.map((x, i) => '<div class="it' + (opt.onClick ? ' click' : '') + '" data-i="' + i + '"' + (opt.onClick ? ' role="button" tabindex="0" title="See these leads"' : '') + '><span class="no">' + (i + 1) + '</span><div class="nm"><span title="' + esc(x.k) + '">' + esc(x.label || x.k) + '</span><div class="tr"><i style="width:' + Math.max(2, x.n / max * 100) + '%;background:' + (x.color || color) + '"></i></div></div>' +
     '<div class="vv">' + (opt.val ? opt.val(x) : fmt(x.n)) + '<small>' + (opt.sub ? opt.sub(x) : pct(x.n, tot)) + '</small></div></div>').join('') + '</div>'
     : '<div class="empty">' + (opt.empty || 'Nothing in this period.') + '</div>';
-  if (opt.onClick) h.querySelectorAll('.it').forEach(el => el.addEventListener('click', () => opt.onClick(items[Number(el.dataset.i)])));
+  if (opt.onClick) h.querySelectorAll('.it').forEach(el => { const go = () => opt.onClick(items[Number(el.dataset.i)]); el.addEventListener('click', go); el.addEventListener('keydown', e => { if (e.key === 'Enter') go(); }); });
 }
 function spark(vals, color){
   if (!vals.some(Boolean)) return '<svg class="sp" viewBox="0 0 100 30" preserveAspectRatio="none"><line x1="0" y1="27" x2="100" y2="27" stroke="#eef2f7" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>';
@@ -294,7 +307,7 @@ function drawKpis(h, D){
   const tile = (key, label, val, d, note, icon, tint, sp) => '<button class="kpi" type="button" data-go="' + key + '" style="--t:' + tint + '"><div class="l">' + esc(label) + ic(icon, 16) + '</div><div class="v">' + val + (d || '') + '</div><div class="n">' + note + '</div>' + (sp || '') + '</button>';
   const t = [];
   if (D.forms) t.push(tile('inbox', 'Form leads', fmt(D.forms.rows.length), delta(D.forms.rows.length, D.forms.prev.length), 'vs ' + fmt(D.forms.prev.length) + ' the period before', 'form', T.forms, spark(daySeries(D.forms.rows, r), T.forms)));
-  if (D.calls){ const miss = D.calls.rows.filter(c => callState(c).k === 'missed').length; t.push(tile('calls_list', 'Calls', fmt(D.calls.rows.length), delta(D.calls.rows.length, D.calls.prev.length), miss ? '<span style="color:var(--bad)">' + miss + ' missed</span>' : 'none missed', 'phone', T.calls, spark(daySeries(D.calls.rows, r), T.calls))); }
+  if (D.calls){ const taps = D.calls.rows.some(c => c.tap) || srcOf() === 'site', miss = D.calls.rows.filter(c => callState(c).k === 'missed').length; t.push(tile('calls_list', taps ? 'Calls from the website' : 'Calls', fmt(D.calls.rows.length), delta(D.calls.rows.length, D.calls.prev.length), taps ? 'taps on your phone number' : miss ? '<span style="color:var(--bad)">' + miss + ' missed</span>' : 'none missed', 'phone', T.calls, spark(daySeries(D.calls.rows, r), T.calls))); }
   if (D.contacts) t.push(tile('contacts_list', 'New contacts', fmt(D.contacts.rows.length), delta(D.contacts.rows.length, D.contacts.prev.length), 'added to your account', 'users', T.contacts, spark(daySeries(D.contacts.rows, r), T.contacts)));
   if (D.appts){ const up = D.appts.rows.filter(a => a.at >= Date.now()).length; t.push(tile('appts', 'Appointments', fmt(D.appts.rows.filter(a => inR(a, r)).length), '', up + ' upcoming', 'cal', T.appts, spark(daySeries(D.appts.rows, r), T.appts))); }
   if (D.opps){ const open = D.opps.rows.concat(D.opps.prev).filter(o => o.status === 'open'), won = D.opps.all.filter(o => o.status === 'won' && inR({at: o.upd || o.at}, r));
@@ -410,30 +423,49 @@ function drawLocations(h, D, it){
     const unknown = cur.filter(r => !f(r)).length;
     h.innerHTML = '<div class="mini-seg"><button type="button" data-by="city"' + (st.by === 'city' ? ' class="on"' : '') + '>City</button><button type="button" data-by="region"' + (st.by === 'region' ? ' class="on"' : '') + '>Province / state</button></div><div data-r></div>' +
       (unknown && items.length ? '<div class="foot-note">' + fmt(unknown) + ' lead' + (unknown === 1 ? '' : 's') + ' didn’t say where they’re from.</div>' : '');
-    ranked(h.querySelector('[data-r]'), items, T.loc, {val: x => fmt(x.n) + ' ' + delta(x.n, x.p), sub: x => pct(x.n, cur.length) + ' of leads', empty: 'None of your leads said where they’re from in this period.'});
+    const isForms = src && cur === src.rows;
+    ranked(h.querySelector('[data-r]'), items, T.loc, {val: x => fmt(x.n) + ' ' + delta(x.n, x.p), sub: x => pct(x.n, cur.length) + ' of leads', empty: 'None of your leads said where they’re from in this period.',
+      onClick: isForms ? x => leadsDrawer(x.k, 'Leads from ' + x.k, cur.filter(r => f(r) === x.k), 'pin') : null});
     h.querySelectorAll('[data-by]').forEach(b => b.addEventListener('click', () => { st.by = b.dataset.by; paint(); }));
   };
   paint();
 }
 function drawFormsBy(h, D){
   const pm = {}; groupBy(D.forms.prev, f => f.form).forEach(x => { pm[x.k] = x.n; });
-  ranked(h, groupBy(D.forms.rows, f => f.form).slice(0, 10).map(x => Object.assign(x, {p: pm[x.k] || 0})), T.forms, {val: x => fmt(x.n) + ' ' + delta(x.n, x.p), empty: 'No form submissions in this period.'});
+  ranked(h, groupBy(D.forms.rows, f => f.form).slice(0, 10).map(x => Object.assign(x, {p: pm[x.k] || 0, label: formLabel(x.k)})), T.forms, {val: x => fmt(x.n) + ' ' + delta(x.n, x.p), empty: 'No form submissions in this period.',
+    onClick: x => leadsDrawer(formLabel(x.k), 'Leads from this form', D.forms.rows.filter(f => f.form === x.k))});
 }
-function drawPages(h, D){ ranked(h, groupBy(D.forms.rows, pathOf).slice(0, 10), '#0891b2', {empty: 'No pages recorded in this period.'}); }
+function drawPages(h, D){
+  ranked(h, groupBy(D.forms.rows, pathOf).slice(0, 10), '#0891b2', {empty: 'No pages recorded in this period.',
+    onClick: x => leadsDrawer(x.k, 'Leads sent from this page', D.forms.rows.filter(f => pathOf(f) === x.k), 'book')});
+}
+/* Every lead behind a number: a side panel listing them, each one opens in full. */
+function leadsDrawer(title, sub, rows, icon){
+  rows = rows.slice().sort((a, b) => b.at - a.at);
+  const b = drawer(title, [], '<div class="ld-sum"><b>' + fmt(rows.length) + '</b> lead' + (rows.length === 1 ? '' : 's') + ' in this period' +
+    (rows.length ? ' · latest ' + esc(relDay(rows[0].at)) : '') + '</div><div data-ll></div>', {icon: icon || 'form', tint: T.forms, sub: esc(sub)});
+  listWith(b.querySelector('[data-ll]'), rows, f => ({title: f.name || f.email || f.phone || 'New submission', sub: esc(formLabel(f.form)) + (cityOf(f) ? ' · ' + esc(cityOf(f)) : '') + (f.email ? ' · ' + esc(f.email) : ''), right: esc(when(f.at))}),
+    openSubmission, 'No leads.', 12);
+}
 function drawForms(h, D){
   listWith(h, D.forms.rows, f => ({title: f.name || f.email || f.phone || 'New submission', sub: esc(f.form) + (cityOf(f) ? ' · ' + esc(cityOf(f)) : '') + (f.email ? ' · ' + esc(f.email) : ''), right: esc(when(f.at))}),
     openSubmission, 'No form submissions in this period.', 6);
 }
 /* ----- email marketing ----- */
+const subjKey = t => String(t || '').replace(/^\s*((re|fw|fwd|aw|tr)\s*:\s*)+/i, '').replace(/\s+/g, ' ').trim().toLowerCase();
 function drawEmail(h, D, it){
   if (!D.emails){ h.innerHTML = errHtml({code: 'scope', scope: 'View Conversation Messages'}); return; }
-  const r = range(), E = D.emails, cur = E.rows, prev = E.prev;
+  const r = range(), pr = prevRange(), E = D.emails, cur = E.rows, prev = E.prev;
   const sent = cur.filter(m => m.dir === 'outbound'), psent = prev.filter(m => m.dir === 'outbound');
   const rep = cur.filter(m => m.dir === 'inbound'), prep = prev.filter(m => m.dir === 'inbound');
-  const opened = m => /open|click|read/.test(m.status), bounced = m => /bounce|fail|undeliver|reject|spam|complain/.test(m.status);
-  const tracked = sent.some(m => m.status);
-  const op = sent.filter(opened).length, pop = psent.filter(opened).length, bo = sent.filter(bounced).length;
-  const people = new Set(rep.map(m => m.contactId).filter(Boolean));
+  const people = new Set(rep.map(m => m.contactId || m.from).filter(Boolean));
+  const allC = (E.extra && E.extra.campaigns) || null;
+  const camps = allC ? allC.filter(c => inR(c, r)) : [], pcamps = allC ? allC.filter(c => inR(c, pr)) : [];
+  /* Replies to a campaign: an email back with the campaign's subject (Re: …). */
+  const repBy = {}; rep.forEach(m => { const k = subjKey(m.subject); (repBy[k] = repBy[k] || []).push(m); });
+  camps.forEach(c => { c.replies = (repBy[subjKey(c.subject)] || []).length; c.repliers = new Set((repBy[subjKey(c.subject)] || []).map(m => m.contactId || m.from)).size; });
+  const sum = (a, k) => a.reduce((t, x) => t + (x[k] || 0), 0);
+  const recips = sum(camps, 'total'), deliv = sum(camps, 'delivered'), failed = sum(camps, 'failed'), pdeliv = sum(pcamps, 'delivered');
   const isEmailCh = x => chGroup(x.channel) === 'Email' || /e-?mail|newsletter/i.test(x.source || '');
   const lf = D.forms ? D.forms.rows.filter(isEmailCh) : [], lfp = D.forms ? D.forms.prev.filter(isEmailCh) : [];
   const lc = D.contacts ? D.contacts.rows.filter(isEmailCh) : [], lcp = D.contacts ? D.contacts.prev.filter(isEmailCh) : [];
@@ -443,42 +475,110 @@ function drawEmail(h, D, it){
   const opps = D.opps ? D.opps.all.filter(o => /e-?mail|newsletter|campaign/i.test(o.source || '') || ecIds.has(o.contactId)) : [];
   const oppsCur = opps.filter(o => inR(o, r)), won = opps.filter(o => o.status === 'won');
   const tile = (label, val, d, note, icon, tint) => '<div class="kpi" style="--t:' + tint + ';cursor:default"><div class="l">' + esc(label) + ic(icon, 16) + '</div><div class="v">' + val + (d || '') + '</div><div class="n">' + note + '</div></div>';
-  const camps = E.extra && E.extra.campaigns;
-  const subj = {}; sent.forEach(m => { const k = m.subject || '(no subject)'; const s = subj[k] = subj[k] || {k, n: 0, o: 0, last: 0, bulk: 0}; s.n++; if (opened(m)) s.o++; if (m.bulk) s.bulk++; s.last = Math.max(s.last, m.at); });
-  const subjects = Object.values(subj).sort((a, b) => b.n - a.n).slice(0, 12);
-  const sumTxt = '<b>' + fmt(sent.length) + ' email' + (sent.length === 1 ? '' : 's') + ' sent</b> this period ' + (psent.length || sent.length ? '(' + (sent.length >= psent.length ? 'up' : 'down') + ' from ' + fmt(psent.length) + ')' : '') +
-    (tracked && sent.length ? ', with <b>' + pct(op, sent.length) + ' opened</b>' : '') + '. <b>' + fmt(people.size) + ' ' + (people.size === 1 ? 'person' : 'people') + ' replied</b>' +
-    (leads ? ', and <b>' + fmt(leads) + ' new lead' + (leads === 1 ? '' : 's') + '</b> came in from email' : ', and no new leads were tagged as coming from email') +
-    (oppsCur.length ? ', creating <b>' + money(oppsCur.reduce((s, o) => s + o.value, 0)) + '</b> in new pipeline' : '') + '.';
+  const top = camps.slice().sort((a, b) => (b.replies - a.replies) || (b.delivered - a.delivered))[0];
+  const sumTxt = (camps.length ? '<b>' + fmt(camps.length) + ' campaign' + (camps.length === 1 ? '' : 's') + '</b> went out this period to <b>' + fmt(recips) + ' recipients</b>, and <b>' + fmt(deliv) + ' were delivered</b> (' + pct(deliv, recips) + ')' + (failed ? ', ' + fmt(failed) + ' couldn’t be delivered' : '') + '. '
+      : allC ? 'No email campaigns went out this period. ' : '') +
+    '<b>' + fmt(rep.length) + ' repl' + (rep.length === 1 ? 'y' : 'ies') + '</b> came in from <b>' + fmt(people.size) + ' ' + (people.size === 1 ? 'person' : 'people') + '</b>' +
+    (top && top.replies ? ', most of them to “' + esc(top.name) + '”' : '') + (leads ? ', and <b>' + fmt(leads) + ' new lead' + (leads === 1 ? '' : 's') + '</b> came from email' : '') +
+    (oppsCur.length ? ', adding <b>' + money(oppsCur.reduce((s2, o) => s2 + o.value, 0)) + '</b> in new pipeline' : '') + '.';
   h.innerHTML = '<div class="fade-in"><div class="kpis">' +
-    tile('Emails sent', fmt(sent.length), delta(sent.length, psent.length), fmt(psent.length) + ' the period before', 'mail', T.email) +
-    tile('Open rate', tracked && sent.length ? pct(op, sent.length) : '—', '', tracked ? fmt(op) + ' opened' + (bo ? ' · <span style="color:var(--bad)">' + bo + ' bounced</span>' : '') : 'opens not reported for these emails', 'eye', '#0891b2') +
-    tile('Replies', fmt(rep.length), delta(rep.length, prep.length), fmt(people.size) + ' people replied', 'reply', '#0f9d6b') +
-    tile('Leads from email', fmt(leads), delta(leads, pleads), 'forms and new contacts with email as the source', 'target', '#db2777') +
-    tile('Pipeline from email', money(opps.filter(o => o.status === 'open').reduce((s, o) => s + o.value, 0)), '', oppsCur.length + ' new · ' + won.length + ' won · ' + money(won.reduce((s, o) => s + o.value, 0)), 'money', T.opps) +
+    tile('Campaigns sent', fmt(camps.length), delta(camps.length, pcamps.length), fmt(recips) + ' recipients', 'mail', T.email) +
+    tile('Delivered', fmt(deliv), delta(deliv, pdeliv), recips ? pct(deliv, recips) + ' delivered' + (failed ? ' · <span style="color:var(--bad)">' + fmt(failed) + ' failed</span>' : '') : 'no campaigns this period', 'in', '#0891b2') +
+    tile('Replies', fmt(rep.length), delta(rep.length, prep.length), fmt(people.size) + ' ' + (people.size === 1 ? 'person' : 'people') + ' replied', 'reply', '#0f9d6b') +
+    tile('Leads from email', fmt(leads), delta(leads, pleads), 'forms and new contacts from email', 'target', '#db2777') +
+    (D.opps ? tile('Pipeline from email', money(opps.filter(o => o.status === 'open').reduce((s2, o) => s2 + o.value, 0)), '', oppsCur.length + ' new · ' + won.length + ' won · ' + money(won.reduce((s2, o) => s2 + o.value, 0)), 'money', T.opps) : '') +
     '</div><div class="em-sum"><div class="wic">' + ic('spark', 18) + '</div><div>' + sumTxt + '</div></div>' +
-    '<div class="two"><div><div class="sec-h">Email activity <small>sent and replies, by day</small></div><div data-chart></div></div><div>' +
-    (camps && camps.length ? '<div class="sec-h">Campaigns <small>' + camps.length + '</small></div><div class="tbl-wrap" style="max-height:330px"><table class="tbl"><thead><tr><th>Campaign</th><th class="num">Sent</th><th class="num">Opened</th><th class="num">Clicked</th></tr></thead><tbody>' +
-      camps.slice(0, 20).map(c => '<tr><td><b>' + esc(c.name) + '</b><div class="muted" style="font-size:11.5px">' + esc([c.status, c.at ? relDay(c.at) : ''].filter(Boolean).join(' · ')) + '</div></td><td class="num">' + fmt(c.sent) + '</td><td class="num">' + (c.sent ? pct(c.opened, c.sent) : '—') + '</td><td class="num">' + (c.sent ? pct(c.clicked, c.sent) : '—') + '</td></tr>').join('') + '</tbody></table></div>'
-      : '<div class="sec-h">Top emails <small>by subject</small></div>' + (subjects.length ? '<div class="tbl-wrap" style="max-height:330px"><table class="tbl"><thead><tr><th>Subject</th><th class="num">Sent</th><th class="num">' + (tracked ? 'Opened' : 'Last sent') + '</th></tr></thead><tbody>' +
-        subjects.map(s => '<tr><td><b style="display:block;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(s.k) + '">' + esc(s.k) + '</b>' + (s.bulk ? '<span class="pill blue" style="margin-top:4px">campaign</span>' : '') + '</td><td class="num">' + fmt(s.n) + '</td><td class="num">' + (tracked ? pct(s.o, s.n) : esc(relDay(s.last))) + '</td></tr>').join('') + '</tbody></table></div>'
-        : '<div class="empty">No emails sent in this period.</div>')) +
-    '</div></div>' + (rep.length ? '<div class="sec-h" style="margin-top:18px">Latest replies <small>' + fmt(rep.length) + '</small></div><div data-replies></div>' : '') + '</div>';
+    '<div class="two"><div><div class="sec-h">Email activity <small>one-to-one emails sent and replies, by day</small></div><div data-chart></div></div><div>' +
+    (allC ? '<div class="sec-h">Campaigns <small>' + fmt(camps.length) + ' this period · click one to see the email</small></div>' + (camps.length ? '<div class="tbl-wrap" style="max-height:340px"><table class="tbl clicky"><thead><tr><th>Campaign</th><th class="num">Recipients</th><th class="num">Delivered</th><th class="num">Replies</th></tr></thead><tbody>' +
+      camps.map((c, i) => '<tr data-c="' + i + '" tabindex="0"><td><b class="cn" title="' + esc(c.name) + '">' + esc(c.name) + '</b><div class="muted" style="font-size:11.5px">' + esc(new Date(c.at).toLocaleDateString('en-CA', {month: 'short', day: 'numeric'})) + (c.subject ? ' · ' + esc(c.subject) : '') + '</div></td>' +
+        '<td class="num">' + fmt(c.total) + '</td><td class="num">' + fmt(c.delivered) + '<div class="muted" style="font-size:11px">' + pct(c.delivered, c.total) + '</div></td><td class="num">' + (c.replies ? '<b>' + fmt(c.replies) + '</b>' : '0') + '</td></tr>').join('') + '</tbody></table></div>'
+        : '<div class="empty">No campaigns went out in this period.</div>')
+      : '<div class="empty">Campaigns aren’t switched on for this account yet.</div>') +
+    '</div></div>' + (rep.length ? '<div class="sec-h" style="margin-top:18px">Latest replies <small>' + fmt(rep.length) + ' · click one to read it</small></div><div data-replies></div>' : '') +
+    (E.extra && E.extra.truncated ? '<div class="foot-note">This period has a lot of email; the oldest messages may not be counted. Pick a shorter period for exact numbers.</div>' : '') +
+    '<div class="foot-note">Delivered and failed are ' + esc(BRAND) + '’s own counts for each send. Opens and clicks aren’t shared by ' + esc(BRAND) + '’s API, so they aren’t shown rather than guessed.</div></div>';
   const days = Math.round((r.e - r.s) / day) + 1, labels = [];
   for (let i = 0; i < days; i++) labels.push(new Date(r.s + i * day).toLocaleDateString('en-CA', {month: 'short', day: 'numeric'}));
   lineChart(h.querySelector('[data-chart]'), labels, [{name: 'Sent', values: daySeries(sent, r), color: T.email}, {name: 'Replies', values: daySeries(rep, r), color: '#0f9d6b'}], 220);
+  h.querySelectorAll('[data-c]').forEach(tr => { const go = () => openCampaign(camps[Number(tr.dataset.c)], repBy); tr.addEventListener('click', go); tr.addEventListener('keydown', e => { if (e.key === 'Enter') go(); }); });
   const rh = h.querySelector('[data-replies]');
-  if (rh) listWith(rh, rep, m => ({title: m.name || 'A contact', sub: esc(m.subject || 'Email reply'), icon: ic('reply', 16), bg: '#0f9d6b', right: esc(when(m.at))}),
-    m => drawer(m.name || 'Email reply', [['Subject', m.subject], ['Received', fullDate(m.at)], ['Status', m.status]], null, {icon: 'mail'}), '', 4);
+  if (rh) listWith(rh, rep, m => ({title: m.name || m.from || 'A contact', sub: esc(m.snip ? m.snip.split('\n')[0].slice(0, 140) : (m.subject || 'Email reply')), icon: ic('reply', 16), bg: '#0f9d6b', right: esc(when(m.at))}),
+    openMessage, '', 5);
+}
+/* An email shown exactly as it looks, in a sealed frame (no scripts run). */
+function emailFrame(host, html){
+  const f = document.createElement('iframe');
+  f.className = 'mailframe'; f.setAttribute('sandbox', 'allow-same-origin allow-popups allow-popups-to-escape-sandbox'); f.setAttribute('referrerpolicy', 'no-referrer'); f.title = 'Email';
+  const full = /<(html|body)[\s>]/i.test(html);
+  const base = '<base target="_blank"><style>html,body{margin:0}img{max-width:100%;height:auto}' + (full ? 'body{padding:0 4px}' : 'body{padding:22px 26px;font:15px/1.6 -apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:#1b2533}blockquote{margin:12px 0;padding-left:12px;border-left:3px solid #dfe5ee;color:#6b7a90}') + '</style>';
+  f.srcdoc = /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, m => m + base) : base + html;
+  host.innerHTML = ''; host.appendChild(f);
+  const fit = () => { try{ const d = f.contentDocument; if (d && d.body) f.style.height = Math.max(240, Math.min(6000, d.documentElement.scrollHeight)) + 'px'; }catch(e){} };
+  f.addEventListener('load', () => { fit(); setTimeout(fit, 400); setTimeout(fit, 1500); });
+  return f;
+}
+function mailModal(title, sub, head){
+  const b = document.createElement('div'); b.className = 'modal-back';
+  b.innerHTML = '<div class="modal mailm" role="dialog" aria-modal="true"><div class="mm-top"><div class="wic" style="--t:' + T.email + '">' + ic('mail', 19) + '</div><div style="min-width:0;flex:1"><h2>' + esc(title) + '</h2><div class="mm-sub">' + sub + '</div></div>' +
+    '<div class="seg sm" data-dev><button type="button" class="on" data-v="d">Desktop</button><button type="button" data-v="m">Phone</button></div><button class="iconbtn" type="button" data-x aria-label="Close">' + ic('x') + '</button></div>' +
+    (head || '') + '<div class="mm-stage"><div class="mm-paper" data-paper><div class="mm-load"><span class="spin lg"></span><span>Loading the email…</span></div></div></div></div>';
+  document.body.appendChild(b);
+  const close = () => { b.remove(); document.removeEventListener('keydown', k); };
+  const k = e => { if (e.key === 'Escape'){ const all = document.querySelectorAll('.drawer-back,.modal-back'); if (all[all.length - 1] === b) close(); } };
+  document.addEventListener('keydown', k);
+  b.addEventListener('click', e => { if (e.target === b) close(); });
+  b.querySelector('[data-x]').addEventListener('click', close);
+  b.querySelectorAll('[data-dev] button').forEach(x => x.addEventListener('click', () => { b.querySelectorAll('[data-dev] button').forEach(y => y.classList.toggle('on', y === x)); b.querySelector('[data-paper]').classList.toggle('phone', x.dataset.v === 'm'); }));
+  return b;
+}
+async function openCampaign(c, repBy){
+  const reps = (repBy && repBy[subjKey(c.subject)]) || [];
+  const stat = (l, v, n) => '<div class="mm-stat"><b>' + v + '</b><span>' + esc(l) + '</span>' + (n ? '<small>' + n + '</small>' : '') + '</div>';
+  const b = mailModal(c.name, esc((c.subject ? 'Subject: ' + c.subject + ' · ' : '') + fullDate(c.at)),
+    '<div class="mm-stats">' + stat('Recipients', fmt(c.total)) + stat('Delivered', fmt(c.delivered), pct(c.delivered, c.total)) + stat('Couldn’t be delivered', fmt(c.failed), c.failed ? pct(c.failed, c.total) : '') +
+    stat('Replies', fmt(reps.length), reps.length ? fmt(new Set(reps.map(m => m.contactId || m.from)).size) + ' people' : '') + '</div>' +
+    (reps.length ? '<details class="mm-reps"><summary>Who replied (' + fmt(reps.length) + ')</summary><div data-reps></div></details>' : ''));
+  const rr = b.querySelector('[data-reps]');
+  if (rr) listWith(rr, reps, m => ({title: m.name || m.from || 'A contact', sub: esc((m.snip || m.subject || '').split('\n')[0].slice(0, 140)), icon: ic('reply', 16), bg: '#0f9d6b', right: esc(when(m.at))}), openMessage, '', 6);
+  try{
+    const j = await api('portalData', {session: S.session, domain: S.domain, kind: 'campaign', id: c.id});
+    if (!b.isConnected) return;
+    if (j.error) throw new Error(j.error);
+    if (!j.html) throw new Error('This campaign’s email isn’t available to preview.');
+    emailFrame(b.querySelector('[data-paper]'), j.html);
+  }catch(e){ if (b.isConnected) b.querySelector('[data-paper]').innerHTML = errHtml(e); }
+}
+async function openMessage(m){
+  const b = mailModal(m.subject || 'Email', esc((m.dir === 'inbound' ? 'From ' + (m.name ? m.name + ' · ' : '') + (m.from || '') : 'Sent') + ' · ' + fullDate(m.at)));
+  b.querySelector('[data-dev]').style.display = 'none';
+  try{
+    const j = await api('portalData', {session: S.session, domain: S.domain, kind: 'message', id: m.id});
+    if (!b.isConnected) return;
+    if (j.error){ const e = new Error(j.error); e.code = j.error; e.scope = j.scope; throw e; }
+    const x = j.message || {};
+    b.querySelector('.mm-sub').textContent = [x.from ? 'From ' + x.from : '', x.to ? 'to ' + x.to : '', fullDate(x.at || m.at), x.attachments ? x.attachments + ' attachment' + (x.attachments === 1 ? '' : 's') : ''].filter(Boolean).join(' · ');
+    if (j.html && /<[a-z][\s\S]*>/i.test(j.html)) emailFrame(b.querySelector('[data-paper]'), j.html);
+    else b.querySelector('[data-paper]').innerHTML = '<div class="msgbox" style="margin:0">' + esc(j.html || m.snip || '(no text)') + '</div>';
+  }catch(e){
+    if (!b.isConnected) return;
+    b.querySelector('[data-paper]').innerHTML = m.snip ? '<div class="msgbox" style="margin:0">' + esc(m.snip) + '</div>' : errHtml(e);
+  }
 }
 /* ----- calls ----- */
 function drawCallMix(h, D){
+  if (D.calls.rows.some(x => x.tap)){
+    const ads = D.calls.rows.filter(x => x.ads).length, segs2 = [{label: 'From the website', n: D.calls.rows.length - ads, color: T.calls, always: 1}, {label: 'From ads', n: ads, color: '#eda100', always: 1}];
+    h.innerHTML = '<div class="donutrow fade-in">' + donut(segs2, 'CALL TAPS') + legend(segs2, D.calls.rows.length) + '</div><div class="foot-note">Taps on your phone number, recorded by Google Analytics. It can’t tell whether a call was answered.</div>';
+    return;
+  }
   const c = {ok: 0, missed: 0, vm: 0}; D.calls.rows.forEach(x => { c[callState(x).k]++; });
   const segs = [{label: 'Answered / outbound', n: c.ok, color: T.calls, always: 1}, {label: 'Missed', n: c.missed, color: '#e0413a', always: 1}, {label: 'Voicemail', n: c.vm, color: '#d9820b', always: 1}];
   h.innerHTML = '<div class="donutrow fade-in">' + donut(segs, 'CALLS') + legend(segs, D.calls.rows.length) + '</div>';
 }
 function drawCalls(h, D){
   listWith(h, D.calls.rows, c => { const st = callState(c);
+    if (c.tap) return {title: c.ads ? 'Call from an ad' : 'Call from the website', sub: esc((c.page || '/') + ' · ' + chLabel(c.source)), icon: ic('phone', 16), bg: c.ads ? '#eda100' : T.calls,
+      right: '<span class="pill ' + st.cls + '">' + st.label + '</span><br>' + esc(when(c.at))};
     return {title: c.name || (c.dir === 'outbound' ? c.to : c.from) || 'Unknown caller', sub: (c.dir === 'outbound' ? 'Outbound' : 'Inbound') + ' · ' + (c.dur ? dur(c.dur) : 'no answer'),
       icon: ic(st.k === 'missed' ? 'missed' : c.dir === 'outbound' ? 'out' : 'in', 16), bg: st.k === 'missed' ? '#e0413a' : st.k === 'vm' ? '#d9820b' : T.calls,
       right: '<span class="pill ' + st.cls + '">' + st.label + '</span><br>' + esc(when(c.at))}; }, openCall, 'No calls in this period.', 6);
@@ -539,25 +639,104 @@ function drawAppts(h, D){
     a => drawer(a.title, [['When', fullDate(a.at)], ['Calendar', a.calendar], ['Status', a.status]], null, {icon: 'cal', tint: T.appts}), 'No appointments.', 6);
 }
 
+
+/* ----- heading & summary ----- */
+/* Plain-words read of a widget's numbers: what changed, what stands out, what's next. */
+const plural = (n, a, b) => fmt(n) + ' ' + (n === 1 ? a : (b || a + 's'));
+const chg = (a, b) => { if (!b && !a) return 'the same as the period before'; if (!b) return 'up from none the period before'; const d = Math.round((a - b) / b * 100); return d === 0 ? 'level with the period before' : (d > 0 ? 'up ' : 'down ') + Math.abs(d) + '% from ' + fmt(b) + ' the period before'; };
+function busiest(rows, r){ const a = daySeries(rows, r); let mi = -1, mx = 0; a.forEach((v, i) => { if (v > mx){ mx = v; mi = i; } }); return mi < 0 ? null : {n: mx, d: new Date(r.s + mi * day).toLocaleDateString('en-CA', {weekday: 'long', month: 'short', day: 'numeric'})}; }
+function weekdayPeak(rows){ if (rows.length < 5) return ''; const c = [0, 0, 0, 0, 0, 0, 0]; rows.forEach(x => c[new Date(x.at).getDay()]++); const i = c.indexOf(Math.max(...c)); return ['Sundays', 'Mondays', 'Tuesdays', 'Wednesdays', 'Thursdays', 'Fridays', 'Saturdays'][i]; }
+function sumForms(D, focus){
+  const F = D.forms; if (!F) return [];
+  const r = range(), rows = F.rows, out = [];
+  out.push('<b>' + plural(rows.length, 'form lead') + '</b> came in, ' + chg(rows.length, F.prev.length) + '.');
+  if (!rows.length) return out;
+  const src = groupBy(rows, f => chGroup(f.channel)).filter(x => x.k !== 'Not recorded'), pg = groupBy(rows, pathOf), fm = groupBy(rows, f => f.form), ct = groupBy(rows, cityOf);
+  if (focus !== 'pages' && src[0]) out.push('<b>' + esc(src[0].k) + '</b> brought the most, ' + pct(src[0].n, rows.length) + ' of them' + (src[1] ? ', then ' + esc(src[1].k) + ' (' + pct(src[1].n, rows.length) + ')' : '') + '.');
+  if ((focus === 'pages' || focus === 'inbox') && pg[0]) out.push('The page that sends the most leads is <b>' + esc(pg[0].k) + '</b> (' + plural(pg[0].n, 'lead') + ')' + (pg[1] ? ', followed by ' + esc(pg[1].k) : '') + '.');
+  if ((focus === 'forms_by' || focus === 'inbox' || focus === 'forms_list') && fm[0]) out.push('Most people used <b>' + esc(formLabel(fm[0].k)) + '</b> (' + pct(fm[0].n, rows.length) + ').');
+  if ((focus === 'locations' || focus === 'inbox') && ct[0]) out.push('<b>' + esc(ct[0].k) + '</b> is where the most leads are from (' + plural(ct[0].n, 'lead') + ').');
+  const b = busiest(rows, r), wd = weekdayPeak(rows);
+  if (focus === 'trend' || focus === 'kpis' || focus === 'inbox'){ if (b && b.n > 1) out.push('The busiest day was <b>' + esc(b.d) + '</b> with ' + plural(b.n, 'lead') + (wd ? '; ' + wd + ' tend to be busiest' : '') + '.'); }
+  return out;
+}
+const SUM = {
+  kpis: D => { const o = sumForms(D, 'kpis').slice(0, 2);
+    if (D.calls) o.push(D.calls.rows.some(c => c.tap) || srcOf() === 'site' ? '<b>' + plural(D.calls.rows.length, 'call') + '</b> started from your website, ' + chg(D.calls.rows.length, D.calls.prev.length) + '.'
+      : '<b>' + plural(D.calls.rows.length, 'call') + '</b>, ' + chg(D.calls.rows.length, D.calls.prev.length) + (D.calls.rows.filter(c => callState(c).k === 'missed').length ? '; ' + D.calls.rows.filter(c => callState(c).k === 'missed').length + ' were missed' : '') + '.');
+    if (D.contacts) o.push('<b>' + plural(D.contacts.rows.length, 'new contact') + '</b> were added.');
+    if (D.opps){ const open = D.opps.all.filter(x => x.status === 'open'); o.push('<b>' + money(open.reduce((a, x) => a + x.value, 0)) + '</b> is open in your pipeline across ' + plural(open.length, 'deal') + '.'); }
+    return o; },
+  inbox: D => sumForms(D, 'inbox'), forms_list: D => sumForms(D, 'forms_list'), forms_by: D => sumForms(D, 'forms_by'), pages: D => sumForms(D, 'pages'),
+  sources: D => sumForms(D, 'sources'), locations: D => sumForms(D, 'locations'), trend: D => sumForms(D, 'trend'),
+  calls_list: D => SUM.calls_mix(D), calls_mix: D => { const c = D.calls; if (!c) return []; const rows = c.rows, o = ['<b>' + plural(rows.length, 'call') + '</b>, ' + chg(rows.length, c.prev.length) + '.'];
+    if (rows.some(x => x.tap)){ const ads = rows.filter(x => x.ads).length; if (rows.length) o.push(ads ? pct(ads, rows.length) + ' came from ads, the rest from people browsing your site.' : 'All of them came from people browsing your site.'); const pg = groupBy(rows, x => x.page); if (pg[0]) o.push('Most calls start on <b>' + esc(pg[0].k || '/') + '</b>.'); return o; }
+    const st = {ok: 0, missed: 0, vm: 0}; rows.forEach(x => st[callState(x).k]++); if (rows.length) o.push(pct(st.ok, rows.length) + ' were answered' + (st.missed ? ', ' + st.missed + ' missed' : '') + (st.vm ? ' and ' + st.vm + ' went to voicemail' : '') + '.');
+    const wd = weekdayPeak(rows); if (wd) o.push(wd + ' are your busiest days for calls.'); return o; },
+  contacts_list: D => { const c = D.contacts; if (!c) return []; const o = ['<b>' + plural(c.rows.length, 'new contact') + '</b>, ' + chg(c.rows.length, c.prev.length) + '.']; const g = groupBy(c.rows, k => k.channel).filter(x => x.k); if (g[0]) o.push('Most came through <b>' + esc(g[0].k) + '</b>.'); return o; },
+  people: () => ['Your full contact list, searchable by name, email, phone or company.'],
+  pipeline: D => { const p = D.opps; if (!p) return []; const open = p.all.filter(x => x.status === 'open'), won = p.all.filter(x => x.status === 'won' && inR({at: x.upd || x.at}, range()));
+    const st = {}; open.forEach(x => { st[x.stage] = (st[x.stage] || 0) + x.value; }); const top = Object.keys(st).sort((a, b) => st[b] - st[a])[0];
+    return ['<b>' + money(open.reduce((a, x) => a + x.value, 0)) + '</b> is open across ' + plural(open.length, 'deal') + '.', top ? 'The most value sits in <b>' + esc(top) + '</b> (' + money(st[top]) + ').' : '', won.length ? '<b>' + plural(won.length, 'deal') + ' won</b> this period, worth ' + money(won.reduce((a, x) => a + x.value, 0)) + '.' : 'No deals were marked won this period.'].filter(Boolean); },
+  opps_list: D => SUM.pipeline(D),
+  appts: D => { const a = D.appts; if (!a) return []; const now = Date.now(), up = a.rows.filter(x => x.at >= now), inP = a.rows.filter(x => inR(x, range()));
+    return ['<b>' + plural(inP.length, 'appointment') + '</b> in this period.', up.length ? '<b>' + plural(up.length, 'upcoming booking') + '</b>; the next is ' + esc(new Date(up[0].at).toLocaleString('en-CA', {weekday: 'long', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'})) + '.' : 'Nothing booked ahead yet.']; },
+  email: D => { const E = D.emails; if (!E) return []; const r = range(), c = ((E.extra && E.extra.campaigns) || []).filter(x => inR(x, r)), rep = E.rows.filter(m => m.dir === 'inbound');
+    const tot = c.reduce((a, x) => a + x.total, 0), del = c.reduce((a, x) => a + x.delivered, 0);
+    return [c.length ? '<b>' + plural(c.length, 'campaign') + '</b> reached <b>' + fmt(del) + '</b> of ' + fmt(tot) + ' recipients (' + pct(del, tot) + ' delivered).' : 'No campaigns went out this period.',
+      '<b>' + plural(rep.length, 'reply', 'replies') + '</b> came back, ' + chg(rep.length, E.prev.filter(m => m.dir === 'inbound').length) + '.']; }
+};
+function drawNote(h, D, it){
+  const about = it.about && W[it.about] && it.about !== 'note' ? it.about : '';
+  const lines = about && SUM[about] ? SUM[about](D).filter(Boolean) : [];
+  const text = String(it.text || '').trim();
+  h.innerHTML = '<div class="note fade-in">' +
+    (text ? '<p class="nt">' + esc(text).replace(/\n/g, '<br>') + '</p>' : '') +
+    (lines.length ? '<div class="nsum"><div class="nsh">' + ic('spark', 14) + 'What the numbers say' + (about ? '<span>about “' + esc(W[about].t) + '” · ' + esc(rangeText()) + '</span>' : '') + '</div><ul>' + lines.map(l => '<li>' + l + '</li>').join('') + '</ul></div>' : '') +
+    (!text && !lines.length ? '<div class="empty">' + (S.editing ? 'Click the pencil to write a note, or attach it to a widget for an automatic summary.' : 'Nothing here yet.') + '</div>' : '') + '</div>';
+}
+function noteEditor(it, dash, done){
+  const b = document.createElement('div'); b.className = 'modal-back';
+  const types = [...new Set(dash.items.map(x => x.t).filter(t => t !== 'note' && W[t]))];
+  b.innerHTML = '<div class="modal" style="width:min(560px,100%)" role="dialog" aria-modal="true"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px"><div><h2>Heading &amp; summary</h2><div style="color:var(--ink-2);font-size:13px">A title for a section of the dashboard, with your own words and an automatic read of the numbers.</div></div><button class="iconbtn" type="button" data-x aria-label="Close">' + ic('x') + '</button></div>' +
+    '<div class="ne"><label>Heading</label><input type="text" data-t maxlength="80" value="' + esc(it.title || '') + '" placeholder="e.g. How your leads are doing">' +
+    '<label>Your note <small>optional</small></label><textarea data-n rows="4" maxlength="600" placeholder="Anything you want to say about this section">' + esc(it.text || '') + '</textarea>' +
+    '<label>Explain the numbers of</label><select data-a><option value="">Nothing, just my note</option>' + types.map(t => '<option value="' + t + '"' + (it.about === t ? ' selected' : '') + '>' + esc(W[t].t) + '</option>').join('') + '</select>' +
+    '<div class="ne-act"><button class="btn" type="button" data-x2>Cancel</button><button class="btn go" type="button" data-ok>Save</button></div></div></div>';
+  document.body.appendChild(b);
+  const close = () => b.remove();
+  b.addEventListener('click', e => { if (e.target === b) close(); });
+  b.querySelector('[data-x]').addEventListener('click', close); b.querySelector('[data-x2]').addEventListener('click', close);
+  b.querySelector('[data-ok]').addEventListener('click', () => {
+    it.title = b.querySelector('[data-t]').value.trim().slice(0, 80); it.text = b.querySelector('[data-n]').value.trim().slice(0, 600); it.about = b.querySelector('[data-a]').value;
+    close(); saveLayout(); done();
+  });
+  setTimeout(() => b.querySelector('[data-t]').focus(), 30);
+}
+
 /* ---------- detail drawers ---------- */
 function drawer(title, pairs, extra, o){
   o = o || {};
   const b = document.createElement('div'); b.className = 'drawer-back';
   b.innerHTML = '<div class="drawer" role="dialog" aria-modal="true"><div style="display:flex;justify-content:space-between;align-items:center"><span class="pill">' + ic('lock', 12) + ' Read only</span><button class="iconbtn" type="button" data-x aria-label="Close">' + ic('x') + '</button></div>' +
     '<div class="dh">' + (o.icon ? '<div class="av" style="background:' + (o.tint || T.email) + ';border-radius:16px">' + ic(o.icon, 22) + '</div>' : '<div class="av" style="background:' + hue(title) + '">' + esc(initials(title)) + '</div>') + '<div style="min-width:0"><h3>' + esc(title) + '</h3>' + (o.sub ? '<div class="dsub">' + o.sub + '</div>' : '') + '</div></div>' +
-    (extra || '') + '<dl class="kv">' + pairs.filter(p => p[1] != null && p[1] !== '').map(p => '<dt>' + esc(p[0]) + '</dt><dd>' + esc(p[1]) + '</dd>').join('') + '</dl></div>';
+    (extra || '') + (pairs.length ? '<dl class="kv">' : '<dl class="kv" hidden>') + pairs.filter(p => p[1] != null && p[1] !== '').map(p => '<dt>' + esc(p[0]) + '</dt><dd>' + esc(p[1]) + '</dd>').join('') + '</dl></div>';
   document.body.appendChild(b);
   const close = () => { b.remove(); document.removeEventListener('keydown', k); };
-  const k = e => { if (e.key === 'Escape') close(); };
+  const k = e => { if (e.key === 'Escape'){ const all = document.querySelectorAll('.drawer-back,.modal-back'); if (all[all.length - 1] === b) close(); } };
   document.addEventListener('keydown', k);
   b.addEventListener('click', e => { if (e.target === b) close(); });
   b.querySelector('[data-x]').addEventListener('click', close);
+  b.close = close;
+  return b;
 }
 const openSubmission = f => drawer(f.name || f.email || 'Form submission',
   [['Received', fullDate(f.at)], ['Form', f.form], ['Email', f.email], ['Phone', f.phone], ['Company', f.company], ['City', cityOf(f)], ['Province / state', regionOf(f)], ['Source', f.channel], ['Page', f.page]]
     .concat((f.fields || []).filter(x => !/^(phone|company|message|comments?|questions?|city|town|province|state|region)$/i.test(x[0]) && x[1] !== f.message)),
   f.message ? '<div class="msgbox">' + esc(f.message) + '</div>' : '', {sub: esc([f.email, f.phone].filter(Boolean).join(' · '))});
-const openCall = c => { const st = callState(c); drawer(c.name || 'Call', [['Status', st.label], ['Direction', c.dir], ['Length', c.dur ? dur(c.dur) : '—'], ['From', c.from], ['To', c.to], ['When', fullDate(c.at)]], null, {icon: 'phone', tint: st.k === 'missed' ? '#e0413a' : T.calls}); };
+const chLabel = sm => { const p = String(sm || '').split(' / '), s = p[0] || '', m = (p[1] || '').toLowerCase(); if (/cpc|ppc|paid/.test(m)) return 'Ads · ' + s; if (m === 'organic') return 'Organic · ' + s; if (s === '(direct)') return 'Direct'; if (m === 'referral') return 'Referral · ' + s; return sm || 'Not recorded'; };
+const openCall = c => { if (c.tap){ drawer(c.ads ? 'Call from an ad' : 'Call from the website', [['When', fullDate(c.at)], ['Page', c.page || '/'], ['Came from', chLabel(c.source)], ['Source / medium', c.source]], '<div class="msgbox" style="white-space:normal">Someone tapped your phone number on your website. Google Analytics records the tap; it can’t tell whether the call was answered or who called.</div>', {icon: 'phone', tint: T.calls}); return; }
+  const st = callState(c); drawer(c.name || 'Call', [['Status', st.label], ['Direction', c.dir], ['Length', c.dur ? dur(c.dur) : '—'], ['From', c.from], ['To', c.to], ['When', fullDate(c.at)]], null, {icon: 'phone', tint: st.k === 'missed' ? '#e0413a' : T.calls}); };
 const openContact = k => drawer(k.name, [['Email', k.email], ['Phone', k.phone], ['Company', k.company], ['City', k.city], ['Province / state', k.state], ['Country', k.country], ['Source', k.channel || k.source], ['Tags', (k.tags || []).join(', ')], ['Added', fullDate(k.at)]], null, {sub: esc(k.email || k.phone || '')});
 function openList(type){
   const el = document.querySelector('.w[data-t="' + type + '"]');
@@ -568,6 +747,7 @@ function openList(type){
 /* ---------- dashboards ---------- */
 function layout(){
   if (!S.layout || !Array.isArray(S.layout.dashes) || !S.layout.dashes.length) S.layout = {v: LAYOUT_V, dashes: DEFAULT_DASHES()};
+  if (S.layout.v === 2) S.layout.v = LAYOUT_V;   /* v3 only adds sizes and notes; nothing to migrate */
   /* Dashboards saved before the inbox, email and contact-list widgets: add them once. */
   if ((S.layout.v || 1) < LAYOUT_V){
     const L = S.layout, first = L.dashes[0];
@@ -580,6 +760,7 @@ function layout(){
 }
 let saveT = null;
 function saveLayout(){
+  if (!canEdit()) return;
   ls.set('el_layout_' + (S.me && S.me.user.email), S.layout);
   clearTimeout(saveT);
   saveT = setTimeout(() => api('portalSaveLayout', {session: S.session, layout: S.layout}).then(j => { if (j.error) toast(j.error); }).catch(() => {}), 1200);
@@ -610,12 +791,14 @@ function renderApp(){
   app.innerHTML = header(me, c) +
     '<main class="wrap' + (S.editing ? ' editing' : '') + '">' +
     '<div class="seg mob-period" data-period>' + PERIODS.map(p => '<button type="button" data-p="' + p[0] + '"' + (p[0] === S.period ? ' class="on"' : '') + '>' + p[1] + '</button>').join('') + '</div>' +
-    '<div class="tabs" role="tablist">' + L.dashes.map((d, i) => '<button class="tab' + (d === dash ? ' on' : '') + '" type="button" role="tab" data-dash="' + i + '">' + esc(d.name) + '</button>').join('') +
-      '<button class="tab add" type="button" data-newdash>' + ic('plus', 14) + ' New dashboard</button></div>' +
-    '<div class="bar"><div><h2>' + esc(dash.name) + '</h2><div class="sub">' + ic('cal', 13) + esc(rangeText()) + ' <span style="opacity:.5">·</span> <span class="ro">' + ic('lock', 12) + 'Read-only view of your ' + esc(BRAND) + ' account</span></div></div><div class="grow"></div>' +
-      (S.editing ? '<button class="btn" type="button" data-addw>' + ic('plus', 15) + 'Add widget</button><button class="btn" type="button" data-rename>' + ic('edit', 15) + 'Rename</button>' +
+    (me.edge ? '<div class="edgebar">' + ic('edit', 15) + '<div><b>You’re arranging this dashboard as EDGE.</b> Whatever you set here is exactly what ' + esc(me.user.name || me.user.email) + ' sees.</div></div>' : '') +
+    (L.dashes.length > 1 || canEdit() ? '<div class="tabs" role="tablist">' + L.dashes.map((d, i) => '<button class="tab' + (d === dash ? ' on' : '') + '" type="button" role="tab" data-dash="' + i + '">' + esc(d.name) + '</button>').join('') +
+      (canEdit() ? '<button class="tab add" type="button" data-newdash>' + ic('plus', 14) + ' New dashboard</button>' : '') + '</div>' : '') +
+    '<div class="bar"><div><h2>' + esc(dash.name) + '</h2><div class="sub">' + ic('cal', 13) + esc(rangeText()) + ' <span style="opacity:.5">·</span> <span class="ro">' + ic('lock', 12) + (srcOf() === 'site' ? 'Read-only view of your website leads' : 'Read-only view of your ' + esc(BRAND) + ' account') + '</span></div></div><div class="grow"></div>' +
+      (S.editing ? '<button class="btn" type="button" data-addw>' + ic('plus', 15) + 'Add widget</button><button class="btn" type="button" data-addnote>' + ic('spark', 15) + 'Add heading</button><button class="btn" type="button" data-rename>' + ic('edit', 15) + 'Rename</button>' +
         (L.dashes.length > 1 ? '<button class="btn" type="button" data-deldash>Delete dashboard</button>' : '') : '') +
-      '<button class="btn' + (S.editing ? ' go' : '') + '" type="button" data-edit>' + (S.editing ? 'Done' : ic('grid', 15) + 'Customize') + '</button></div>' +
+      (canEdit() ? '<button class="btn' + (S.editing ? ' go' : '') + '" type="button" data-edit>' + (S.editing ? ic('check', 15) + 'Done' : ic('grid', 15) + 'Customize') + '</button>' : '') + '</div>' +
+      (S.editing ? '<div class="edithint">' + ic('grid', 14) + '<span>Drag a widget by its top bar to move it. Drag its edges or corner to make it wider, narrower, taller or shorter. Double-click the bottom edge to fit its content.</span></div>' : '') +
     '<div class="grid" data-grid></div></main>';
   wireTop(); drawGrid(dash);
   bellCheck();
@@ -627,12 +810,13 @@ function wireTop(){
   app.querySelectorAll('[data-p]').forEach(b => b.addEventListener('click', () => { S.period = b.dataset.p; ls.set('el_period', S.period); renderApp(); }));
   const cs = q('[data-client]'); if (cs) cs.addEventListener('change', () => { S.domain = cs.value; S.ui = {}; ls.set('el_domain', S.domain); renderApp(); });
   app.querySelectorAll('[data-dash]').forEach(b => b.addEventListener('click', () => { S.dash = Number(b.dataset.dash); renderApp(); }));
-  q('[data-newdash]').addEventListener('click', () => {
+  const nd = q('[data-newdash]'); if (nd) nd.addEventListener('click', () => {
     const name = prompt('Name the new dashboard:', 'My dashboard'); if (!name || !name.trim()) return;
     layout().dashes.push({id: uid(), name: name.trim().slice(0, 40), items: [item('kpis')]});
     S.dash = layout().dashes.length - 1; S.editing = true; saveLayout(); renderApp();
   });
-  q('[data-edit]').addEventListener('click', () => { S.editing = !S.editing; renderApp(); });
+  const ed = q('[data-edit]'); if (ed) ed.addEventListener('click', () => { S.editing = !S.editing; renderApp(); });
+  const an = q('[data-addnote]'); if (an) an.addEventListener('click', () => { const dd = layout().dashes[Math.min(S.dash, layout().dashes.length - 1)]; const n = item('note', 12, {title: 'Summary'}); dd.items.unshift(n); saveLayout(); renderApp(); noteEditor(n, dd, () => renderApp()); });
   const L = layout(), dash = L.dashes[Math.min(S.dash, L.dashes.length - 1)];
   const aw = q('[data-addw]'); if (aw) aw.addEventListener('click', () => catalog(dash));
   const rn = q('[data-rename]'); if (rn) rn.addEventListener('click', () => { const n = prompt('Dashboard name:', dash.name); if (n && n.trim()){ dash.name = n.trim().slice(0, 40); saveLayout(); renderApp(); } });
@@ -641,51 +825,137 @@ function wireTop(){
   q('[data-phone]').addEventListener('click', e => { e.stopPropagation(); feedPop('calls'); });
   q('[data-me]').addEventListener('click', e => { e.stopPropagation(); meMenu(); });
 }
-/* Wide or narrow layout inside a widget, from its own width. */
-const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(es => es.forEach(e => { const w = e.contentRect.width; e.target.classList.toggle('nar', w < 640); e.target.classList.toggle('mid', w >= 640 && w < 900); })) : null;
+/* Wide or narrow layout inside a widget, from its own width; and its height in the masonry grid. */
+const ROW = 1, GAP = 18;
+const fitRow = el => { if (!el.isConnected) return; const h = el.getBoundingClientRect().height; el.style.gridRowEnd = 'span ' + Math.max(1, Math.ceil((h + GAP) / ROW)); };
+const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(es => es.forEach(e => { const w = e.contentRect.width; e.target.classList.toggle('nar', w < 640); e.target.classList.toggle('mid', w >= 640 && w < 900); fitRow(e.target); })) : null;
+const canEdit = () => !!(S.me && S.me.canEdit !== false);
+const SIZES = {w: [[3, '¼'], [4, '⅓'], [6, '½'], [8, '⅔'], [9, '¾'], [12, 'Full']], h: [[0, 'Fit content'], [260, 'Compact'], [420, 'Medium'], [620, 'Tall'], [860, 'Extra tall']]};
+const MINH = 160, MAXH = 1600;
 
 function drawGrid(dash){
   const grid = app.querySelector('[data-grid]');
   grid.innerHTML = '';
-  if (!dash.items.length){ grid.innerHTML = '<div class="w" style="--c:12"><div class="empty">This dashboard is empty. Click <b>Customize</b>, then <b>Add widget</b>.</div></div>'; return; }
-  let dragId = null;
+  if (!dash.items.length){ grid.innerHTML = '<div class="w" style="--c:12"><div class="empty">This dashboard is empty.' + (canEdit() ? ' Click <b>Customize</b>, then <b>Add widget</b>.' : '') + '</div></div>'; return; }
   dash.items.forEach(it => {
     const def = W[it.t]; if (!def) return;
     const el = document.createElement('section');
     const cols = Math.max(3, Math.min(12, it.c || def.c));
-    el.className = 'w'; el.style.setProperty('--c', cols); el.style.setProperty('--t', def.tint); el.dataset.t = it.t;
-    el.innerHTML = '<div class="wh"><div class="wic">' + ic(def.ic, 19) + '</div><div class="tt"><h3>' + esc(it.title || def.t) + '</h3><div class="d" title="' + esc(def.d) + '">' + esc(def.d) + '</div></div><div class="wtools">' +
-      '<button class="tb" type="button" data-w="-" title="Narrower">−</button><button class="tb" type="button" data-w="+" title="Wider">+</button><button class="tb" type="button" data-del title="Remove">' + ic('x', 13) + '</button></div></div>' +
-      '<div data-body>' + SK[def.sk || 'list']() + '</div><div class="rz" title="Drag to resize"></div>';
+    el.className = 'w' + (it.t === 'note' ? ' w-note' : '') + (it.h ? ' fixed' : '');
+    el.style.setProperty('--c', cols); el.style.setProperty('--t', def.tint); if (it.h) el.style.setProperty('--h', it.h + 'px');
+    el.dataset.t = it.t; el.dataset.id = it.id;
+    const title = it.t === 'note' ? (it.title || 'Summary') : (it.title || def.t), dsc = srcOf() === 'site' && def.ds ? def.ds : def.d;
+    el.innerHTML = '<div class="wh" data-grip><div class="wic">' + ic(def.ic, 19) + '</div><div class="tt"><h3>' + esc(title) + '</h3>' + (it.t === 'note' ? '' : '<div class="d" title="' + esc(dsc) + '">' + esc(dsc) + '</div>') + '</div><div class="wtools">' +
+      '<span class="grip" title="Drag to move">' + ic('move', 15) + '</span>' +
+      (it.t === 'note' ? '<button class="tb" type="button" data-note title="Edit heading and summary">' + ic('edit', 13) + '</button>' : '<button class="tb" type="button" data-sum title="Add a heading and summary above this widget">' + ic('spark', 13) + '</button>') +
+      '<button class="tb" type="button" data-size title="Size">' + ic('size', 13) + '<span>' + cols + '/12</span></button><button class="tb" type="button" data-del title="Remove">' + ic('x', 13) + '</button></div></div>' +
+      '<div class="wbody" data-body>' + SK[def.sk || 'list']() + '</div>' +
+      (canEdit() ? '<div class="rz rz-e" data-rz="e" title="Drag to change the width"></div><div class="rz rz-s" data-rz="s" title="Drag to change the height · double-click to fit"></div><div class="rz rz-se" data-rz="se" title="Drag to resize"></div>' : '');
     grid.appendChild(el);
-    if (ro) ro.observe(el);
+    if (ro) ro.observe(el); else fitRow(el);
     const body = el.querySelector('[data-body]');
-    Promise.all(def.needs.map(k => get(k).then(v => [k, v], e => [k, null, e]))).then(res => {
+    const needs = needsOf(it);
+    if (it.t !== 'note' && !okFor(it.t)){ body.innerHTML = errHtml({code: 'notavailable'}); }
+    else Promise.all(needs.filter(k => srcOf() === 'easyleads' || SITE_K[k]).map(k => get(k).then(v => [k, v], e => [k, null, e]))).then(res => {
       if (!body.isConnected) return;
       const D = {}, errs = [];
       res.forEach(r => { if (r[1]) D[r[0]] = r[1]; else errs.push(r[2]); });
-      const hard = def.needs.length && (errs.length === def.needs.length || (!def.soft && errs.length));
+      const hard = it.t !== 'note' && needs.length && (errs.length === res.length || (!def.soft && errs.length));
       if (hard){ body.innerHTML = errHtml(errs[0]); return; }
       try{ def.draw(body, D, it); }catch(e){ console.warn(e); body.innerHTML = errHtml(e); }
+      fitRow(el);
     });
-    const setC = c => { it.c = Math.max(3, Math.min(12, c)); saveLayout(); el.style.setProperty('--c', it.c); };
-    el.querySelectorAll('[data-w]').forEach(b => b.addEventListener('click', () => setC((it.c || def.c) + (b.dataset.w === '+' ? 3 : -3))));
-    el.querySelector('[data-del]').addEventListener('click', () => { dash.items.splice(dash.items.indexOf(it), 1); saveLayout(); drawGrid(dash); });
-    el.querySelector('.rz').addEventListener('pointerdown', e => {
-      e.preventDefault(); e.stopPropagation();
-      const r0 = el.getBoundingClientRect(), colW = (grid.clientWidth + 18) / 12, c0 = it.c || def.c;
-      const badge = document.createElement('div'); badge.className = 'rzb'; el.appendChild(badge); document.body.classList.add('resizing');
-      let c = c0;
-      const mv = ev => { c = Math.max(3, Math.min(12, Math.round((r0.width + ev.clientX - e.clientX + 18) / colW))); el.style.setProperty('--c', c); badge.textContent = c + ' of 12 wide'; };
-      const up = () => { document.removeEventListener('pointermove', mv); document.removeEventListener('pointerup', up); badge.remove(); document.body.classList.remove('resizing'); if (c !== c0) setC(c); };
-      document.addEventListener('pointermove', mv); document.addEventListener('pointerup', up);
+    if (!canEdit()) return;
+    const setC = c => { it.c = Math.max(3, Math.min(12, c)); el.style.setProperty('--c', it.c); el.querySelector('[data-size] span').textContent = it.c + '/12'; saveLayout(); };
+    const setH = h => { it.h = h ? Math.max(MINH, Math.min(MAXH, Math.round(h / 10) * 10)) : 0; el.classList.toggle('fixed', !!it.h); if (it.h) el.style.setProperty('--h', it.h + 'px'); else el.style.removeProperty('--h'); fitRow(el); saveLayout(); };
+    el.querySelector('[data-del]').addEventListener('click', () => { el.animate([{opacity: 1, transform: 'none'}, {opacity: 0, transform: 'scale(.96)'}], {duration: 160, easing: 'ease-out'}).onfinish = () => { dash.items.splice(dash.items.indexOf(it), 1); saveLayout(); drawGrid(dash); }; });
+    el.querySelector('[data-size]').addEventListener('click', e => { e.stopPropagation(); sizeMenu(e.currentTarget, it, def, setC, setH, el); });
+    const nb = el.querySelector('[data-note]'); if (nb) nb.addEventListener('click', () => noteEditor(it, dash, () => drawGrid(dash)));
+    const sb = el.querySelector('[data-sum]'); if (sb) sb.addEventListener('click', () => { const n = item('note', 12, {title: def.t, about: it.t}); dash.items.splice(dash.items.indexOf(it), 0, n); saveLayout(); drawGrid(dash); noteEditor(n, dash, () => drawGrid(dash)); });
+    /* resize: right edge = width, bottom edge = height, corner = both; snapped and shown live */
+    el.querySelectorAll('[data-rz]').forEach(hd => {
+      if (hd.dataset.rz === 's') hd.addEventListener('dblclick', () => setH(0));
+      hd.addEventListener('pointerdown', e => {
+        e.preventDefault(); e.stopPropagation(); hd.setPointerCapture(e.pointerId);
+        const mode = hd.dataset.rz, r0 = el.getBoundingClientRect(), gw = grid.getBoundingClientRect().width, colW = (gw + GAP) / (getComputedStyle(grid).gridTemplateColumns.split(' ').length || 12);
+        const c0 = it.c || def.c, h0 = r0.height;
+        const badge = document.createElement('div'); badge.className = 'rzb'; el.appendChild(badge);
+        const ghost = document.createElement('div'); ghost.className = 'rzghost'; el.appendChild(ghost);
+        el.classList.add('resizing'); document.body.classList.add('resizing', 'cur-' + mode);
+        let c = c0, h = it.h || 0;
+        const show = () => { badge.innerHTML = '<b>' + c + '</b> of 12 wide' + (mode !== 'e' ? ' · <b>' + (h ? h + 'px' : 'fit') + '</b> tall' : ''); };
+        const mv = ev => {
+          if (mode !== 's'){ c = Math.max(3, Math.min(12, Math.round((r0.width + ev.clientX - e.clientX + GAP) / colW))); el.style.setProperty('--c', c); }
+          if (mode !== 'e'){ h = Math.max(MINH, Math.min(MAXH, Math.round((h0 + ev.clientY - e.clientY) / 10) * 10)); el.classList.add('fixed'); el.style.setProperty('--h', h + 'px'); fitRow(el); }
+          show();
+        };
+        const up = () => { hd.removeEventListener('pointermove', mv); hd.removeEventListener('pointerup', up); hd.removeEventListener('pointercancel', up); badge.remove(); ghost.remove(); el.classList.remove('resizing'); document.body.classList.remove('resizing', 'cur-' + mode);
+          if (c !== c0) setC(c); if (mode !== 'e' && h !== (it.h || 0)) setH(h); };
+        show(); hd.addEventListener('pointermove', mv); hd.addEventListener('pointerup', up); hd.addEventListener('pointercancel', up);
+      });
     });
-    el.draggable = S.editing;
-    el.addEventListener('dragstart', e => { dragId = it.id; el.classList.add('dragging'); try{ e.dataTransfer.setData('text/plain', it.id); }catch(x){} });
-    el.addEventListener('dragend', () => { el.classList.remove('dragging'); grid.querySelectorAll('.drop').forEach(x => x.classList.remove('drop')); });
-    el.addEventListener('dragover', e => { if (!dragId || dragId === it.id) return; e.preventDefault(); grid.querySelectorAll('.drop').forEach(x => x.classList.remove('drop')); el.classList.add('drop'); });
-    el.addEventListener('drop', e => { e.preventDefault(); const from = dash.items.findIndex(x => x.id === dragId); if (from < 0) return; const m = dash.items.splice(from, 1)[0]; dash.items.splice(dash.items.indexOf(it), 0, m); dragId = null; saveLayout(); drawGrid(dash); });
+    /* move: pick a widget up by its top bar; the others glide out of the way */
+    el.querySelector('[data-grip]').addEventListener('pointerdown', e => {
+      if (!S.editing || e.button !== 0 || e.target.closest('button')) return;
+      startMove(e, el, it, dash, grid);
+    });
   });
+}
+/* FLIP: remember where every widget was, move things in the DOM, then animate each from old to new. */
+function flip(grid, change){
+  const els = [...grid.children], before = new Map(els.map(x => [x, x.getBoundingClientRect()]));
+  change();
+  els.forEach(x => { if (x.classList.contains('lifted')) return; const a = before.get(x), b = x.getBoundingClientRect(); if (!a) return; const dx = a.left - b.left, dy = a.top - b.top;
+    if (dx || dy) x.animate([{transform: 'translate(' + dx + 'px,' + dy + 'px)'}, {transform: 'none'}], {duration: 240, easing: 'cubic-bezier(.2,.7,.2,1)'}); });
+}
+function startMove(e, el, it, dash, grid){
+  const sx = e.clientX, sy = e.clientY, r0 = el.getBoundingClientRect();
+  let started = false, ghost = null, raf = 0, lastY = sy, lastX = sx, hold = 0;
+  const begin = () => {
+    started = true;
+    ghost = el.cloneNode(true); ghost.className += ' ghost'; ghost.style.width = r0.width + 'px'; ghost.style.height = Math.min(r0.height, 420) + 'px';
+    ghost.style.left = r0.left + 'px'; ghost.style.top = r0.top + 'px'; document.body.appendChild(ghost);
+    el.classList.add('placeholder'); document.body.classList.add('moving');
+  };
+  const scroll = () => { const m = 70, y = lastY; let d = 0; if (y < m) d = -Math.ceil((m - y) / 4); else if (y > innerHeight - m) d = Math.ceil((y - (innerHeight - m)) / 4); if (d){ scrollBy(0, d); place(lastX, lastY); } raf = requestAnimationFrame(scroll); };
+  const place = (x, y) => {
+    const t = document.elementFromPoint(x, y), over = t && t.closest('.grid > .w');
+    if (!over || over === el || !grid.contains(over)) return;
+    const rr = over.getBoundingClientRect(), after = (rr.width < grid.clientWidth * .9 && Math.abs(y - (rr.top + rr.height / 2)) < rr.height / 2) ? x > rr.left + rr.width / 2 : y > rr.top + rr.height / 2;
+    const ref = after ? over.nextSibling : over;
+    if (ref === el || ref === el.nextSibling && !after) return;
+    if (Date.now() - hold < 180) return; hold = Date.now();
+    flip(grid, () => grid.insertBefore(el, ref));
+  };
+  const mv = ev => {
+    lastX = ev.clientX; lastY = ev.clientY;
+    if (!started){ if (Math.hypot(ev.clientX - sx, ev.clientY - sy) < 6) return; begin(); raf = requestAnimationFrame(scroll); }
+    ghost.style.transform = 'translate(' + (ev.clientX - sx) + 'px,' + (ev.clientY - sy) + 'px) rotate(.6deg)';
+    place(ev.clientX, ev.clientY);
+  };
+  const up = () => {
+    document.removeEventListener('pointermove', mv); document.removeEventListener('pointerup', up); cancelAnimationFrame(raf);
+    if (!started) return;
+    const to = el.getBoundingClientRect();
+    ghost.animate([{transform: ghost.style.transform, opacity: 1}, {transform: 'translate(' + (to.left - r0.left) + 'px,' + (to.top - r0.top) + 'px)', opacity: .2}], {duration: 200, easing: 'ease-out'}).onfinish = () => ghost.remove();
+    el.classList.remove('placeholder'); document.body.classList.remove('moving');
+    const order = [...grid.children].map(x => x.dataset.id);
+    dash.items.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+    saveLayout();
+  };
+  document.addEventListener('pointermove', mv); document.addEventListener('pointerup', up);
+}
+function sizeMenu(btn, it, def, setC, setH, el){
+  closePops();
+  const m = document.createElement('div'); m.className = 'menu sizem'; m.dataset.pop = 1;
+  const c = it.c || def.c, h = it.h || 0;
+  m.innerHTML = '<div class="sm-h">Width</div><div class="sm-row">' + SIZES.w.map(x => '<button type="button" data-c="' + x[0] + '"' + (x[0] === c ? ' class="on"' : '') + '><i style="--f:' + (x[0] / 12) + '"></i>' + x[1] + '</button>').join('') + '</div>' +
+    '<div class="sm-h">Height</div><div class="sm-col">' + SIZES.h.map(x => '<button type="button" data-h="' + x[0] + '"' + (x[0] === h || (!h && !x[0]) ? ' class="on"' : '') + '>' + x[1] + (x[0] ? '<small>' + x[0] + 'px</small>' : '<small>grows with it</small>') + '</button>').join('') + '</div>' +
+    '<div class="sm-tip">Or drag the widget’s edges for any size.</div>';
+  btn.closest('.wtools').appendChild(m);
+  m.addEventListener('click', e => e.stopPropagation());
+  m.querySelectorAll('[data-c]').forEach(b => b.addEventListener('click', () => { setC(Number(b.dataset.c)); m.querySelectorAll('[data-c]').forEach(x => x.classList.toggle('on', x === b)); }));
+  m.querySelectorAll('[data-h]').forEach(b => b.addEventListener('click', () => { setH(Number(b.dataset.h)); m.querySelectorAll('[data-h]').forEach(x => x.classList.toggle('on', x === b)); }));
 }
 
 function catalog(dash){
@@ -694,7 +964,7 @@ function catalog(dash){
   const groups = [...new Set(Object.values(W).map(w => w.g))];
   b.innerHTML = '<div class="modal" role="dialog" aria-modal="true"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px"><div><h2>Add widgets</h2><div style="color:var(--ink-2);font-size:13px">Pick what you want to see on “' + esc(dash.name) + '”. You can add the same widget to as many dashboards as you like.</div></div>' +
     '<button class="iconbtn" type="button" data-x aria-label="Close">' + ic('x') + '</button></div><div class="cat">' +
-    groups.map(g => '<div class="grp">' + esc(g) + '</div>' + Object.keys(W).filter(k => W[k].g === g).map(k => '<div class="it"><div class="wic" style="--t:' + W[k].tint + '">' + ic(W[k].ic, 19) + '</div><div><b>' + esc(W[k].t) + '</b><small>' + esc(W[k].d) + '</small></div>' +
+    groups.filter(g => Object.keys(W).some(k => W[k].g === g && okFor(k))).map(g => '<div class="grp">' + esc(g) + '</div>' + Object.keys(W).filter(k => W[k].g === g && okFor(k)).map(k => '<div class="it"><div class="wic" style="--t:' + W[k].tint + '">' + ic(W[k].ic, 19) + '</div><div><b>' + esc(W[k].t) + '</b><small>' + esc(W[k].d) + '</small></div>' +
       '<button class="btn sm' + (has.has(k) ? '' : ' go') + '" type="button" data-add="' + k + '">' + (has.has(k) ? 'Add again' : 'Add') + '</button></div>').join('')).join('') + '</div></div>';
   document.body.appendChild(b);
   const close = () => { b.remove(); renderApp(); };
@@ -736,6 +1006,7 @@ async function feedPop(k){
     list.innerHTML = rows.length ? rows.map((x, i) => {
       if (k === 'forms') return rowHtml({i, cls: x.at > seen ? 'new' : '', title: x.name || x.email || 'New submission', sub: esc(x.form) + (cityOf(x) ? ' · ' + esc(cityOf(x)) : ''), right: esc(when(x.at))});
       const st = callState(x);
+      if (x.tap) return rowHtml({i, cls: x.at > seen ? 'new' : '', title: x.ads ? 'Call from an ad' : 'Call from the website', sub: esc(x.page || '/'), icon: ic('phone', 15), bg: x.ads ? '#eda100' : T.calls, right: esc(when(x.at))});
       return rowHtml({i, cls: x.at > seen && x.dir !== 'outbound' ? 'new' : '', title: x.name || (x.dir === 'outbound' ? x.to : x.from) || 'Unknown caller', sub: st.label + (x.dur ? ' · ' + dur(x.dur) : ''), icon: ic(st.k === 'missed' ? 'missed' : x.dir === 'outbound' ? 'out' : 'in', 15),
         bg: st.k === 'missed' ? '#e0413a' : st.k === 'vm' ? '#d9820b' : T.calls, right: esc(when(x.at))});
     }).join('') : '<div class="empty" style="margin:6px">' + (k === 'forms' ? 'No form submissions in the last 30 days.' : 'No calls in the last 30 days.') + '</div>';
@@ -750,11 +1021,11 @@ function meMenu(){
   closePops();
   const m = document.createElement('div'); m.className = 'menu'; m.dataset.pop = 1;
   m.innerHTML = '<div class="who"><b>' + esc(S.me.user.name || 'Your account') + '</b>' + esc(S.me.user.email) + '</div>' +
-    '<button type="button" data-reset>' + ic('reset', 16) + 'Reset dashboards to the default</button><button type="button" data-out>' + ic('out2', 16) + (S.preview ? 'Close preview' : 'Sign out') + '</button>';
+    (canEdit() ? '<button type="button" data-reset>' + ic('reset', 16) + 'Reset dashboards to the default</button>' : '') + '<button type="button" data-out>' + ic('out2', 16) + (S.preview ? 'Close preview' : 'Sign out') + '</button>';
   app.querySelector('[data-me]').parentNode.appendChild(m);
   m.addEventListener('click', e => e.stopPropagation());
   m.querySelector('[data-out]').addEventListener('click', () => { closePops(); if (S.preview){ window.close(); signOut(); } else signOut(); });
-  m.querySelector('[data-reset]').addEventListener('click', () => { if (!confirm('Put the default dashboards back? Your own dashboards will be removed.')) return; S.layout = {v: LAYOUT_V, dashes: DEFAULT_DASHES()}; S.dash = 0; S.ui = {}; saveLayout(); renderApp(); });
+  const rs = m.querySelector('[data-reset]'); if (rs) rs.addEventListener('click', () => { if (!confirm('Put the default dashboards back? Your own dashboards will be removed.')) return; S.layout = {v: LAYOUT_V, dashes: DEFAULT_DASHES()}; S.dash = 0; S.ui = {}; saveLayout(); renderApp(); });
 }
 function closePops(){ document.querySelectorAll('[data-pop]').forEach(x => x.remove()); }
 document.addEventListener('click', closePops);
