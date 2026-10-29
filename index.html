@@ -5366,6 +5366,8 @@ body.embed-clean .rank-dot.wide{box-shadow:0 0 0 2px #fff,0 0 0 3.5px rgba(212,6
 }
 #seoview-keywords .seo-loc-adv > summary{ font-size:12px; color:var(--teal-500); font-weight:600; margin-top:4px; }
 #seoview-keywords .seo-copy-link-btn{ color:var(--teal-500); }
+#seoview-keywords .seo-loc-status a.seo-live-a, .seo-loc-status a.seo-live-a{ color:var(--teal-700, var(--brand-deep)); font-weight:600; text-decoration:none; }
+#seoview-keywords .seo-loc-status a.seo-live-a:hover, .seo-loc-status a.seo-live-a:hover{ text-decoration:underline; }
 
 @media (max-width:760px){
   #seoview-keywords .seo-lg-top{ flex-wrap:wrap; }
@@ -22333,11 +22335,11 @@ function seoOpenSnapshot(loc, k, c, liveUrl){
   if (!s) return;
   const old = document.getElementById('seoSnap');
   if (old) old.remove();
-  const live = liveUrl || (loc.snap && loc.sourceUrl ? seoRankPageUrl(loc) || loc.sourceUrl : '') || '';
+  const live = seoFreshUule(liveUrl || (loc.snap && loc.sourceUrl ? seoRankPageUrl(loc) || loc.sourceUrl : '') || '');
   /* Live Google is only offered on page one. Further down, positions swing by
      ten or twenty places between searches, so a live page usually doesn't show
      the client at all - the snapshot above is the reliable view there. */
-  const showLive = !!live && Number(loc.rank) > 0 && Number(loc.rank) <= 10;
+  const showLive = !!live;
   const who = esc(c && c.name ? c.name : 'Client');
   const rows = Array.isArray(s.r) ? s.r : [];
   const first = rows.length ? rows[0][0] : 1, last = rows.length ? rows[rows.length - 1][0] : 0;
@@ -22358,8 +22360,8 @@ function seoOpenSnapshot(loc, k, c, liveUrl){
     packHtml +
     '<div class="seo-snap-h">Website results' + (rows.length ? ' #' + first + '–' + last : '') + (s.n ? ' <span>(' + s.n + ' read)</span>' : '') + '</div>' +
     '<ol class="seo-snap-list">' + (first > 1 ? '<li class="gap">…</li>' : '') + rows.map(rowHtml).join('') + (last && s.n && last < s.n ? '<li class="gap">…</li>' : '') + '</ol>' +
-    '<p class="seo-snap-note">This is exactly what Google returned to the scan. A live search moves results around from one search to the next and for people signed in to Google, so today’s live page can show them a few places higher or lower.' + (live && !showLive ? ' Past page one those swings are large enough that a live link would usually miss them, so none is offered here.' : '') + '</p>' +
-    '<footer>' + (showLive ? '<a class="btn btn-sm" target="_blank" rel="noopener" href="' + esc(live) + '">Open live Google</a>' : '') +
+    '<p class="seo-snap-note">This is exactly what Google returned to the scan. A live search moves results around from one search to the next and for people signed in to Google, so today’s live page can show them a few places higher or lower.' + (Number(loc.rank) > 10 ? ' Past page one the swings are bigger, so the live preview opens a few results above where the scan saw them to keep them on screen.' : '') + '</p>' +
+    '<footer>' + (showLive ? '<a class="btn btn-sm" target="_blank" rel="noopener" data-snap-live href="' + esc(live) + '">Open live preview' + (Number(loc.rank) > 9 && /[?&]start=/.test(live) ? ' (page ' + seoRankPage(loc) + ')' : '') + ' \u2197</a>' : '') +
     '<button type="button" class="btn btn-sm btn-go seo-snap-done">Done</button></footer></div>';
   const onKey = e => { if (e.key === 'Escape') close(); };
   const close = () => { ov.remove(); document.removeEventListener('keydown', onKey, true); };
@@ -22368,6 +22370,8 @@ function seoOpenSnapshot(loc, k, c, liveUrl){
   });
   document.addEventListener('keydown', onKey, true);
   document.body.appendChild(ov);
+  const sl = ov.querySelector('[data-snap-live]');
+  if (sl){ const f = () => { sl.href = seoFreshUule(sl.href); }; sl.addEventListener('pointerdown', f); sl.addEventListener('click', f); }
   const me = ov.querySelector('.seo-snap-list li.me');
   if (me && me.scrollIntoView) me.scrollIntoView({block: 'nearest'});
 }
@@ -24415,6 +24419,29 @@ function seoRankPageUrl(loc){
   if (!loc || !loc.sourceUrl) return null;
   return seoRankLink(loc.sourceUrl, Number(loc.rank) || 0, seoRankPage(loc), loc.matchedDomain, loc.matchedTitle);
 }
+/* The live preview: the same pinned search the scan ran, opened on the page
+   the client sits on, with the uule's timestamp made current at the moment of
+   the click. Google quietly drops a uule whose timestamp is old, and the search
+   then falls back to wherever the browser is, so a link stored at scan time
+   drifts the longer it sits. Everything else (coordinate, radius, hl, gl,
+   pws=0, start, the highlight) is exactly what the scan used. */
+function seoFreshUule(url){
+  if (!url) return url;
+  return String(url).replace(/([?&]uule=)a(\+|%2B)([^&#]+)/, (m, pre, plus, b64) => {
+    try{
+      const rec = atob(decodeURIComponent(b64));
+      if (!/timestamp:\d+/.test(rec)) return m;
+      return pre + uuleForUrl('a+' + btoa(rec.replace(/timestamp:\d+/, 'timestamp:' + (Date.now() * 1000))));
+    }catch(e){ return m; }
+  });
+}
+function seoLiveUrl(loc){ return seoFreshUule(seoRankPageUrl(loc) || (loc && loc.sourceUrl) || null); }
+/* Any link built from seoLiveUrl gets a fresh one just before it opens. */
+function seoLiveLink(a, loc){
+  const fresh = () => { const u = seoLiveUrl(loc); if (u) a.href = u; };
+  a.addEventListener('pointerdown', fresh); a.addEventListener('focus', fresh); a.addEventListener('click', fresh);
+  return a;
+}
 function seoCopyLink(url, btnEl){
   const isTextBtn = btnEl && btnEl.classList && btnEl.classList.contains('seo-copy-link-btn');
   const originalText = isTextBtn ? btnEl.textContent : null;
@@ -24519,11 +24546,12 @@ function seoLocGroupRow(c, k, loc){
   const sourceEl = document.createElement(sourceUrl ? 'a' : 'span');
   sourceEl.className = 'seo-kw-source' + (sourceUrl ? '' : ' disabled');
   if (sourceUrl){
-    sourceEl.href = sourceUrl; sourceEl.target = '_blank'; sourceEl.rel = 'noopener';
+    sourceEl.href = seoFreshUule(sourceUrl); sourceEl.target = '_blank'; sourceEl.rel = 'noopener';
+    seoLiveLink(sourceEl, loc);
     const pg = seoRankPage(loc);
     sourceEl.title = pg > 1
-      ? ('Open the live search at page ' + pg + ', where #' + loc.rank + ' sits — still pinned to this location')
-      : 'Open the live search result';
+      ? ('Open live preview: the live Google search at page ' + pg + ', where #' + loc.rank + ' sits, still pinned to ' + (loc.label || 'this location'))
+      : 'Open live preview: the live Google search, pinned to ' + (loc.label || 'this location');
   }
   else sourceEl.title = 'Not scanned yet';
   sourceEl.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg>';
@@ -24533,7 +24561,7 @@ function seoLocGroupRow(c, k, loc){
   if (sourceUrl){
     copyEl.type = 'button';
     copyEl.title = 'Copy this link \u2014 browsers don\u2019t let a webpage force Incognito/Private mode, but you can paste this into one yourself with Ctrl+Shift+N (Cmd+Shift+N on Mac) for an unpersonalized view';
-    copyEl.addEventListener('click', () => seoCopyLink(sourceUrl, copyEl));
+    copyEl.addEventListener('click', () => seoCopyLink(seoLiveUrl(loc) || sourceUrl, copyEl));
   } else {
     copyEl.title = 'Not scanned yet';
   }
@@ -24688,7 +24716,8 @@ function seoLocGroupRow(c, k, loc){
     statusEl.innerHTML = esc(fmtWhen(loc.checkedAt)) +
       (loc.precision === 'country' ? ' \u00b7 <b title="The pinned search was refused, so this position was read for the whole country instead of from this city.">country-wide reading</b>' : '') +
       via + score + miss + reads +
-      ' \u00b7 <a href="' + esc(seoRankPageUrl(loc) || loc.sourceUrl) + '" target="_blank" rel="noopener" data-view-search="1" title="Shows the results this rank came from. Ctrl-click opens live Google.">view the search' + (seoRankPage(loc) > 1 ? ' (page ' + seoRankPage(loc) + ')' : '') + '</a>';
+      (loc.snap ? ' \u00b7 <a href="' + esc(seoRankPageUrl(loc) || loc.sourceUrl) + '" target="_blank" rel="noopener" data-view-search="1" title="Shows the exact results this rank came from.">view the search' + (seoRankPage(loc) > 1 ? ' (page ' + seoRankPage(loc) + ')' : '') + '</a>' : '') +
+      ' \u00b7 <a href="' + esc(seoLiveUrl(loc)) + '" target="_blank" rel="noopener" data-live-preview="1" class="seo-live-a" title="Opens live Google pinned to ' + esc(loc.label || 'this location') + ', on the page the client sits on' + (Number(loc.rank) > 0 ? ' with their result highlighted' : '') + '. Live results shift a little between searches and for people signed in to Google; a private window gives the cleanest view.">Open live preview' + (Number(loc.rank) > 0 && seoRankPage(loc) > 1 ? ' (page ' + seoRankPage(loc) + ')' : '') + ' \u2197</a>';
     /* "view the search" shows the results this rank came from. Live Google moves
        results around between searches and for signed-in users, so a live page
        can miss the client even when the rank is right. A modified click (Ctrl,
@@ -24699,18 +24728,14 @@ function seoLocGroupRow(c, k, loc){
       e.preventDefault();
       seoOpenSnapshot(loc, k, c);
     });
-    /* Scanned before snapshots existed: say plainly that this opens live Google,
-       which can differ from the scan, rather than presenting it as the result. */
-    if (viewA && !loc.snap){
-      viewA.textContent = 'live Google \u2014 rescan to see what the scan saw';
-      viewA.title = 'This keyword was scanned before snapshots were kept, so this opens a fresh Google search, which can show different results. Scan it again to see exactly the results this rank came from.';
-    }
+    const liveA = statusEl.querySelector('a[data-live-preview]');
+    if (liveA) seoLiveLink(liveA, loc);
     const copyLinkBtn = document.createElement('button');
     copyLinkBtn.type = 'button';
     copyLinkBtn.className = 'seo-copy-link-btn';
     copyLinkBtn.textContent = 'Copy link';
     copyLinkBtn.title = 'Copy this link \u2014 browsers don\u2019t let a webpage force Incognito/Private mode, but you can paste this into one yourself with Ctrl+Shift+N (Cmd+Shift+N on Mac) for an unpersonalized view';
-    copyLinkBtn.addEventListener('click', () => seoCopyLink(seoRankPageUrl(loc) || loc.sourceUrl, copyLinkBtn));
+    copyLinkBtn.addEventListener('click', () => seoCopyLink(seoLiveUrl(loc), copyLinkBtn));
     statusEl.appendChild(document.createTextNode(' '));
     statusEl.appendChild(copyLinkBtn);
   }
