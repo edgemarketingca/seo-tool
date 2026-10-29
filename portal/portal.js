@@ -66,7 +66,7 @@ const P = {
   book: 'M4 4h11a3 3 0 0 1 3 3v13H7a3 3 0 0 1-3-3zM18 20a2 2 0 0 0 2-2V6',
   out2: 'M15 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4M10 17l5-5-5-5M15 12H3',
   reset: 'M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5', eye: 'M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
-  move: 'M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3', size: 'M4 9V4h5M20 15v5h-5M4 4l6 6M20 20l-6-6', check: 'M5 12l5 5 9-10',
+  move: 'M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3', size: 'M4 9V4h5M20 15v5h-5M4 4l6 6M20 20l-6-6', check: 'M5 12l5 5 9-10', clock: 'M12 7v5l3 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z',
   chev: 'M9 6l6 6-6 6', chevl: 'M15 6l-6 6 6 6', spark: 'M12 3l1.9 5.8L20 10l-6.1 1.2L12 17l-1.9-5.8L4 10l6.1-1.2z'
 };
 const ic = (k, sz) => '<svg viewBox="0 0 24 24" width="' + (sz || 18) + '" height="' + (sz || 18) + '" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="' + (P[k] || P.grid) + '"/></svg>';
@@ -151,7 +151,7 @@ const tidy = v => { v = String(v || '').trim().replace(/\s+/g, ' '); if (!v || v
 const fieldOf = (r, re) => { const f = (r.fields || []).find(x => re.test(x[0]) && String(x[1]).trim()); return f ? f[1] : ''; };
 function cityOf(r){
   if (r._city != null) return r._city;
-  let v = fieldOf(r, /^(city|town|location|office|branch|nearest (office|location)|preferred (office|location)|which (office|location)|service area)\b/i);
+  let v = fieldOf(r, /^(city|town|location|office|branch|nearest (office|location|city|town)|closest (city|town|office)|preferred (office|location)|which (office|location)|service area)\b/i);
   if (!v){
     const p = String(r.page || '').split('?')[0].replace(/\/+$/, '').split('/').filter(Boolean);
     if (p.length >= 2 && /contact|location|office|branch|area|cit(y|ies)|service-area/i.test(p[p.length - 2])) v = p[p.length - 1].replace(/[-_]+/g, ' ');
@@ -173,6 +173,7 @@ const W = {
   inbox: {g: 'Leads', t: 'Lead inbox', d: 'Every form submission in one searchable inbox: filter by city, source, form and page.', ic: 'inbox', tint: '#0f7a58', c: 12, sk: 'inbox', needs: ['forms'], draw: drawInbox},
   trend: {g: 'Leads', t: 'Leads over time', d: 'Form submissions, calls and new contacts, day by day.', ic: 'line', tint: T.forms, c: 8, sk: 'chart', needs: ['forms', 'calls', 'contacts'], soft: true, ds: 'Form leads and calls from your website, day by day.', draw: drawTrend},
   sources: {g: 'Leads', t: 'Lead sources', d: 'Where your form leads came from: organic, paid, direct, social and more.', ic: 'donut', tint: '#16a37a', c: 4, sk: 'chart', needs: ['forms'], draw: drawSources},
+  near_city: {g: 'Leads', t: 'Leads by nearest city', d: 'Each lead’s nearest city, and the channel it came through: organic, paid, direct and more.', ds: 'Each lead’s nearest city, and the channel it came through: organic, paid, direct and more.', ic: 'pin', tint: '#0b8fa3', c: 12, sk: 'list', needs: ['forms'], only: ['kcbdesignbuild.com'], draw: drawNearCity},
   locations: {g: 'Leads', t: 'Where leads come from', d: 'Leads by city and by province, with the change from the period before.', ic: 'pin', tint: T.loc, c: 6, sk: 'list', needs: ['forms', 'contacts'], soft: true, draw: drawLocations},
   forms_by: {g: 'Leads', t: 'Leads by form', d: 'Which forms bring in the most leads.', ic: 'bars', tint: T.forms, c: 6, sk: 'list', needs: ['forms'], draw: drawFormsBy},
   pages: {g: 'Leads', t: 'Top pages for leads', d: 'The pages people were on when they sent a form.', ic: 'book', tint: '#0891b2', c: 6, sk: 'list', needs: ['forms'], draw: drawPages},
@@ -190,7 +191,7 @@ const W = {
 /* Where this business's data comes from: its Easyleads account, or the EDGE tracker (website forms, phone taps). */
 const SITE_K = {forms: 1, calls: 1};
 const srcOf = () => ((S.me && S.me.clients.find(c => c.domain === S.domain)) || {}).source || 'easyleads';
-const okFor = t => { const w = W[t]; if (!w) return false; if (t === 'note' || srcOf() === 'easyleads') return true; if (w.el) return false; return w.soft ? w.needs.some(k => SITE_K[k]) : w.needs.every(k => SITE_K[k]); };
+const okFor = t => { const w = W[t]; if (!w) return false; if (w.only && w.only.indexOf(S.domain) < 0) return false; if (t === 'note' || srcOf() === 'easyleads') return true; if (w.el) return false; return w.soft ? w.needs.some(k => SITE_K[k]) : w.needs.every(k => SITE_K[k]); };
 const needsOf = it => it.t === 'note' ? (it.about && W[it.about] && it.about !== 'note' ? W[it.about].needs : []) : W[it.t].needs;
 /* Anything a business can't have yet is left out of its report entirely (it stays in the layout, so it shows up by itself once available). */
 const visIt = it => it.t === 'note' ? (!it.about || okFor(it.about)) : okFor(it.t);
@@ -329,7 +330,71 @@ function drawKpis(h, D){
 /* ----- Lead inbox ----- */
 /* Forms are named "site.com - Request a Quote": the site part is noise inside the client's own dashboard. */
 const formLabel = f => String(f || 'Website form').replace(/^[a-z0-9.-]+\.[a-z]{2,}\s*[-–—:|]\s*/i, '') || String(f);
-const IB_FACETS = [['form', 'Form', f => f.form], ['city', 'City', cityOf], ['source', 'Source', f => chGroup(f.channel)], ['page', 'Page', pathOf]];
+const IB_FACETS = [['form', 'Form', f => f.form], ['city', 'City', cityOf], ['source', 'Source', f => chGroup(f.channel)], ['page', 'Page', pathOf], ['mark', 'Status', f => markStatus(IB_M, f)]];
+let IB_M = {};
+/* KCB: every lead with its nearest city and the channel it came through. */
+function drawNearCity(h, D, it){
+  const st = S.ui[it.id] = S.ui[it.id] || {city: ''};
+  const rows = D.forms.rows;
+  if (!rows.length){ h.innerHTML = '<div class="empty">No leads in this period yet.</div>'; return; }
+  const cityName = r => cityOf(r) || 'Not given';
+  const cities = groupBy(rows, cityName), max = Math.max(...cities.map(c => c.n));
+  const chans = [...new Set(rows.map(r => chGroup(r.channel)))].sort((a, b) => rows.filter(r => chGroup(r.channel) === b).length - rows.filter(r => chGroup(r.channel) === a).length);
+  const paint = () => {
+    const list = rows.filter(r => !st.city || cityName(r) === st.city).sort((a, b) => b.at - a.at);
+    h.innerHTML = '<div class="nc fade-in"><div class="nc-cities">' + cities.slice(0, 12).map(c => {
+      const mine = rows.filter(r => cityName(r) === c.k);
+      const segs = chans.map(g => [g, mine.filter(r => chGroup(r.channel) === g).length]).filter(x => x[1]);
+      return '<button type="button" class="nc-c' + (st.city === c.k ? ' on' : '') + (c.k === 'Not given' ? ' muted' : '') + '" data-city="' + esc(c.k) + '"><span class="nm">' + ic('pin', 13) + esc(c.k) + '</span>' +
+        '<span class="bar" style="width:' + Math.max(8, c.n / max * 100) + '%">' + segs.map(x => '<i style="flex:' + x[1] + ';background:' + chColor(x[0]) + '" title="' + esc(x[0]) + ': ' + x[1] + '"></i>').join('') + '</span><b>' + c.n + '</b></button>';
+    }).join('') + '</div>' +
+      '<div class="nc-leg">' + chans.map(g => '<span><i style="background:' + chColor(g) + '"></i>' + esc(g) + '</span>').join('') + (st.city ? '<button type="button" data-all>Show every city</button>' : '') + '</div>' +
+      '<div class="nc-tbl"><table><thead><tr><th>Lead</th><th>Nearest city</th><th>Came through</th><th>Received</th></tr></thead><tbody>' +
+      list.slice(0, 80).map((r, i) => { const g = chGroup(r.channel); return '<tr data-i="' + i + '"><td><b>' + esc(r.name || r.email || r.phone || 'New submission') + '</b><small>' + esc(formLabel(r.form)) + '</small></td>' +
+        '<td>' + (cityOf(r) ? esc(cityOf(r)) : '<span class="muted">Not given</span>') + '</td><td><span class="nc-ch" style="--c:' + chColor(g) + '"><i></i>' + esc(g === 'Not recorded' ? 'Not recorded' : g) + '</span>' + (r.channel && g !== r.channel && g !== 'Not recorded' ? '<small>' + esc(r.channel) + '</small>' : '') + '</td>' +
+        '<td class="dt">' + esc(fullDate(r.at)) + '</td></tr>'; }).join('') + '</tbody></table></div></div>';
+    h.querySelectorAll('[data-city]').forEach(b => b.addEventListener('click', () => { st.city = st.city === b.dataset.city ? '' : b.dataset.city; paint(); }));
+    const all = h.querySelector('[data-all]'); if (all) all.addEventListener('click', () => { st.city = ''; paint(); });
+    h.querySelectorAll('tr[data-i]').forEach(tr => tr.addEventListener('click', () => openSubmission(list[Number(tr.dataset.i)])));
+  };
+  paint();
+}
+/* ----- lead marks: Done / Pending / Spam, one per person, kept on the tracker ----- */
+const MARKS = {done: ['Done', '#0f9d6b', 'check'], pending: ['Pending', '#d9820b', 'clock'], spam: ['Spam', '#e0413a', 'x']};
+const myMarkName = () => S.me && S.me.edge ? 'EDGE Marketing' : (S.me && S.me.user.name) || '';
+function marksFor(domain){
+  S.marks = S.marks || {};
+  const c = S.marks[domain];
+  if (c && Date.now() - c.at < 60000) return c.p;
+  const p = api('portalMarks', {session: S.session, domain}).then(j => { if (j.error) throw new Error(j.error); return j.marks || {}; });
+  S.marks[domain] = {at: Date.now(), p};
+  p.catch(() => { delete S.marks[domain]; });
+  return p;
+}
+const markStatus = (M, r) => { const l = (M && M[r.id]) || []; return l.length ? MARKS[l[l.length - 1].s][0] : 'Unmarked'; };
+function marksHtml(list, id){
+  const mine = myMarkName();
+  return (list || []).map(m => '<span class="mk-chip' + (m.name === mine ? ' me' : '') + '" style="--c:' + MARKS[m.s][1] + '" title="' + esc(MARKS[m.s][0] + ' · ' + (m.name || m.by) + ' · ' + fullDate(m.t)) + '">' + ic(MARKS[m.s][2], 11) + MARKS[m.s][0] + '<em>' + esc(m.by) + '</em></span>').join('') +
+    '<button type="button" class="mk-add" data-mk="' + esc(id) + '" title="Mark this lead" aria-label="Mark this lead">' + ((list || []).some(m => m.name === mine) ? ic('edit', 12) : ic('plus', 12) + '<span>Mark</span>') + '</button>';
+}
+function markMenu(btn, r, M, onDone){
+  closePops();
+  const mine = myMarkName(), cur = ((M[r.id] || []).find(m => m.name === mine) || {}).s;
+  const m = document.createElement('div'); m.className = 'mk-menu'; m.dataset.pop = 1;
+  m.innerHTML = '<div class="mk-h">Mark as</div>' + Object.keys(MARKS).map(k => '<button type="button" data-s="' + k + '" style="--c:' + MARKS[k][1] + '"' + (cur === k ? ' class="on"' : '') + '><i>' + ic(MARKS[k][2], 12) + '</i>' + MARKS[k][0] + (cur === k ? '<small>yours</small>' : '') + '</button>').join('') +
+    (cur ? '<button type="button" data-s="none" class="clr">Remove my mark</button>' : '') + '<div class="mk-f">Others’ marks stay as they are.</div>';
+  btn.parentNode.appendChild(m);
+  m.addEventListener('click', e => e.stopPropagation());
+  m.querySelectorAll('[data-s]').forEach(b => b.addEventListener('click', async () => {
+    const s = b.dataset.s; closePops();
+    const before = (M[r.id] || []).slice();
+    const others = before.filter(x => x.name !== mine);
+    M[r.id] = s === 'none' ? others : others.concat({s, by: S.me && S.me.edge ? 'EM' : initials(mine || S.me.user.email), name: mine, t: Date.now()});
+    onDone();
+    try{ const j = await api('portalMark', {session: S.session, domain: S.domain, id: r.id, s}); if (j.error) throw new Error(j.error); M[r.id] = j.marks || []; onDone(); }
+    catch(e){ M[r.id] = before; onDone(); toast('Couldn’t save that mark: ' + e.message); }
+  }));
+}
 function drawInbox(h, D, it){
   const st = S.ui[it.id] = S.ui[it.id] || {q: '', sort: 'new', f: {}};
   const rows = D.forms.rows, prev = D.forms.prev;
@@ -349,19 +414,20 @@ function drawInbox(h, D, it){
   const match = (r, skip) => IB_FACETS.every(([k, , f]) => k === skip || !st.f[k] || f(r) === st.f[k]) &&
     (!st.q || [r.name, r.email, r.phone, r.company, r.message, r.form, cityOf(r), regionOf(r), r.page, (r.fields || []).map(x => x[1]).join(' ')].join(' ').toLowerCase().indexOf(st.q.toLowerCase()) > -1);
   const shownRows = () => rows.filter(r => match(r)).sort((a, b) => st.sort === 'new' ? b.at - a.at : a.at - b.at);
-  let limit = 30;
+  let limit = 30, M = {};
   const paint = () => {
+    IB_M = M;
     const list = shownRows();
     /* filter chips */
     $('[data-chips]').innerHTML = IB_FACETS.map(([k, label]) => '<div class="fchip"><button type="button" data-chip="' + k + '"' + (st.f[k] ? ' class="on"' : '') + '>' + esc(st.f[k] ? label + ': ' + (k === 'form' ? formLabel(st.f[k]) : st.f[k]) : label) + ic('down', 14) + '</button></div>').join('');
     $('[data-chips]').querySelectorAll('[data-chip]').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); chipMenu(b); }));
     /* facets */
-    $('[data-side]').innerHTML = [['city', 'City', 'pin'], ['source', 'Source', 'source'], ['form', 'Form', 'form'], ['page', 'Page', 'book']].map(([k, title, icon]) => {
+    $('[data-side]').innerHTML = [['mark', 'Status', 'check'], ['city', 'City', 'pin'], ['source', 'Source', 'source'], ['form', 'Form', 'form'], ['page', 'Page', 'book']].map(([k, title, icon]) => {
       const f = IB_FACETS.find(x => x[0] === k)[2];
       const all = groupBy(rows.filter(r => match(r, k)), f), g = all.slice(0, 6);
       if (!g.length) return '';
       const max = Math.max(...g.map(x => x.n)), tot = all.reduce((a, x) => a + x.n, 0);
-      const col = x => k === 'source' ? chColor(x.k) : k === 'city' ? '#0f9d6b' : k === 'form' ? '#1d7cf2' : '#7c5cff';
+      const col = x => k === 'mark' ? ((Object.values(MARKS).find(v => v[0] === x.k) || [0, '#94a3b8'])[1]) : k === 'source' ? chColor(x.k) : k === 'city' ? '#0f9d6b' : k === 'form' ? '#1d7cf2' : '#7c5cff';
       const lab = x => k === 'form' ? formLabel(x.k) : x.k;
       return '<section class="fs"><h5><span class="hi" style="--c:' + col(g[0]) + '">' + ic(icon, 13) + '</span>' + esc(title) + (all.length > 6 ? '<small>Top 6 of ' + all.length + '</small>' : '') + '</h5><div class="facet">' +
         g.map(x => '<button type="button" data-fk="' + k + '" data-fv="' + esc(x.k) + '" title="' + esc(x.k) + '"' + (st.f[k] === x.k ? ' class="on"' : '') + ' style="--c:' + col(x) + '">' +
@@ -373,13 +439,20 @@ function drawInbox(h, D, it){
     const cl = $('[data-clear]'); if (cl) cl.addEventListener('click', () => { st.f = {}; st.q = ''; $('[data-q]').value = ''; paint(); });
     $('[data-list]').innerHTML = list.length ? list.slice(0, limit).map((r, i) => {
       const nm = r.name || r.email || r.phone || 'New submission', city = cityOf(r), g = chGroup(r.channel);
-      return '<button class="card" type="button" data-i="' + i + '"><div class="av" style="background:' + hue(nm) + '">' + esc(initials(nm)) + '</div><div class="cb"><div class="ch"><b>' + esc(nm) + '</b><time>' + esc(fullDate(r.at)) + '</time></div>' +
+      return '<div class="ibrow"><button class="card" type="button" data-i="' + i + '"><div class="av" style="background:' + hue(nm) + '">' + esc(initials(nm)) + '</div><div class="cb"><div class="ch"><b>' + esc(nm) + '</b><time>' + esc(fullDate(r.at)) + '</time></div>' +
         '<div class="cc">' + esc([r.email, r.phone].filter(Boolean).join(' · ') || r.company || '—') + '</div>' + (r.message ? '<div class="cm">' + esc(r.message) + '</div>' : '') +
         '<div class="tags"><span class="tag" title="' + esc(r.form) + '"><i style="background:#1d7cf2"></i>' + esc(formLabel(r.form)) + '</span>' + (city ? '<span class="tag loc">' + ic('pin', 12) + esc(city) + '</span>' : '') +
-        (g !== 'Not recorded' ? '<span class="tag"><i style="background:' + chColor(g) + '"></i>' + esc(r.channel) + '</span>' : '') + '</div></div></button>';
+        (g !== 'Not recorded' ? '<span class="tag"><i style="background:' + chColor(g) + '"></i>' + esc(r.channel) + '</span>' : '') + '</div></div></button>' +
+        '<div class="mk" data-mki="' + i + '">' + marksHtml(M[r.id], r.id) + '</div></div>';
     }).join('') + (list.length > limit ? '<button class="more" type="button" data-more>Show more · ' + fmt(list.length - limit) + ' left</button>' : '')
       : '<div class="empty">' + (rows.length ? 'No submissions match these filters.' : 'No form submissions in this period yet.') + '</div>';
     $('[data-list]').querySelectorAll('.card').forEach(el => el.addEventListener('click', () => openSubmission(list[Number(el.dataset.i)])));
+    $('[data-list]').querySelectorAll('[data-mki]').forEach(box => box.addEventListener('click', e => {
+      const b = e.target.closest('[data-mk]'); if (!b) return;
+      e.stopPropagation();
+      const r = list[Number(box.dataset.mki)];
+      markMenu(b, r, M, () => { box.innerHTML = marksHtml(M[r.id], r.id); });
+    }));
     const mo = $('[data-more]'); if (mo) mo.addEventListener('click', () => { limit += 30; paint(); });
   };
   const chipMenu = b => {
@@ -395,8 +468,10 @@ function drawInbox(h, D, it){
   let qT = null;
   $('[data-q]').addEventListener('input', e => { clearTimeout(qT); qT = setTimeout(() => { st.q = e.target.value.trim(); limit = 30; paint(); }, 140); });
   $('[data-sort]').addEventListener('click', e => { st.sort = st.sort === 'new' ? 'old' : 'new'; e.currentTarget.textContent = st.sort === 'new' ? 'Newest first' : 'Oldest first'; paint(); });
-  $('[data-export]').addEventListener('click', () => csv('leads-' + S.domain + '-' + iso(Date.now()) + '.csv', [['Received', 'Name', 'Email', 'Phone', 'Company', 'City', 'Province', 'Source', 'Form', 'Page', 'Message']].concat(shownRows().map(r => [fullDate(r.at), r.name, r.email, r.phone, r.company, cityOf(r), regionOf(r), r.channel, r.form, r.page, r.message]))));
+  $('[data-export]').addEventListener('click', () => csv('leads-' + S.domain + '-' + iso(Date.now()) + '.csv', [['Received', 'Name', 'Email', 'Phone', 'Company', 'City', 'Province', 'Source', 'Form', 'Page', 'Message', 'Marks']].concat(shownRows().map(r => [fullDate(r.at), r.name, r.email, r.phone, r.company, cityOf(r), regionOf(r), r.channel, r.form, r.page, r.message, (M[r.id] || []).map(m => MARKS[m.s][0] + ' (' + m.by + ')').join('; ')]))));
   paint();
+  const dom = S.domain;
+  marksFor(dom).then(m => { if (!h.isConnected || S.domain !== dom) return; M = m; paint(); }).catch(() => {});
 }
 function csv(name, rows){
   const s = rows.map(r => r.map(v => { v = String(v == null ? '' : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }).join(',')).join('\n');
@@ -766,6 +841,13 @@ function layout(){
     if (!L.dashes.some(d => d.items.some(i => i.t === 'people'))){ const sales = L.dashes.find(d => /sales/i.test(d.name)); if (sales) sales.items.push(item('people')); else L.dashes.push({id: uid(), name: 'Contacts', items: [item('people')]}); }
     L.v = LAYOUT_V; setTimeout(saveLayout, 0);
   }
+  /* Widgets made for one client appear on their dashboard by themselves (hidden everywhere else). */
+  Object.keys(W).filter(t => W[t].only && W[t].only.indexOf(S.domain) > -1).forEach(t => {
+    const L = S.layout;
+    if (L.dashes.some(d => d.items.some(i => i.t === t))) return;
+    const first = L.dashes[0], at = first.items.findIndex(i => i.t === 'kpis');
+    first.items.splice(at < 0 ? 0 : at + 1, 0, item(t));
+  });
   return S.layout;
 }
 let saveT = null;
@@ -869,7 +951,7 @@ function drawGrid(dash){
       '<span class="grip" title="Drag to move">' + ic('move', 15) + '</span>' +
       (it.t === 'note' ? '<button class="tb" type="button" data-note title="Edit heading and summary">' + ic('edit', 13) + '</button>' : '<button class="tb" type="button" data-sum title="Add a heading and summary above this widget">' + ic('spark', 13) + '</button>') +
       '<button class="tb" type="button" data-size title="Size">' + ic('size', 13) + '<span>' + cols + '/12</span></button><button class="tb" type="button" data-del title="Remove">' + ic('x', 13) + '</button></div></div>' +
-      '<div class="wbody" data-body>' + SK[def.sk || 'list']() + '</div>' +
+      '<div class="wbody" data-body><div class="wl">' + SK[def.sk || 'list']() + '<div class="wl-badge"><span class="wl-ring"><img src="img/easyleads-mark.png" alt=""></span><span class="wl-t">Loading ' + esc(String(title).toLowerCase()) + '</span></div></div></div>' +
       (canEdit() ? '<div class="rz rz-e" data-rz="e" title="Drag to change the width"></div><div class="rz rz-s" data-rz="s" title="Drag to change the height · double-click to fit"></div><div class="rz rz-se" data-rz="se" title="Drag to resize"></div>' : '');
     grid.appendChild(el);
     if (ro) ro.observe(el); else fitRow(el);
