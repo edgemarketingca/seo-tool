@@ -111,6 +111,10 @@ function styles(){
 .elws-login .who{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;} .elws-login .who small{color:#8a9bb0;}
 .elws-login button{border:0;background:none;color:#0b6fd6;font:600 12px var(--ui,Inter,sans-serif);cursor:pointer;padding:2px 4px;}
 .elws-c .acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:auto;}
+.elws-rf{flex:none;width:30px;height:30px;border-radius:9px;border:1px solid #e3ebf5;background:#fff;color:#4c5d70;display:grid;place-items:center;cursor:pointer;transition:all .15s;}
+.elws-rf:hover{border-color:#1d94ff;color:#0b6fd6;background:#f3f8ff;}
+.elws-rf[disabled]{cursor:default;color:#1d94ff;} .elws-rf[disabled] svg{animation:elwbs .8s linear infinite;}
+.elws-c.checking .elws-access{opacity:.45;transition:opacity .2s;}
 .elws-empty{background:#fff;border:1.5px dashed #d6e2f0;border-radius:16px;padding:40px;text-align:center;color:#5b6b7c;}
 .elws-note{background:#fff;border:1px solid #e3ebf5;border-left:3px solid #1d94ff;border-radius:12px;padding:12px 14px;font-size:12.5px;color:#4c5d70;line-height:1.55;margin-bottom:16px;}
 .hub-switch{display:inline-flex;align-items:center;gap:6px;}
@@ -191,7 +195,7 @@ function workspace(){
     '<span style="font-size:12px;color:#6b7a90">' + esc(mail) + '</span>' +
     '<button class="elws-btn" type="button" data-switch>' + IC.swap + 'Switch workspace</button><button class="elws-btn" type="button" data-signout>Sign out</button></div></header>' +
     '<main class="elws-wrap"><div class="elws-hero"><div><h1>Easyleads clients</h1><p>Connect a client’s Easyleads account once, then give them a login to their own read-only dashboard.</p></div>' +
-    '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="elws-btn" type="button" data-copy>' + IC.link + 'Copy client login link</button><button class="elws-btn" type="button" data-check>' + IC.refresh + 'Re-check data access</button>' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="elws-btn" type="button" data-copy>' + IC.link + 'Copy client login link</button><button class="elws-btn" type="button" data-check>' + IC.refresh + 'Re-check all clients</button>' +
     '<button class="elws-btn" type="button" data-bulk>' + IC.user + 'Bulk create logins</button><button class="elws-btn go" type="button" data-new>' + IC.user + 'New client login</button></div></div>' +
     '<div class="elws-stats" data-stats></div><div data-note></div>' +
     '<div class="elws-bar"><input type="search" data-q placeholder="Find a client by name or website"><div class="elws-seg" data-f>' +
@@ -201,6 +205,8 @@ function workspace(){
   document.body.classList.add('hub-locked');
   const $ = s => el.querySelector(s);
   let data = {users: [], clients: [], scopes: null}, filter = 'all';
+  const checking = new Set();
+  const markCard = (domain, on) => { const card = el.querySelector('[data-card="' + CSS.escape(domain) + '"]'); if (!card) return; card.classList.toggle('checking', on); const b = card.querySelector('[data-recheck]'); if (b) b.disabled = on; };
   const LBL = [['forms', 'Forms'], ['calls', 'Calls'], ['contacts', 'Contacts'], ['opps', 'Pipeline'], ['appts', 'Bookings'], ['emails', 'Email']];
   const access = d => { const r = data.scopes && data.scopes.d && data.scopes.d[d]; return r ? LBL.map(l => ({k: l[0], label: l[1], ok: typeof r[l[0]] === 'number', unk: r[l[0]] == null})).filter(x => !x.unk) : null; };
   const reload = async () => {
@@ -224,8 +230,9 @@ function workspace(){
       .filter(c => filter === 'all' || (filter === 'conn' && c.connected) || (filter === 'login' && usersOf(c.domain).length) || (filter === 'need' && needs(c)));
     $('[data-grid]').innerHTML = rows.length ? rows.map(c => {
       const us = usersOf(c.domain), a = access(c.domain);
-      return '<div class="elws-c"><div class="h"><img src="https://www.google.com/s2/favicons?domain=' + encodeURIComponent(c.domain) + '&sz=64" alt="" onerror="this.style.visibility=\'hidden\'"><div><b title="' + esc(c.name) + '">' + esc(c.name) + '</b><small>' + esc(c.domain) + '</small></div>' +
-        (c.connected ? '<span class="elws-pill ok">● Easyleads</span>' : '<span class="elws-pill site">● Website forms</span>') + '</div>' +
+      return '<div class="elws-c" data-card="' + esc(c.domain) + '"><div class="h"><img src="https://www.google.com/s2/favicons?domain=' + encodeURIComponent(c.domain) + '&sz=64" alt="" onerror="this.style.visibility=\'hidden\'"><div><b title="' + esc(c.name) + '">' + esc(c.name) + '</b><small>' + esc(c.domain) + '</small></div>' +
+        (c.connected ? '<span class="elws-pill ok">● Easyleads</span>' : '<span class="elws-pill site">● Website forms</span>') +
+        '<button class="elws-rf" type="button" data-recheck="' + esc(c.domain) + '" title="Refresh this client: picks up a new Easyleads connection and re-checks what its dashboard can show" aria-label="Refresh ' + esc(c.name) + '">' + IC.refresh + '</button></div>' +
         (c.connected ? (a ? '<div class="elws-access" title="What this client’s dashboard can show">' + a.map(x => '<span class="' + (x.ok ? 'y' : '') + '">' + (x.ok ? '✓ ' : '✕ ') + x.label + '</span>').join('') + '</div>' : '<div class="elws-access"><span>Data access not checked yet</span></div>')
           : '<div class="elws-access"><span class="y">✓ Forms</span><span class="y">✓ Calls (GA4)</span><span>Leads from the website forms EDGE tracks</span></div>') +
         '<div class="elws-logins">' + (us.length ? us.map(u => '<div class="elws-login"><span class="av">' + esc((u.name || u.email).slice(0, 2).toUpperCase()) + '</span><span class="who">' + esc(u.name || u.email) + ' <small>' + esc(u.email) + (u.disabled ? ' · disabled' : u.lastLogin ? '' : ' · not signed in yet') + '</small></span>' +
@@ -233,6 +240,8 @@ function workspace(){
         '<div class="acts"><button class="elws-btn go" type="button" data-newfor="' + esc(c.domain) + '">' + IC.user + 'Create login</button>' +
         (us[0] ? '<button class="elws-btn" type="button" data-as="' + esc(us[0].id) + '" title="Opens their dashboard as they see it; arrange it there">' + IC.eye + 'Open &amp; arrange dashboard</button>' : '') + '</div></div>';
     }).join('') : '<div class="elws-empty">No clients match.</div>';
+    el.querySelectorAll('[data-recheck]').forEach(b => b.addEventListener('click', () => recheck(b.dataset.recheck)));
+    checking.forEach(d => markCard(d, true));
     el.querySelectorAll('[data-newfor]').forEach(b => b.addEventListener('click', () => PA.open({newFor: b.dataset.newfor, onClose: reload})));
     el.querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => PA.open({editId: b.dataset.edit, onClose: reload})));
     el.querySelectorAll('[data-as]').forEach(b => b.addEventListener('click', async () => {
@@ -240,6 +249,23 @@ function workspace(){
       try{ const j = await PA.call('portalAdminSession', {id: b.dataset.as}); if (w) w.location = PA.portalUrl() + '#s=' + encodeURIComponent(j.session); }
       catch(e){ if (w) w.close(); say(e.message, 'err'); }
     }));
+  }
+  /* One client at a time: re-reads its connection and what its dashboard can show, without waiting on everyone else. */
+  async function recheck(domain, quiet){
+    if (checking.has(domain)) return;
+    checking.add(domain);
+    const mark = on => markCard(domain, on);
+    mark(true);
+    const name = ((data.clients.find(c => c.domain === domain) || {}).name) || domain;
+    try{
+      await PA.call('portalAdminCheck', {domain});
+      await reload();
+      if (!quiet){
+        const c = data.clients.find(x => x.domain === domain), a = access(domain);
+        say(!c || !c.connected ? name + ' refreshed · website forms' : a ? name + ' refreshed · ' + a.filter(x => x.ok).length + ' of ' + a.length + ' data types on' : name + ' refreshed');
+      }
+    }catch(err){ if (!quiet) say(err.message, 'err'); }
+    checking.delete(domain); mark(false);
   }
   $('[data-q]').addEventListener('input', draw);
   el.querySelectorAll('[data-f] button').forEach(b => b.addEventListener('click', () => { filter = b.dataset.v; el.querySelectorAll('[data-f] button').forEach(x => x.classList.toggle('on', x === b)); draw(); }));
@@ -263,7 +289,8 @@ function workspace(){
   let shown = false;
   const reveal = () => { if (!shown){ shown = true; if (sp) sp.hide(700); } };
   setTimeout(reveal, 12000);
-  reload().then(reveal, reveal);
+  /* A client connected since the last check is checked on its own, so its card fills in by itself. */
+  reload().then(() => { reveal(); data.clients.filter(c => c.connected && !access(c.domain)).reduce((p, c) => p.then(() => recheck(c.domain, true)), Promise.resolve()); }, reveal);
 }
 
 /* ---------- bulk create: one login per connected client, in one go ---------- */
