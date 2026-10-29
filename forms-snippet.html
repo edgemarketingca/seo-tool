@@ -1,0 +1,199 @@
+<!-- EDGE form tracking: sends each successful website form submission to the EDGE SEO tool.
+     Concrete CMS: Dashboard > System & Settings > SEO & Statistics > Tracking Codes (footer).
+     WordPress:    Code Snippets (or your header & footer plugin) > Footer.
+     Change only the settings at the top: domain (as on the tracker's Clients tab) and, optionally, form names.
+     Works with Concrete Express forms, the older concrete5 Form block (5.6, 5.7, 8) and Formidable, and on WordPress with Contact Form 7, Gravity Forms,
+     WPForms, Elementor, Formidable, Ninja Forms, Fluent Forms, Forminator and Divi. Easyleads (GoHighLevel) forms
+     are read from GoHighLevel directly, so they are left alone here. -->
+<script>
+(function () {
+  var CFG = {
+    endpoint: 'https://script.google.com/macros/s/AKfycbxMo_HxvIJaxd9ZW7NHDR-wcYfNsf--E4ES0k_VcNcWXLkmKW1f5qta_x8ONQHewfnOOg/exec',
+    domain: 'example.com',
+    /* Optional names, by form key: Express form id, "formidable:<id>", "cf7:<id>", "gf:<id>", "wpforms:<id>",
+       "elementor:<id>", "ninja:<id>", "fluent:<id>", "forminator:<id>", "divi:<n>". Otherwise the form's own name or the page title is used. */
+    names: {}
+  };
+  var SRC_KEY = 'edge_form_src', PEND_KEY = 'edge_form_pending';
+  function get(k, s) { try { return JSON.parse((s || localStorage).getItem(k) || 'null'); } catch (e) { return null; } }
+  function put(k, v, s) { try { (s || localStorage).setItem(k, JSON.stringify(v)); } catch (e) {} }
+  function del(k, s) { try { (s || localStorage).removeItem(k); } catch (e) {} }
+
+  /* 1. Where the visitor first came from (kept 90 days). A new ad click or campaign replaces it. */
+  try {
+    var q = new URLSearchParams(location.search), ref = document.referrer || '';
+    var external = ref && ref.indexOf(location.hostname) === -1;
+    var tagged = q.get('utm_source') || q.get('gclid') || q.get('msclkid') || q.get('fbclid');
+    var cur = get(SRC_KEY);
+    if (!cur || cur.exp < Date.now() || tagged) {
+      put(SRC_KEY, {
+        us: q.get('utm_source') || '', um: q.get('utm_medium') || '', uc: q.get('utm_campaign') || '',
+        gclid: q.get('gclid') ? 1 : 0, msclkid: q.get('msclkid') ? 1 : 0, fbclid: q.get('fbclid') ? 1 : 0,
+        ref: external ? ref.split('?')[0] : '', land: location.pathname, exp: Date.now() + 90 * 864e5
+      });
+    }
+  } catch (e) {}
+
+  /* 2. Read a form: every filled-in field, by its label. */
+  var GROUP = '.form-group, .mb-3, fieldset, .formidable-element, .element, .gfield, .wpforms-field, .elementor-field-group, .frm_form_field, ' +
+    '.nf-field-container, .ff-el-group, .forminator-field, .forminator-row, .wpcf7-form-control-wrap, .row, tr';
+  function text(el) { return el ? (el.textContent || '').replace(/\s+/g, ' ').replace(/\*/g, '').trim() : ''; }
+  function ownText(label, el) {
+    /* A label that wraps its input: its words without the input's own text. */
+    var c = label.cloneNode(true);
+    Array.prototype.forEach.call(c.querySelectorAll('input, select, textarea, .wpcf7-not-valid-tip, option'), function (x) { x.parentNode.removeChild(x); });
+    return text(c);
+  }
+  function labelOf(el, form) {
+    var l = el.id && form.querySelector('label[for="' + el.id + '"]');
+    if (l && el.type !== 'checkbox' && el.type !== 'radio') return text(l);
+    var wrap = el.closest('label');
+    if (wrap && el.type !== 'checkbox' && el.type !== 'radio' && ownText(wrap, el)) return ownText(wrap, el);
+    var g = el.closest(GROUP) || el.parentElement;
+    var gl = g && g.querySelector('legend, .gfield_label, .wpforms-field-label, .elementor-field-label, .frm_primary_label, .nf-field-label label, .ff-el-input--label label, .forminator-label, label:not([for]), .form-label, label, td.question');
+    if (gl && !gl.contains(el) && (!el.id || (gl.getAttribute('for') || '') !== el.id)) return text(gl);
+    if ((el.type === 'checkbox' || el.type === 'radio') && g) { var first = g.querySelector('label'); if (first) return text(first); }
+    if (l) return text(l);
+    /* Contact Form 7 without labels: the text just before the field. */
+    var p = el.closest('p'); if (p) { var t = ownText(p, el); if (t) return t; }
+    return el.getAttribute('aria-label') || el.placeholder || String(el.name).replace(/^form_fields\[|\]$/g, '').replace(/^your-/, '') || 'Field';
+  }
+  function read(form) {
+    var f = {};
+    Array.prototype.forEach.call(form.elements, function (el) {
+      var t = (el.type || '').toLowerCase();
+      if (!el.name || /^(hidden|password|submit|button|reset|image)$/.test(t) || /captcha|ccm_token|honeypot|hcaptcha|cf-turnstile|_wpcf7|ak_hp|ak_js/i.test(el.name)) return;
+      if (el.offsetParent === null && t !== 'checkbox' && t !== 'radio' && el.tagName !== 'SELECT' && /hp|honey|website_url|fax_only/i.test(el.name + ' ' + el.className)) return;
+      var v = '';
+      if (t === 'checkbox' || t === 'radio') { if (!el.checked) return; v = text(el.closest('label')) || (el.id && text(form.querySelector('label[for="' + el.id + '"]'))) || el.value; }
+      else if (t === 'file') v = Array.prototype.map.call(el.files || [], function (x) { return x.name; }).join(', ');
+      else if (el.tagName === 'SELECT') v = Array.prototype.filter.call(el.options, function (o) { return o.selected && o.value; }).map(function (o) { return o.text; }).join(', ');
+      else v = el.value;
+      v = String(v || '').trim();
+      if (!v) return;
+      var k = labelOf(el, form);
+      f[k] = f[k] ? f[k] + ', ' + v : v;
+    });
+    return f;
+  }
+  function val(form, sel) { var e = form.querySelector(sel); return e ? e.value : ''; }
+  function keyOf(form) {
+    var v;
+    if ((v = val(form, '[name="express_form_id"]'))) return v;
+    if ((v = val(form, '[name="_wpcf7"]'))) return 'cf7:' + v;
+    if ((v = val(form, '[name="gform_submit"]'))) return 'gf:' + v;
+    if ((v = val(form, '[name="wpforms[id]"]'))) return 'wpforms:' + v;
+    if ((v = val(form, '[name="form_id"]')) && form.closest('.elementor-widget-form, .elementor-form')) return 'elementor:' + v;
+    if ((v = val(form, '[name="formID"]'))) return 'formidable:' + v;
+    if ((v = val(form, '[name="form_id"]')) && /frm/.test(form.className)) return 'formidable:' + v;
+    if (form.closest('.nf-form-cont')) return 'ninja:' + ((form.closest('.nf-form-cont').id || '').replace(/\D+/g, '') || '1');
+    if ((v = form.getAttribute('data-form_id')) && /fluent/.test(form.className)) return 'fluent:' + v;
+    if ((v = form.getAttribute('data-form-id')) && /forminator/.test(form.className)) return 'forminator:' + v;
+    var dv = form.closest('.et_pb_contact_form_container');
+    if (dv) return 'divi:' + (dv.getAttribute('data-form_unique_num') || '0');
+    return '';
+  }
+  function nameOf(form) {
+    var key = keyOf(form);
+    if (key && CFG.names[key]) return CFG.names[key];
+    var own = form.getAttribute('name') || form.getAttribute('aria-label') || '';
+    var t = form.closest('.gform_wrapper') && form.closest('.gform_wrapper').querySelector('.gform_title');
+    if (t && text(t)) return text(t);
+    var dt = form.closest('.et_pb_contact_form_container');
+    dt = dt && dt.querySelector('.et_pb_contact_main_title');
+    if (dt && text(dt)) return text(dt);
+    if (own && !/^(form|wpforms-form|contact-form)$/i.test(own) && !/^[a-f0-9-]{12,}$/i.test(own)) return own;
+    return (document.title.split(/[|:–-]/)[0] || 'Website form').trim();
+  }
+
+  /* 3. Send only after the site confirms the submission worked. */
+  function send(p) {
+    var src = get(SRC_KEY) || {};
+    var body = JSON.stringify({ action: 'form', domain: CFG.domain, form: p.form, page: p.page, fields: p.fields, id: p.id,
+      src: { us: src.us, um: src.um, uc: src.uc, gclid: src.gclid, msclkid: src.msclkid, fbclid: src.fbclid, ref: src.ref, land: src.land } });
+    var ok = false;
+    try { ok = navigator.sendBeacon && navigator.sendBeacon(CFG.endpoint, new Blob([body], { type: 'text/plain' })); } catch (e) {}
+    if (!ok) { try { fetch(CFG.endpoint, { method: 'POST', mode: 'no-cors', body: body, keepalive: true }); } catch (e) {} }
+    del(PEND_KEY, sessionStorage);
+  }
+  var OK_SEL = '.alert-success, .formidable .message.success, .formidable-success, .ccm-block-express-form .alert-success, ' +
+    'form.wpcf7-form.sent, .wpcf7 form.sent, .gform_confirmation_message, .gform_confirmation_wrapper, .wpforms-confirmation-container, .wpforms-confirmation-container-full, ' +
+    '.elementor-message-success, .frm_message, .nf-response-msg, .ff-message-success, .forminator-success, .forminator-response-message.forminator-success';
+  var BAD_SEL = '.alert-danger:not(.hide):not([style*="none"]), .ccm-block-express-form .alert-danger, #msg .error, .ccm-error, .is-invalid, form.wpcf7-form.invalid, form.wpcf7-form.failed, ' +
+    'form.wpcf7-form.spam, .gform_validation_errors, .validation_error, .wpforms-error:not(:empty), .elementor-message-danger, .frm_error_style, .nf-error-msg, .ff-el-is-error, .forminator-error, .et_pb_contact_error_text, .et_contact_error';
+  function success(scope) { var e = (scope || document).querySelector(OK_SEL); return !!(e && (e.offsetParent !== null || /sent/.test(e.className))) || (!scope && /[?&]surveySuccess=1/.test(location.search)); }
+  function failed(scope) { var e = (scope || document).querySelector(BAD_SEL); return !!(e && e.offsetParent !== null); }
+
+  /* A page load after a submit (Express and some WordPress forms post and reload). */
+  var pend = get(PEND_KEY, sessionStorage);
+  if (pend) {
+    if (Date.now() - pend.at > 15 * 60 * 1000) del(PEND_KEY, sessionStorage);
+    else {
+      var check = function () {
+        if (failed()) return del(PEND_KEY, sessionStorage);
+        if (success() || location.pathname !== pend.path) return send(pend);
+        del(PEND_KEY, sessionStorage);
+      };
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', check); else check();
+    }
+  }
+
+  function skip(form) {
+    if (!form || form.tagName !== 'FORM') return true;
+    var a = (form.getAttribute('action') || '') + ' ' + form.className + ' ' + form.id;
+    return /search|login|wp-comments-post|commentform|woocommerce|cart|checkout|lost-?password|register|subscribe-?search/i.test(a) || !!form.querySelector('[type=password]');
+  }
+  document.addEventListener('submit', function (ev) {
+    var form = ev.target;
+    if (skip(form)) return;
+    if (window.nfRadio && form.closest('.nf-form-cont')) return;   /* Ninja Forms: handled below, from its own success reply */
+    var p = { form: nameOf(form), page: location.pathname, path: location.pathname, fields: read(form), at: Date.now(),
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8) };
+    if (!Object.keys(p.fields).length) return;
+    put(PEND_KEY, p, sessionStorage);
+    /* Forms that submit without reloading: watch for the thank-you message for 30 seconds. */
+    /* Divi reloads its form module in place: the form is replaced by the thank-you message, or redrawn with an error. */
+    var box = form.closest('.formidable, .ccm-block-express-form, .wpcf7, .gform_wrapper, .wpforms-container, .elementor-widget-form, .frm_forms, .nf-form-cont, .fluentform, .forminator-ui, .et_pb_contact_form_container, [class*=ccm-block]') || form.parentElement || document.body;
+    var n = 0, t = setInterval(function () {
+      n++;
+      if (!get(PEND_KEY, sessionStorage)) return clearInterval(t);
+      if (success(box) || (!document.body.contains(form) && !failed(box)) || (form.offsetParent === null && !failed(box))) { clearInterval(t); send(p); }
+      else if (failed(box) && n > 4) { clearInterval(t); del(PEND_KEY, sessionStorage); }
+      else if (n > 60) clearInterval(t);
+    }, 500);
+  }, true);
+  /* Contact Form 7 and Elementor also announce success with an event: send at once when they do. */
+  document.addEventListener('wpcf7mailsent', function () { var p = get(PEND_KEY, sessionStorage); if (p) send(p); });
+  if (window.jQuery) window.jQuery(document).on('submit_success gform_confirmation_loaded', function () { var p = get(PEND_KEY, sessionStorage); if (p) send(p); });
+
+  /* Ninja Forms 3 sends with its own script, so there may be no submit event at all. Its success reply
+     carries every field with its label: send from that, once the site has saved the submission. */
+  (function nf(n) {
+    if (!(window.nfRadio && window.nfRadio.channel)) { if (n < 60) setTimeout(function () { nf(n + 1); }, 250); return; }
+    window.nfRadio.channel('forms').on('submit:response', function (r, status, xhr, formID) {
+      try {
+        if (!r || !r.data) return;
+        var er = r.errors;
+        if (er && (Array.isArray(er) ? er.length : Object.keys(er).length)) return;
+        var d = r.data, f = {}, fl = d.fields || {};
+        Object.keys(fl).forEach(function (k) {
+          var x = fl[k], fid = x && (x.id || k), el = document.getElementById('nf-field-' + fid);
+          if (x && !x.type && el) x.type = el.type;
+          if (!x || typeof x !== 'object' || /^(submit|hidden|hr|html|recaptcha|recaptcha_v3|hcaptcha|turnstile|spam|confirm|password|passwordconfirmation|save)$/i.test(String(x.type || ''))) return;
+          var v = Array.isArray(x.value) ? x.value.join(', ') : x.value;
+          v = String(v == null ? '' : v).trim();
+          if (!v) return;
+          var lab = String(x.label || text(document.getElementById('nf-label-field-' + fid)) || x.admin_label || x.key || 'Field').replace(/<[^>]*>/g, '').replace(/\*/g, '').replace(/\s+/g, ' ').trim() || 'Field';
+          f[lab] = f[lab] ? f[lab] + ', ' + v : v;
+        });
+        if (!Object.keys(f).length) return;
+        var id = formID || d.form_id || '', sub = d.actions && d.actions.save && d.actions.save.sub_id;
+        var name = CFG.names['ninja:' + id] || (d.settings && d.settings.title) || (document.title.split(/[|:–-]/)[0] || 'Website form').trim();
+        send({ form: name, page: location.pathname, path: location.pathname, fields: f, at: Date.now(),
+          /* same id the "EDGE import" gives this submission, so importing later never doubles it */
+          id: sub ? ((d.settings && d.settings.title) || 'Website form') + ':nf' + sub : Date.now().toString(36) + Math.random().toString(36).slice(2, 8) });
+      } catch (e) {}
+    });
+  })(0);
+})();
+</script>
