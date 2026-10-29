@@ -123,11 +123,18 @@ function styles(){
 .elws-keyrow{display:flex;gap:14px;align-items:center;flex-wrap:wrap;} .elws-keyrow>div{flex:1;min-width:240px;}
 .elws-keyrow form{display:flex;gap:8px;} .elws-keyrow input{width:260px;max-width:60vw;border:1px solid #d6e2f0;border-radius:10px;padding:8px 11px;font:500 13px var(--ui,Inter,sans-serif);}
 .elws-keyrow input:focus{outline:none;border-color:#1d94ff;box-shadow:0 0 0 3px #e6f2ff;}
-.elws-bot{display:inline-flex;align-items:center;gap:7px;border:1px solid #e3ebf5;background:#f7fafd;border-radius:999px;padding:4px 11px 4px 5px;font:600 11.5px var(--ui,Inter,sans-serif);color:#6b7c8f;cursor:pointer;transition:all .15s;}
-.elws-bot i{width:26px;height:16px;border-radius:999px;background:#d5dee9;position:relative;transition:background .2s;flex:none;}
-.elws-bot i::after{content:"";position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);transition:transform .2s;}
-.elws-bot.on{background:#eef6ff;border-color:#bcdcff;color:#0b6fd6;}
-.elws-bot.on i{background:#1d94ff;} .elws-bot.on i::after{transform:translateX(10px);}
+.elws-bot{display:inline-flex;align-items:center;gap:8px;border:1px solid #e3ebf5;background:#f7fafd;border-radius:999px;padding:4px 12px 4px 4px;font:600 11.5px var(--ui,Inter,sans-serif);color:#6b7c8f;cursor:pointer;transition:background .35s cubic-bezier(.2,.8,.2,1),border-color .35s,color .35s,box-shadow .35s;}
+.elws-bot:hover{border-color:#cddcf0;}
+.elws-bot i{width:32px;height:18px;border-radius:999px;background:#d5dee9;position:relative;transition:background .35s cubic-bezier(.2,.8,.2,1),box-shadow .35s;flex:none;box-shadow:inset 0 1px 2px rgba(13,23,38,.12);}
+.elws-bot i::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(13,23,38,.25);transition:transform .42s cubic-bezier(.34,1.56,.64,1),width .2s;}
+.elws-bot:active i::after{width:18px;}
+.elws-bot.on{background:linear-gradient(180deg,#f2f8ff,#e8f3ff);border-color:#bcdcff;color:#0b6fd6;box-shadow:0 4px 14px -8px rgba(29,148,255,.6);}
+.elws-bot.on i{background:linear-gradient(90deg,#1d94ff,#0b6fd6);box-shadow:inset 0 1px 2px rgba(0,0,0,.08),0 0 0 3px rgba(29,148,255,.14);}
+.elws-bot.on i::after{transform:translateX(14px);}
+.elws-bot.on:active i::after{transform:translateX(10px);}
+.elws-bot.busy{cursor:progress;}
+.elws-chats{transition:opacity .22s ease,transform .22s cubic-bezier(.2,.8,.2,1);}
+.elws-chats.enter{opacity:0;transform:translateX(-6px);}
 .elws-chats{display:inline-flex;align-items:center;gap:5px;border:0;background:none;font:600 11.5px var(--ui,Inter,sans-serif);color:#0b6fd6;cursor:pointer;padding:4px 6px;border-radius:8px;}
 .elws-chats:hover{background:#eef6ff;}
 .elws-cback{position:fixed;inset:0;z-index:2147482000;background:rgba(10,25,48,.42);backdrop-filter:blur(3px);display:grid;place-items:center;padding:20px;}
@@ -289,7 +296,7 @@ function workspace(){
         '<button class="elws-rf" type="button" data-recheck="' + esc(c.domain) + '" title="Refresh this client: picks up a new Easyleads connection and re-checks what its dashboard can show" aria-label="Refresh ' + esc(c.name) + '">' + IC.refresh + '</button></div>' +
         (c.connected ? (a ? '<div class="elws-access" title="What this client’s dashboard can show">' + a.map(x => '<span class="' + (x.ok ? 'y' : '') + '">' + (x.ok ? '✓ ' : '✕ ') + x.label + '</span>').join('') + '</div>' : '<div class="elws-access"><span>Data access not checked yet</span></div>')
           : '<div class="elws-access"><span class="y">✓ Forms</span><span class="y">✓ Calls (GA4)</span><span>Leads from the website forms EDGE tracks</span></div>') +
-        (c.hidden ? '' : '<div class="elws-botrow"><button type="button" class="elws-bot' + (c.bot ? ' on' : '') + '" data-bot="' + esc(c.domain) + '" role="switch" aria-checked="' + !!c.bot + '" title="A chat assistant on this client’s dashboard that answers questions about its numbers"><i></i>AI assistant ' + (c.bot ? 'on' : 'off') + '</button>' +
+        (c.hidden ? '' : '<div class="elws-botrow"><button type="button" class="elws-bot' + (c.bot ? ' on' : '') + '" data-bot="' + esc(c.domain) + '" role="switch" aria-checked="' + !!c.bot + '" title="A chat assistant on this client’s dashboard that answers questions about its numbers"><i></i><span>AI assistant ' + (c.bot ? 'on' : 'off') + '</span></button>' +
           (c.bot ? '<button type="button" class="elws-chats" data-chats="' + esc(c.domain) + '">' + IC.chat + 'Read chats</button>' : '') + '</div>') +
         '<div class="elws-logins">' + (us.length ? us.map(u => '<div class="elws-login"><span class="av">' + esc((u.name || u.email).slice(0, 2).toUpperCase()) + '</span><span class="who">' + esc(u.name || u.email) + ' <small>' + esc(u.email) + (u.disabled ? ' · disabled' : u.lastLogin ? '' : ' · not signed in yet') + '</small></span>' +
           '<button type="button" data-as="' + esc(u.id) + '" title="Open their dashboard as they see it">' + IC.eye + '</button><button type="button" data-edit="' + esc(u.id) + '">Edit</button></div>').join('') : '<div style="font-size:12px;color:#8a9bb0">No client login yet.</div>') + '</div>' +
@@ -349,12 +356,24 @@ function workspace(){
   /* The dashboard assistant: on or off per client. */
   async function toggleBot(domain){
     const c = data.clients.find(x => x.domain === domain); if (!c) return;
+    const card = el.querySelector('[data-card="' + CSS.escape(domain) + '"]'), b = card && card.querySelector('[data-bot]'), row = card && card.querySelector('.elws-botrow');
+    if (!b || b.dataset.busy) return;
     const on = !c.bot;
+    /* flip it right away (the switch slides, the chats link fades in), then confirm with the tracker */
+    const paint = v => {
+      b.classList.toggle('on', v); b.setAttribute('aria-checked', String(v));
+      b.querySelector('span').textContent = 'AI assistant ' + (v ? 'on' : 'off');
+      let ch = row.querySelector('[data-chats]');
+      if (v && !ch){ row.insertAdjacentHTML('beforeend', '<button type="button" class="elws-chats enter" data-chats="' + esc(domain) + '">' + IC.chat + 'Read chats</button>'); ch = row.querySelector('[data-chats]'); ch.addEventListener('click', () => chats(domain)); requestAnimationFrame(() => requestAnimationFrame(() => ch.classList.remove('enter'))); }
+      if (!v && ch){ ch.classList.add('enter'); setTimeout(() => ch.remove(), 220); }
+    };
+    paint(on); b.dataset.busy = 1; b.classList.add('busy');
     try{
       const j = await PA.call('portalAdminBot', {domain, on});
-      c.bot = on; draw();
-      say(on ? (j.ready ? 'AI assistant is on for ' + c.name : 'AI assistant switched on for ' + c.name + '. It answers once the OpenRouter key is added to the tracker.') : 'AI assistant is off for ' + c.name);
-    }catch(err){ say(err.message, 'err'); }
+      c.bot = on;
+      say(on ? (j.ready ? 'AI assistant is on for ' + c.name : 'AI assistant is on for ' + c.name + '. It answers once the OpenRouter key is saved above.') : 'AI assistant is off for ' + c.name);
+    }catch(err){ paint(!on); say(err.message, 'err'); }
+    delete b.dataset.busy; b.classList.remove('busy');
   }
   /* What clients asked the assistant, conversation by conversation. */
   async function chats(domain){
