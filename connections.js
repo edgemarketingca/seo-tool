@@ -74,7 +74,7 @@ async function copyText(text){
 let snippetTpl = null;
 async function snippetFor(domain){
   if (!snippetTpl){
-    const r = await fetch('tracker/site-forms-snippet.html', {cache: 'no-cache'});
+    const r = await fetch('forms-snippet.html', {cache: 'no-cache'});
     if (!r.ok) throw new Error('Couldn’t load the snippet (HTTP ' + r.status + ').');
     snippetTpl = await r.text();
   }
