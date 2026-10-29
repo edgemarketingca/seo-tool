@@ -118,6 +118,9 @@ function styles(){
 .elws-rf[disabled]{cursor:default;color:#1d94ff;} .elws-rf[disabled] svg{animation:elwbs .8s linear infinite;}
 .elws-c.checking .elws-access{opacity:.45;transition:opacity .2s;}
 .elws-botrow{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
+.elws-keyrow{display:flex;gap:14px;align-items:center;flex-wrap:wrap;} .elws-keyrow>div{flex:1;min-width:240px;}
+.elws-keyrow form{display:flex;gap:8px;} .elws-keyrow input{width:260px;max-width:60vw;border:1px solid #d6e2f0;border-radius:10px;padding:8px 11px;font:500 13px var(--ui,Inter,sans-serif);}
+.elws-keyrow input:focus{outline:none;border-color:#1d94ff;box-shadow:0 0 0 3px #e6f2ff;}
 .elws-bot{display:inline-flex;align-items:center;gap:7px;border:1px solid #e3ebf5;background:#f7fafd;border-radius:999px;padding:4px 11px 4px 5px;font:600 11.5px var(--ui,Inter,sans-serif);color:#6b7c8f;cursor:pointer;transition:all .15s;}
 .elws-bot i{width:26px;height:16px;border-radius:999px;background:#d5dee9;position:relative;transition:background .2s;flex:none;}
 .elws-bot i::after{content:"";position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);transition:transform .2s;}
@@ -257,7 +260,8 @@ function workspace(){
       [data.users.filter(u => (u.lastLogin || 0) > week || (u.lastSeen || 0) > week).length, 'Active this week'],
       [conn.filter(needs).length, 'Need more data access']
     ].map(s => '<div class="elws-stat"><b>' + s[0] + '</b><span>' + s[1] + '</span></div>').join('');
-    const botNote = !data.botReady && data.clients.some(c => c.bot) ? '<div class="elws-note"><b>The AI assistant is switched on but not connected yet.</b> In the tracker’s Apps Script project, open Project Settings → Script properties and add <b>OPENROUTER_KEY</b> with your OpenRouter key. Optional: <b>OPENROUTER_MODEL</b> (default openai/gpt-4o-mini).</div>' : '';
+    const botNote = !data.botReady ? '<div class="elws-note elws-keyrow"><div><b>Connect the AI assistant.</b> Paste your OpenRouter key once; it is checked with OpenRouter and kept on the tracker, never shown again.</div>' +
+      '<form data-botkey><input type="password" autocomplete="off" spellcheck="false" placeholder="sk-or-…" aria-label="OpenRouter key"><button class="elws-btn go" type="submit">Save key</button></form></div>' : '';
     $('[data-note]').innerHTML = botNote + (conn.filter(needs).length ? '<div class="elws-note"><b>Some dashboards can only show form submissions.</b> To show calls, contacts, pipeline and bookings too, open that client’s Easyleads sub-account → Settings → Private Integrations → <i>EDGE SEO tool</i> → Edit → Scopes, add View Conversation Messages, View Contacts, View Opportunities, View Calendars and View Calendar Events (all read-only), then click Update and <b>Re-check data access</b> here.</div>' : '');
     const q = $('[data-q]').value.trim().toLowerCase();
     const rows = (filter === 'gone' ? gone : live).slice().sort((a, b) => (b.connected - a.connected) || (usersOf(b.domain).length - usersOf(a.domain).length) || a.name.localeCompare(b.name))
@@ -281,6 +285,15 @@ function workspace(){
     }).join('') : '<div class="elws-empty">No clients match.</div>';
     el.querySelectorAll('[data-recheck]').forEach(b => b.addEventListener('click', () => recheck(b.dataset.recheck)));
     el.querySelectorAll('[data-bot]').forEach(b => b.addEventListener('click', () => toggleBot(b.dataset.bot)));
+    const kf = el.querySelector('[data-botkey]');
+    if (kf) kf.addEventListener('submit', async e => {
+      e.preventDefault();
+      const inp = kf.querySelector('input'), btn = kf.querySelector('button'), v = inp.value.trim();
+      if (!v) return;
+      btn.disabled = true; btn.textContent = 'Checking…';
+      try{ await PA.call('portalAdminBotKey', {botKey: v}); inp.value = ''; data.botReady = true; draw(); say('AI assistant connected'); }
+      catch(err){ say(err.message, 'err'); btn.disabled = false; btn.textContent = 'Save key'; }
+    });
     el.querySelectorAll('[data-chats]').forEach(b => b.addEventListener('click', () => chats(b.dataset.chats)));
     el.querySelectorAll('[data-rm]').forEach(b => b.addEventListener('click', () => removeClient(b.dataset.rm, true)));
     el.querySelectorAll('[data-restore]').forEach(b => b.addEventListener('click', () => removeClient(b.dataset.restore, false)));
