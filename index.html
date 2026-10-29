@@ -11538,37 +11538,36 @@ async function cloudSave(){
         session: SESSION_ID,
         by: presName()
       };
-      if (chunks.length <= CLOUD_BATCH_MAX){
-        /* One atomic commit, made only if the cloud is still the copy this
-           browser just merged with. If a teammate saved in the meantime the
-           commit is refused, their copy is pulled in, and it goes again, so
-           two people saving in the same second can no longer erase each
-           other. The header can never point at a half-written set. */
-        try{
-          await fbDb.runTransaction(async tx => {
-            const cur = await tx.get(headRef);
-            const curRev = cur.exists ? revOf(cur.data() || {}) : null;
-            if (curRev !== expected){
-              const e = new Error('The cloud copy changed while saving');
-              e.syncStale = true;
-              throw e;
-            }
-            chunks.forEach((part, i) => tx.set(col.doc(STATE_CHUNK_PREFIX + i), {part}));
-            tx.set(headRef, head);
-          });
-        }catch(err){
-          if (err && (err.syncStale || err.code === 'aborted' || err.code === 'failed-precondition')) continue;
-          throw err;
-        }
-      } else {
-        /* Enormous workspaces: write the parts first, the header last, so a
-           failure part-way through never advertises a chunk count that isn't
-           there. A torn copy fails JSON.parse on read and is ignored. */
-        const again = await headRef.get();
-        if (revOf(again.exists ? (again.data() || {}) : null) !== expected) continue;
-        for (let i = 0; i < chunks.length; i++) await col.doc(STATE_CHUNK_PREFIX + i).set({part: chunks[i]});
-        await headRef.set(head);
+      /* Every save writes its parts under a name of its own, then switches the
+         header to them in one atomic step. Two saves can no longer mix their
+         parts (which is how the cloud copy tore on Oct 29, 2026), and the set
+         before is kept as a fallback copy until the next save. */
+      const setId = rev.replace(/[^A-Za-z0-9]/g, '_');
+      for (let i = 0; i < chunks.length; i++) await col.doc(STATE_CHUNK_PREFIX + '_' + setId + '_' + i).set({part: chunks[i]});
+      head.format = 'chunked-json-v2';
+      head.set = setId;
+      let prevHead = null;
+      try{
+        await fbDb.runTransaction(async tx => {
+          const cur = await tx.get(headRef);
+          const cd = cur.exists ? (cur.data() || {}) : null;
+          if (revOf(cd) !== expected){
+            const e = new Error('The cloud copy changed while saving');
+            e.syncStale = true;
+            throw e;
+          }
+          prevHead = cd;
+          delete head.prevSet; delete head.prevChunks; delete head.prevAt;
+          if (cd && cd.format === 'chunked-json-v2' && cd.set){ head.prevSet = cd.set; head.prevChunks = cd.chunks || 0; head.prevAt = cd.updatedAt || 0; }
+          tx.set(headRef, head);
+        });
+      }catch(err){
+        cloudDropSet(col, setId, chunks.length);
+        if (err && (err.syncStale || err.code === 'aborted' || err.code === 'failed-precondition')) continue;
+        throw err;
       }
+      /* the set before the fallback is no longer needed */
+      if (prevHead && prevHead.prevSet && prevHead.prevSet !== setId) cloudDropSet(col, prevHead.prevSet, prevHead.prevChunks || 0);
       cloudBaseStamp = stamp;
       cloudBaseRev = rev;
       wrote = true;
@@ -11604,6 +11603,10 @@ async function cloudSave(){
 }
 /* Reads either format: the chunked JSON written above, or the single
    structured document written by earlier versions of this file. */
+/* Removes one save's parts once nothing points at them any more. */
+function cloudDropSet(col, setId, n){
+  for (let i = 0; i < (n || 0); i++) col.doc(STATE_CHUNK_PREFIX + '_' + setId + '_' + i).delete().catch(() => {});
+}
 async function cloudLoadState(){
   if (!fbUid || !fbDb) return {status:'error'};
   const col = fbDb.collection('users').doc(fbUid).collection('data');
@@ -11611,26 +11614,29 @@ async function cloudLoadState(){
   if (!headSnap.exists) return {status:'empty'};
   const head = headSnap.data() || {};
   const meta = {rev: revOf(head), by: head.by || '', session: head.session || ''};
-  if (head.format !== 'chunked-json-v1'){
+  if (head.format !== 'chunked-json-v1' && head.format !== 'chunked-json-v2'){
     return Object.assign({status:'ok', data:head, stamp:(head.updatedAt || 0)}, meta);   /* legacy structured copy */
   }
   const n = head.chunks || 0;
   if (!n) return Object.assign({status:'empty'}, meta);
-  const snaps = await Promise.all(
-    Array.from({length: n}, (_, i) => col.doc(STATE_CHUNK_PREFIX + i).get())
-  );
-  let json = '';
-  for (const s of snaps){
-    if (!s.exists) return Object.assign({status:'torn'}, meta);   /* incomplete set — do not write over it */
-    json += (s.data() && s.data().part) || '';
+  /* v2: each save's parts live under its own name; v1: one shared set of names. */
+  const readSet = async (set, count) => {
+    const snaps = await Promise.all(Array.from({length: count}, (_, i) => col.doc(set ? STATE_CHUNK_PREFIX + '_' + set + '_' + i : STATE_CHUNK_PREFIX + i).get()));
+    let json = '';
+    for (const s of snaps){ if (!s.exists) return null; json += (s.data() && s.data().part) || ''; }
+    try{ return JSON.parse(json); }catch(e){ return null; }
+  };
+  let parsed = await readSet(head.format === 'chunked-json-v2' ? head.set : '', n), stamp = head.updatedAt || 0;
+  /* The newest save unreadable for any reason: fall back to the one before it
+     rather than stopping everyone from saving. Merging never deletes, so the
+     next save brings everything back together. */
+  if (!parsed && head.format === 'chunked-json-v2' && head.prevSet){
+    parsed = await readSet(head.prevSet, head.prevChunks || 0);
+    stamp = head.prevAt || 0;
   }
-  try{
-    const parsed = JSON.parse(json);
-    if (parsed && typeof parsed.updatedAt !== 'number' && head.updatedAt) parsed.updatedAt = head.updatedAt;
-    return Object.assign({status:'ok', data:parsed, stamp:(head.updatedAt || (parsed && parsed.updatedAt) || 0)}, meta);
-  }catch(e){
-    return Object.assign({status:'torn'}, meta);
-  }
+  if (!parsed) return Object.assign({status:'torn'}, meta);   /* incomplete set: do not write over it */
+  if (typeof parsed.updatedAt !== 'number' && stamp) parsed.updatedAt = stamp;
+  return Object.assign({status:'ok', data:parsed, stamp:(stamp || parsed.updatedAt || 0)}, meta);
 }
 
 /* ==========================================================================
