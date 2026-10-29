@@ -101,7 +101,7 @@ function styles(){
 .elws-c .h img{width:40px;height:40px;border-radius:11px;border:1px solid #e3ebf5;background:#fff;object-fit:contain;padding:4px;flex:none;}
 .elws-c .h div{min-width:0;flex:1;} .elws-c .h b{display:block;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;} .elws-c .h small{color:#8a9bb0;font-size:12px;}
 .elws-pill{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;border-radius:20px;padding:3px 9px;white-space:nowrap;}
-.elws-pill.ok{background:#e3f6ee;color:#0f8a5f;} .elws-pill.no{background:#eef2f7;color:#6b7c8f;} .elws-pill.warn{background:#fff3e1;color:#b86a00;} .elws-pill.blue{background:#e6f2ff;color:#0b6fd6;}
+.elws-pill.ok{background:#e3f6ee;color:#0f8a5f;} .elws-pill.no{background:#eef2f7;color:#6b7c8f;} .elws-pill.warn{background:#fff3e1;color:#b86a00;} .elws-pill.blue{background:#e6f2ff;color:#0b6fd6;} .elws-pill.site{background:#fff1e5;color:#c25e10;}
 .elws-access{display:flex;gap:5px;flex-wrap:wrap;}
 .elws-access span{font-size:11px;font-weight:600;border-radius:8px;padding:3px 7px;background:#f1f5fa;color:#8a9bb0;}
 .elws-access span.y{background:#e6f2ff;color:#0b6fd6;}
@@ -195,7 +195,7 @@ function workspace(){
     '<button class="elws-btn" type="button" data-bulk>' + IC.user + 'Bulk create logins</button><button class="elws-btn go" type="button" data-new>' + IC.user + 'New client login</button></div></div>' +
     '<div class="elws-stats" data-stats></div><div data-note></div>' +
     '<div class="elws-bar"><input type="search" data-q placeholder="Find a client by name or website"><div class="elws-seg" data-f>' +
-    [['all', 'All'], ['conn', 'Connected'], ['login', 'Has a login'], ['need', 'Needs access']].map((f, i) => '<button type="button" data-v="' + f[0] + '"' + (i ? '' : ' class="on"') + '>' + f[1] + '</button>').join('') + '</div></div>' +
+    [['all', 'All'], ['conn', 'On Easyleads'], ['login', 'Has a login'], ['need', 'Needs access']].map((f, i) => '<button type="button" data-v="' + f[0] + '"' + (i ? '' : ' class="on"') + '>' + f[1] + '</button>').join('') + '</div></div>' +
     '<div class="elws-grid" data-grid><div class="elws-empty">Loading clients from the tracker…</div></div></main>';
   document.body.appendChild(el);
   document.body.classList.add('hub-locked');
@@ -225,13 +225,13 @@ function workspace(){
     $('[data-grid]').innerHTML = rows.length ? rows.map(c => {
       const us = usersOf(c.domain), a = access(c.domain);
       return '<div class="elws-c"><div class="h"><img src="https://www.google.com/s2/favicons?domain=' + encodeURIComponent(c.domain) + '&sz=64" alt="" onerror="this.style.visibility=\'hidden\'"><div><b title="' + esc(c.name) + '">' + esc(c.name) + '</b><small>' + esc(c.domain) + '</small></div>' +
-        (c.connected ? '<span class="elws-pill ok">● Connected</span>' : '<span class="elws-pill no">Not connected</span>') + '</div>' +
+        (c.connected ? '<span class="elws-pill ok">● Easyleads</span>' : '<span class="elws-pill site">● Website forms</span>') + '</div>' +
         (c.connected ? (a ? '<div class="elws-access" title="What this client’s dashboard can show">' + a.map(x => '<span class="' + (x.ok ? 'y' : '') + '">' + (x.ok ? '✓ ' : '✕ ') + x.label + '</span>').join('') + '</div>' : '<div class="elws-access"><span>Data access not checked yet</span></div>')
-          : '<div style="font-size:12px;color:#8a9bb0">Connect it in the tracker sheet: AI Tracker menu → Connect Easyleads for a client.</div>') +
+          : '<div class="elws-access"><span class="y">✓ Forms</span><span class="y">✓ Calls (GA4)</span><span>Leads from the website forms EDGE tracks</span></div>') +
         '<div class="elws-logins">' + (us.length ? us.map(u => '<div class="elws-login"><span class="av">' + esc((u.name || u.email).slice(0, 2).toUpperCase()) + '</span><span class="who">' + esc(u.name || u.email) + ' <small>' + esc(u.email) + (u.disabled ? ' · disabled' : u.lastLogin ? '' : ' · not signed in yet') + '</small></span>' +
           '<button type="button" data-as="' + esc(u.id) + '" title="Open their dashboard as they see it">' + IC.eye + '</button><button type="button" data-edit="' + esc(u.id) + '">Edit</button></div>').join('') : '<div style="font-size:12px;color:#8a9bb0">No client login yet.</div>') + '</div>' +
-        '<div class="acts">' + (c.connected ? '<button class="elws-btn go" type="button" data-newfor="' + esc(c.domain) + '">' + IC.user + 'Create login</button>' : '') +
-        (us[0] ? '<button class="elws-btn" type="button" data-as="' + esc(us[0].id) + '">' + IC.eye + 'View their dashboard</button>' : '') + '</div></div>';
+        '<div class="acts"><button class="elws-btn go" type="button" data-newfor="' + esc(c.domain) + '">' + IC.user + 'Create login</button>' +
+        (us[0] ? '<button class="elws-btn" type="button" data-as="' + esc(us[0].id) + '" title="Opens their dashboard as they see it; arrange it there">' + IC.eye + 'Open &amp; arrange dashboard</button>' : '') + '</div></div>';
     }).join('') : '<div class="elws-empty">No clients match.</div>';
     el.querySelectorAll('[data-newfor]').forEach(b => b.addEventListener('click', () => PA.open({newFor: b.dataset.newfor, onClose: reload})));
     el.querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => PA.open({editId: b.dataset.edit, onClose: reload})));
