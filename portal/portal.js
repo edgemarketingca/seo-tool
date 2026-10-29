@@ -801,7 +801,8 @@ function renderApp(){
   app.innerHTML = header(me, c) +
     '<main class="wrap' + (S.editing ? ' editing' : '') + '">' +
     '<div class="seg mob-period" data-period>' + PERIODS.map(p => '<button type="button" data-p="' + p[0] + '"' + (p[0] === S.period ? ' class="on"' : '') + '>' + p[1] + '</button>').join('') + '</div>' +
-    (me.edge ? '<div class="edgebar">' + ic('edit', 15) + '<div><b>You’re arranging this dashboard as EDGE.</b> Whatever you set here is exactly what ' + esc(me.user.name || me.user.email) + ' sees.</div></div>' : '') +
+    (me.edge ? '<div class="edgebar">' + ic('edit', 15) + '<div class="eb-t"><b>You’re arranging this dashboard as EDGE.</b> Whatever you set here is exactly what ' + esc(me.user.name || me.user.email) + ' sees.</div>' +
+      '<button class="btn eb-std" type="button" data-std title="Every new login, and any login without a dashboard of its own, starts with these dashboards and tabs">' + ic('grid', 14) + 'Make this the standard for new logins</button></div>' : '') +
     (VD.length > 1 || canEdit() ? '<div class="tabs" role="tablist">' + VD.map(d => { const hid = !visDash(d); return '<button class="tab' + (d === dash ? ' on' : '') + '" type="button" role="tab" data-dash="' + L.dashes.indexOf(d) + '"' + (hid ? ' style="opacity:.5" title="Hidden from this business until something on it is available"' : '') + '>' + esc(d.name) + (hid ? ' · hidden' : '') + '</button>'; }).join('') +
       (canEdit() ? '<button class="tab add" type="button" data-newdash>' + ic('plus', 14) + ' New dashboard</button>' : '') + '</div>' : '') +
     '<div class="bar"><div><h2>' + esc(dash.name) + '</h2><div class="sub">' + ic('cal', 13) + esc(rangeText()) + ' <span style="opacity:.5">·</span> <span class="ro">' + ic('lock', 12) + (srcOf() === 'site' ? 'Read-only view of your website leads' : 'Read-only view of your ' + esc(BRAND) + ' account') + '</span></div></div><div class="grow"></div>' +
@@ -824,6 +825,13 @@ function wireTop(){
     const name = prompt('Name the new dashboard:', 'My dashboard'); if (!name || !name.trim()) return;
     layout().dashes.push({id: uid(), name: name.trim().slice(0, 40), items: [item('kpis')]});
     S.dash = layout().dashes.length - 1; S.editing = true; saveLayout(); renderApp();
+  });
+  const sd = q('[data-std]'); if (sd) sd.addEventListener('click', async () => {
+    if (!confirm('Make these dashboards and tabs the standard for every new login?\n\nLogins that already have their own dashboard keep it.')) return;
+    sd.disabled = true;
+    try{ const j = await api('portalSaveDefaultLayout', {session: S.session, layout: layout()}); toast(j && j.ok ? 'Saved: new logins start with this dashboard' : (j && j.error) || 'Couldn’t save that.'); }
+    catch(e){ toast(e.message); }
+    sd.disabled = false;
   });
   const ed = q('[data-edit]'); if (ed) ed.addEventListener('click', () => { S.editing = !S.editing; renderApp(); });
   const an = q('[data-addnote]'); if (an) an.addEventListener('click', () => { const dd = curDash(); const n = item('note', 12, {title: 'Summary'}); dd.items.unshift(n); saveLayout(); renderApp(); noteEditor(n, dd, () => renderApp()); });
