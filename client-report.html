@@ -165,9 +165,11 @@ html,body{margin:0;background:#FDFDFD;color:#555;font-family:"Geist","Helvetica 
         return stored ? Promise.resolve(stored) : p;
       };
       /* One page, day by day (Page performance widget), with the report's read-only token. */
-      if (canLive) ctx.loadPathway = ch => {
-        const R = ctx.R, k = R.since + '|' + R.end + '|' + (ch || 'all');
-        return live.pw[k] || (live.pw[k] = AIV.apiGet(view.feedUrl, {action: 'pathway', domain: view.domain, t: view.token, start: R.since, end: R.end, channel: ch || 'all'})
+      /* Pathways for a traffic type and a place, with the report's read-only token. */
+      if (canLive) ctx.loadPathway = (ch, geo) => {
+        const R = ctx.R, k = R.since + '|' + R.end + '|' + (ch || 'all') + '|' + (geo || '');
+        return live.pw[k] || (live.pw[k] = AIV.apiGet(view.feedUrl, Object.assign({action: 'pathway', domain: view.domain, t: view.token, start: R.since, end: R.end, channel: ch || 'all'}, geo ? {geo: String(geo).slice(0, 90)} : {}))
+          .then(r => { if (r && r.error) throw new Error(r.error === 'busy, try again in a few minutes' ? 'Too many changes at once. Wait a minute and try again.' : r.error); return r; })
           .catch(e => { delete live.pw[k]; throw e; }));
       };
       if (canLive) ctx.loadPage = path => {
