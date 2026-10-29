@@ -828,6 +828,31 @@ kbd{font-family:var(--mono);font-size:10.5px;background:#fff;border:1px solid va
 .cpop-when{font-size:11px;color:var(--ink-3);margin-bottom:2px;}
 .cpop ol{max-height:190px;overflow:auto;}
 .cpop-note{font-size:11px;color:var(--ink-3);margin-top:8px;line-height:1.5;}
+/* the client's point pop-up: one number, the search, and who sits around them */
+.cpop-wrap .leaflet-popup-content-wrapper{border-radius:18px;box-shadow:0 24px 60px -24px rgba(15,23,42,.42),0 2px 8px rgba(15,23,42,.06);}
+.cpop-wrap .leaflet-popup-content{margin:16px 16px 14px;font-size:13px;line-height:1.4;}
+.cpop-wrap a.leaflet-popup-close-button{top:8px;right:8px;width:24px;height:24px;font:400 18px/24px var(--ui);color:var(--ink-3);border-radius:50%;}
+.cpop-wrap a.leaflet-popup-close-button:hover{background:var(--line-2);color:var(--ink);}
+.cp-top{display:flex;align-items:center;gap:12px;padding-right:18px;}
+.cp-badge{flex:none;width:50px;height:50px;border-radius:15px;display:grid;place-items:center;font:700 20px/1 var(--display);color:#fff;background:var(--c);box-shadow:inset 0 -3px 0 rgba(0,0,0,.12),0 6px 16px -8px var(--c);}
+.cp-head{min-width:0;}
+.cp-head b{display:block;font:600 15.5px/1.25 var(--display);color:var(--ink);letter-spacing:-.01em;}
+.cp-head small{display:block;margin-top:3px;font-size:12px;line-height:1.35;color:var(--ink-3);}
+.cpop-wrap .leaflet-popup-content ol.cp-list{list-style:none;margin:14px 0 0;padding:0;max-height:none;overflow:visible;font-size:12.5px;}
+.cpop-wrap .leaflet-popup-content ol.cp-list.all{max-height:230px;overflow:auto;}
+.cp-list li{display:flex;align-items:center;gap:10px;padding:6px 4px;color:var(--ink-2);}
+.cp-list li + li{border-top:1px solid var(--line-2);}
+.cp-list li .n{flex:none;width:20px;text-align:right;font:600 11px var(--mono);color:var(--ink-3);}
+.cp-list li .t{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.cp-list li.me{background:var(--brand-wash);border-top-color:transparent;border-radius:10px;color:var(--brand-deep);font-weight:600;padding:8px 8px;}
+.cp-list li.me + li{border-top-color:transparent;}
+.cp-list li.me .n{color:var(--brand-deep);}
+.cp-list li .you{flex:none;font:700 10px/1 var(--ui);letter-spacing:.04em;text-transform:uppercase;color:#fff;background:var(--brand);border-radius:20px;padding:4px 7px;}
+.cp-list li.gap{justify-content:center;padding:1px;font-size:9px;letter-spacing:3px;color:var(--ink-3);}
+.cp-list li.miss{justify-content:center;font-size:12px;color:var(--ink-3);font-style:italic;}
+.cp-more{display:block;margin:10px 0 0;padding:0;border:0;background:none;font:600 12.5px var(--ui);color:var(--brand-deep);cursor:pointer;}
+.cp-more:hover{text-decoration:underline;}
+.cp-foot{margin-top:10px;padding-top:9px;border-top:1px solid var(--line-2);font-size:11px;color:var(--ink-3);}
 
 /* progress bar during scan */
 .prog{height:4px;background:var(--line-2);border-radius:20px;overflow:hidden;margin-top:11px;}
@@ -16656,7 +16681,7 @@ function addDot(p, idx, scan, animate){
     iconSize:[34,34], iconAnchor:[17,17]
   });
   const m = L.marker([p.lat, p.lng], {icon}).addTo(dotLayer);
-  m.bindPopup(() => dotPopup(p, idx, scan), {maxWidth:300});
+  m.bindPopup(() => dotPopup(p, idx, scan), isPublicView() ? {maxWidth:320, minWidth:270, className:'cpop-wrap'} : {maxWidth:300});
   liveMarkers[idx] = m;
 }
 function refreshDot(idx, animate){
@@ -16684,84 +16709,52 @@ function rankColorVar(rank){
    No coordinates, no request details, no buttons that change anything.
    ========================================================================== */
 function clientDotPopup(p, idx, scan){
+  /* Only what a client needs: where they came, for which search, when, and
+     who sits around them. The full list is one tap away. */
   const d = document.createElement('div');
   d.className = 'cpop';
-  const head = document.createElement('div');
-  head.className = 'pop-h';
-  head.textContent = (scan && scan.grid && scan.grid.custom)
-    ? ('Point ' + (idx + 1) + ' of ' + scan.points.length)
-    : ('Row ' + (p.row+1) + ', column ' + (p.col+1));
-  d.appendChild(head);
-
   const total = (p.names && p.names.length) || p.total || 0;
-  const r = document.createElement('div');
-  r.className = 'pop-r';
-  r.style.color = rankColorVar(p.rank);
-  r.textContent = p.rank == null ? 'Not checked yet'
-    : (p.rank === 0 ? 'Not in the top ' + (total || 20) : '#' + p.rank);
-  d.appendChild(r);
-
-  const say = document.createElement('div');
-  say.className = 'cpop-say';
-  const kw = (scan && scan.keyword) ? '\u201c' + scan.keyword + '\u201d' : 'this search';
-  say.textContent = p.rank == null ? 'This spot has not been checked yet.'
-    : (p.rank === 0
-        ? 'Someone here searching ' + kw + ' on Google Maps would not find you in the first ' + (total || 20) + ' businesses.'
-        : 'Someone here searching ' + kw + ' on Google Maps sees you at position ' + p.rank + (total ? ' of ' + total : '') + '.');
-  d.appendChild(say);
-
+  const ord = n => n + (['th','st','nd','rd'][(n % 100 - 20) % 10] || ['th','st','nd','rd'][n % 100] || 'th');
+  const kw = (scan && scan.keyword) || '';
   const when = (p.read && p.read.ts) || (scan && scan.ts);
-  if (when){
-    const w = document.createElement('div');
-    w.className = 'cpop-when';
-    w.textContent = 'Checked ' + new Date(when).toLocaleString([], {month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit'});
-    d.appendChild(w);
-  }
-
-  const hitIdx = (p.rank >= 1 && !p.matchedViaAd) ? p.rank - 1 : -1;
-  if (p.names && p.names.length){
-    const det = document.createElement('details');
-    det.open = true;
-    const sum = document.createElement('summary');
-    sum.textContent = 'What Google Maps showed here (' + p.names.length + ')';
-    det.appendChild(sum);
-    const ol = document.createElement('ol');
-    let hitLi = null;
-    p.names.forEach((n, i) => {
-      const li = document.createElement('li');
-      const sp = document.createElement('span');
-      sp.textContent = n;
-      li.appendChild(sp);
-      if (i === hitIdx){ li.className = 'hit'; hitLi = li; sp.textContent = n + '  \u2190 you'; }
-      ol.appendChild(li);
+  const head = p.rank == null ? 'Not checked yet'
+    : p.rank === 0 ? 'Not in the top ' + (total || 20)
+    : ord(p.rank) + ' on Google Maps';
+  const sub = [kw ? '“' + kw + '”' : '', when ? new Date(when).toLocaleDateString([], {month:'short', day:'numeric'}) : ''].filter(Boolean).join(' · ');
+  d.innerHTML = '<div class="cp-top"><div class="cp-badge" style="--c:' + rankColorVar(p.rank) + '">' +
+    (p.rank == null ? '·' : p.rank === 0 ? '—' : p.rank) + '</div>' +
+    '<div class="cp-head"><b>' + esc(head) + '</b>' + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</div></div>';
+  const names = Array.isArray(p.names) ? p.names : [];
+  if (p.rank == null || !names.length) return d;
+  const hit = (p.rank >= 1 && !p.matchedViaAd) ? p.rank - 1 : -1;
+  /* the top three, then the few around them */
+  const keep = new Set([0, 1, 2]);
+  if (hit >= 0) [hit - 1, hit, hit + 1].forEach(i => { if (i >= 0 && i < names.length) keep.add(i); });
+  const row = (n, i) => '<li class="' + (i === hit ? 'me' : '') + '"><span class="n">' + (i + 1) + '</span><span class="t">' + esc(n) + '</span>' + (i === hit ? '<span class="you">You</span>' : '') + '</li>';
+  const short = () => { let h = '', last = -1; [...keep].sort((a, b) => a - b).forEach(i => { if (i > last + 1) h += '<li class="gap">•••</li>'; h += row(names[i], i); last = i; }); return h; };
+  const ol = document.createElement('ol');
+  ol.className = 'cp-list';
+  ol.innerHTML = short() + (hit < 0 ? '<li class="miss">You weren’t in this list</li>' : '');
+  d.appendChild(ol);
+  if (names.length > keep.size){
+    const more = document.createElement('button');
+    more.type = 'button'; more.className = 'cp-more';
+    more.textContent = 'See all ' + names.length;
+    more.addEventListener('click', e => {
+      e.stopPropagation();
+      const open = !ol.classList.contains('all');
+      ol.classList.toggle('all', open);
+      ol.innerHTML = open ? names.map(row).join('') : short();
+      more.textContent = open ? 'Show less' : 'See all ' + names.length;
+      const me = ol.querySelector('li.me');
+      if (open && me) ol.scrollTop = Math.max(0, me.offsetTop - ol.offsetTop - 60);
     });
-    det.appendChild(ol);
-    d.appendChild(det);
-    /* Bring their own line into view inside the list once the pop-up is
-       laid out, so nobody has to scroll forty names to find it. */
-    if (hitLi) setTimeout(() => {
-      try{ ol.scrollTop = Math.max(0, hitLi.offsetTop - ol.offsetTop - 40); }catch(e){}
-    }, 60);
+    d.appendChild(more);
   }
-  if (p.adNames && p.adNames.length){
-    const det = document.createElement('details');
-    const sum = document.createElement('summary');
-    sum.textContent = 'Paid ads shown here (' + p.adNames.length + ')';
-    det.appendChild(sum);
-    const ol = document.createElement('ol');
-    p.adNames.forEach(n => { const li = document.createElement('li'); li.textContent = n; ol.appendChild(li); });
-    det.appendChild(ol);
-    d.appendChild(det);
-  }
-
-  if (p.rank != null){
-    const note = document.createElement('div');
-    note.className = 'cpop-note';
-    note.textContent = 'This is what a new customer standing on this spot saw. If you search on your own phone or computer, ' +
-      'your business may show a few places higher, because Google personalises results for people who have searched for ' +
-      'or visited it before.';
-    d.appendChild(note);
-  }
+  const foot = document.createElement('div');
+  foot.className = 'cp-foot';
+  foot.textContent = 'What a new searcher standing here sees.';
+  d.appendChild(foot);
   return d;
 }
 
