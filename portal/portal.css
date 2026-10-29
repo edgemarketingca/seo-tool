@@ -133,6 +133,11 @@ input,select{font:inherit;color:inherit;}
 .edithint svg{color:var(--brand);flex:none;}
 .edgebar{display:flex;gap:10px;align-items:flex-start;background:linear-gradient(90deg,#fff6ec,#fffaf4);border:1px solid #f6dcbf;color:#7a4a12;border-radius:14px;padding:10px 14px;margin:0 0 14px;font-size:13px;line-height:1.5;}
 .edgebar svg{color:#e87722;margin-top:2px;flex:none;}
+.edgebar{align-items:center;flex-wrap:wrap;}
+.edgebar .eb-t{flex:1;min-width:220px;}
+.edgebar .eb-std{flex:none;background:#fff;border-color:#f2cfa8;color:#8a4b0c;font-size:12.5px;}
+.edgebar .eb-std svg{margin-top:0;}
+.edgebar .eb-std:hover{border-color:#e87722;color:#b8570f;}
 /* resize handles */
 .rz{position:absolute;z-index:3;display:none;touch-action:none;}
 .editing .rz{display:block;}
