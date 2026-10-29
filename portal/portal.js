@@ -269,16 +269,19 @@ function lineChart(h, labels, series, height){
   const x = i => pad.l + (labels.length === 1 ? (W0 - pad.l - pad.r) / 2 : i * (W0 - pad.l - pad.r) / (labels.length - 1));
   const y = v => pad.t + (1 - v / nice) * (H - pad.t - pad.b);
   let svg = '<svg viewBox="0 0 ' + W0 + ' ' + H + '" preserveAspectRatio="none" style="height:' + H + 'px"><defs>' + series.map((s, i) => '<linearGradient id="lg' + i + '" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="' + s.color + '" stop-opacity=".18"/><stop offset="1" stop-color="' + s.color + '" stop-opacity="0"/></linearGradient>').join('') + '</defs>';
-  for (let g = 0; g <= 4; g++){ const v = nice * g / 4; svg += '<line x1="' + pad.l + '" x2="' + (W0 - pad.r) + '" y1="' + y(v) + '" y2="' + y(v) + '" stroke="#eef2f7" ' + (g ? 'stroke-dasharray="3 4"' : '') + '/><text x="' + (pad.l - 8) + '" y="' + (y(v) + 4) + '" text-anchor="end" font-size="10.5" fill="#9aa8bb">' + v + '</text>'; }
+  /* Axis labels are HTML on top of the chart, so they never stretch with it. */
+  let axis = '';
+  for (let g = 0; g <= 4; g++){ const v = nice * g / 4; svg += '<line x1="' + pad.l + '" x2="' + (W0 - pad.r) + '" y1="' + y(v) + '" y2="' + y(v) + '" stroke="#eef2f7" vector-effect="non-scaling-stroke" ' + (g ? 'stroke-dasharray="3 4"' : '') + '/>';
+    axis += '<span class="ay" style="top:' + (y(v) / H * 100) + '%">' + fmt(v) + '</span>'; }
   const step = Math.max(1, Math.ceil(labels.length / 7));
-  labels.forEach((l, i) => { if (i % step === 0) svg += '<text x="' + x(i) + '" y="' + (H - 6) + '" text-anchor="middle" font-size="10.5" fill="#9aa8bb">' + esc(l) + '</text>'; });
+  labels.forEach((l, i) => { if (i % step === 0) axis += '<span class="ax' + (i === 0 ? ' first' : i === labels.length - 1 ? ' last' : '') + '" style="left:' + (x(i) / W0 * 100) + '%">' + esc(l) + '</span>'; });
   series.forEach((s, si) => {
     const d = smooth(s.values.map((v, i) => [x(i), y(v)]));
     if (si === 0) svg += '<path d="' + d + 'L' + x(labels.length - 1) + ',' + y(0) + 'L' + x(0) + ',' + y(0) + 'Z" fill="url(#lg' + si + ')"/>';
     svg += '<path d="' + d + '" fill="none" stroke="' + s.color + '" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>';
   });
   svg += '<line class="cur" y1="' + pad.t + '" y2="' + (H - pad.b) + '" stroke="#c9d4e3" stroke-dasharray="3 3" opacity="0"/>' + series.map((s, si) => '<circle class="dot' + si + '" r="4" fill="#fff" stroke="' + s.color + '" stroke-width="2.4" opacity="0"/>').join('') + '</svg>';
-  h.innerHTML = '<div class="chart fade-in">' + svg + '<div class="tip"></div></div><div class="chips">' + series.map(s => '<span><i style="background:' + s.color + '"></i>' + esc(s.name) + ' · <b>' + fmt(s.values.reduce((a, b) => a + b, 0)) + '</b></span>').join('') + '</div>';
+  h.innerHTML = '<div class="chart fade-in">' + svg + '<div class="axis">' + axis + '</div><div class="tip"></div></div><div class="chips">' + series.map(s => '<span><i style="background:' + s.color + '"></i>' + esc(s.name) + ' · <b>' + fmt(s.values.reduce((a, b) => a + b, 0)) + '</b></span>').join('') + '</div>';
   const box = h.querySelector('.chart'), el = box.querySelector('svg'), tip = box.querySelector('.tip'), cur = el.querySelector('.cur');
   box.addEventListener('mousemove', e => {
     const r = el.getBoundingClientRect(), px = (e.clientX - r.left) / r.width * W0;
