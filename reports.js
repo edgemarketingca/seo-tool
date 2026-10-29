@@ -513,17 +513,46 @@ button.rp-kpi.on{border-color:var(--brand,#e87722);box-shadow:0 0 0 3px rgba(232
 .rp-pg-from em{font-style:normal;background:var(--card-2,#f7f9fa);border:1px solid var(--line,#e4e9ed);border-radius:999px;padding:2px 9px;color:var(--ink-2,#57646f);}
 .rp-pg-from em b{color:var(--ink,#1b222a);font-weight:600;margin-left:3px;}
 /* Pathways */
-.rp-pw-bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px;}
-.rp-pw-chs{display:flex;gap:6px;flex-wrap:wrap;}
-.rp-pw-chs b{font-weight:600;margin-left:4px;opacity:.75;}
-.rp-pw-kpis{display:flex;flex-wrap:wrap;gap:10px 0;align-items:center;border-top:1px solid var(--line-2,#eef2f5);border-bottom:1px solid var(--line-2,#eef2f5);padding:12px 0;margin-bottom:12px;}
-.rp-pw-kpis>div{padding:0 22px;border-left:1px solid var(--line,#e4e9ed);display:flex;flex-direction:column;}
-.rp-pw-kpis>div:first-child{padding-left:0;border-left:0;}
-.rp-pw-kpis b{font-size:22px;font-weight:600;color:var(--ink,#1b222a);letter-spacing:-.01em;line-height:1.2;}
+.rp-pw-bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between;margin-bottom:14px;}
+.rp-pw-chs{display:inline-flex;gap:2px;flex-wrap:wrap;padding:3px;background:#f1f4f8;border:1px solid #e6ebf1;border-radius:12px;}
+.rp-pw-ch{display:inline-flex;align-items:center;gap:7px;border:0;background:none;border-radius:9px;padding:7px 12px;font:600 12.5px var(--ui,Inter,sans-serif);color:#5b6878;cursor:pointer;transition:background .15s,color .15s,box-shadow .15s;}
+.rp-pw-ch b{font-weight:600;font-size:11.5px;color:#93a0ae;font-variant-numeric:tabular-nums;}
+.rp-pw-ch:hover:not([disabled]){color:#1b222a;}
+.rp-pw-ch.on{background:#fff;color:#14213d;box-shadow:0 1px 2px rgba(20,33,61,.08),0 2px 8px -4px rgba(20,33,61,.18);}
+.rp-pw-ch.on b{color:#2a78d6;}
+.rp-pw-ch[disabled]{cursor:default;opacity:.55;}
+.rp-pw-locw{position:relative;}
+.rp-pw-locb{display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 12px;border:1px solid #e1e7ee;background:#fff;border-radius:11px;font:600 12.5px var(--ui,Inter,sans-serif);color:#3c4a5a;cursor:pointer;box-shadow:0 1px 2px rgba(20,33,61,.05);transition:border-color .15s,box-shadow .15s;}
+.rp-pw-locb:hover:not([disabled]){border-color:#b9c6d4;box-shadow:0 4px 12px -6px rgba(20,33,61,.25);}
+.rp-pw-locb.on{border-color:#2a78d6;color:#14467f;background:#f2f7fe;}
+.rp-pw-locb i{font-style:normal;font-size:15px;line-height:1;margin-left:2px;width:18px;height:18px;border-radius:50%;display:grid;place-items:center;color:#2a78d6;}
+.rp-pw-locb i:hover{background:#dce9fb;}
+.rp-pw-pop{position:absolute;right:0;top:calc(100% + 6px);z-index:30;width:320px;max-width:86vw;background:#fff;border:1px solid #e3e9f0;border-radius:14px;box-shadow:0 24px 60px -20px rgba(20,33,61,.35),0 2px 6px rgba(20,33,61,.06);padding:10px;}
+.rp-pw-pop input{width:100%;box-sizing:border-box;height:36px;border:1px solid #e1e7ee;border-radius:9px;padding:0 11px;font:inherit;font-size:13px;outline:none;}
+.rp-pw-pop input:focus{border-color:#2a78d6;box-shadow:0 0 0 3px #e3eefc;}
+.rp-pw-popl{max-height:330px;overflow:auto;margin-top:6px;}
+.rp-pw-plh{font:700 10.5px var(--ui,Inter,sans-serif);letter-spacing:.06em;text-transform:uppercase;color:#93a0ae;padding:10px 8px 4px;}
+.rp-pw-pl{display:flex;align-items:center;gap:10px;width:100%;border:0;background:none;text-align:left;border-radius:8px;padding:7px 8px;font:inherit;font-size:13px;color:#2a3644;cursor:pointer;}
+.rp-pw-pl:hover{background:#f3f6fa;}
+.rp-pw-pl.on{background:#eaf2fd;color:#14467f;font-weight:600;}
+.rp-pw-pl .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.rp-pw-pl .nm small{margin-left:6px;font-size:11.5px;color:#93a0ae;font-weight:400;}
+.rp-pw-pl .bar{flex:none;width:44px;height:4px;border-radius:3px;background:#eef2f6;overflow:hidden;}
+.rp-pw-pl .bar i{display:block;height:100%;background:#2a78d6;border-radius:3px;}
+.rp-pw-pl .c{flex:none;min-width:38px;text-align:right;font-size:12px;color:#7b8998;font-variant-numeric:tabular-nums;}
+.rp-pw-pl.all{font-weight:600;}
+.rp-pw-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr)) auto;gap:10px;align-items:stretch;margin-bottom:14px;transition:opacity .2s;}
+.rp-pw-kpis.busy{opacity:.45;}
+.rp-pw-kpis>div{display:flex;flex-direction:column;justify-content:center;gap:3px;padding:12px 14px;border:1px solid #e9eef3;border-radius:12px;background:linear-gradient(180deg,#fff,#fbfcfd);}
+.rp-pw-kpis b{font:600 21px/1.15 var(--ui,Inter,sans-serif);color:var(--ink,#1b222a);letter-spacing:-.01em;font-variant-numeric:tabular-nums;}
 .rp-pw-kpis b.key{color:#b7791f;}
 .rp-pw-kpis span{font-size:12px;color:var(--ink-3,#8b98a3);}
-.rp-pw-kpis .aiv-btn{margin-left:auto;color:#855711;border-color:#f1dca4;background:#fff8e6;}
-.rp-pw-split{display:flex;border:1px solid var(--line,#e4e9ed);border-radius:10px;overflow:hidden;background:#fff;}
+.rp-pw-kpis>span{justify-content:center;}
+.rp-pw-kpis .aiv-btn{color:#855711;border-color:#f1dca4;background:#fff8e6;border-radius:10px;font-weight:600;}
+@media (max-width:820px){.rp-pw-kpis{grid-template-columns:repeat(2,minmax(0,1fr));}.rp-pw-kpis>span{grid-column:1/-1;align-items:flex-start !important;}}
+.rp-pw-type{display:inline-flex;align-items:center;font:700 10px/1 var(--ui,Inter,sans-serif);letter-spacing:.04em;text-transform:uppercase;color:var(--tc);background:color-mix(in srgb,var(--tc) 11%,#fff);border:1px solid color-mix(in srgb,var(--tc) 22%,#fff);border-radius:999px;padding:4px 7px;vertical-align:1px;}
+.rp-pw-kn{font-weight:600;color:var(--ink,#1b222a);}
+.rp-pw-split{display:flex;border:1px solid #e6ebf1;border-radius:14px;overflow:hidden;background:#fff;box-shadow:0 1px 2px rgba(20,33,61,.04);}
 .rp-pw-pick{flex:0 0 250px;width:250px;padding:12px 14px;border-right:1px solid var(--line,#e4e9ed);max-height:560px;overflow-y:auto;}
 .rp-pw-ph{font-size:13px;font-weight:600;color:var(--ink,#1b222a);margin-bottom:8px;}
 .rp-pw-pick input[type=search]{width:100%;box-sizing:border-box;height:32px;border:1px solid var(--line,#e4e9ed);border-radius:8px;padding:0 10px;font:inherit;font-size:13px;}
@@ -763,7 +792,12 @@ button.rp-lead{cursor:pointer;} button.rp-lead:hover{border-color:#b8c2cc;}
 .rp-pw-star{flex:none;border:0;background:#fff8e6;color:#855711;border-radius:999px;padding:1px 7px;font:600 11px var(--ui,Inter,sans-serif);cursor:pointer;}
 .rp-pw-star.hint{background:transparent;color:#b7791f;font-weight:500;}
 .rp-pw-star:hover{background:#f1dca4;}
-.rp-pw-keys{border:1px solid #f1dca4;background:#fffdf6;border-radius:10px;padding:12px 14px;margin-top:12px;}
+.rp-pw{position:relative;}
+.rp-pw-keys{position:absolute;z-index:25;right:10px;top:118px;width:min(560px,calc(100% - 20px));max-height:calc(100% - 132px);overflow:auto;box-sizing:border-box;border:1px solid #efe1bd;background:#fffdf8;border-radius:16px;padding:14px 16px;box-shadow:0 30px 70px -28px rgba(60,40,10,.45),0 2px 8px rgba(20,33,61,.06);animation:rpPwIn .18s ease-out;}
+@keyframes rpPwIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.rp-pw-keys .aiv-table td{vertical-align:middle;}
+.rp-pw-keys h4{margin:12px 0 6px;font-size:12px;font-weight:600;letter-spacing:.01em;color:var(--ink-2,#57646f);}
+.rp-pw-kh{position:sticky;top:-14px;background:#fffdf8;margin:-14px -16px 0;padding:12px 16px 10px;border-bottom:1px solid #f3e7c9;z-index:1;}
 .rp-pw-keys h4{margin:10px 0 6px;font-size:12.5px;font-weight:600;color:var(--ink-2,#57646f);}
 .rp-pw-kh{display:flex;justify-content:space-between;align-items:center;gap:10px;}
 .rp-pw-ev{font-family:var(--mono,monospace);font-size:11px;color:var(--ink-3,#8b98a3);}
@@ -1787,7 +1821,7 @@ function pwKeysHtml(M, n){
   const hidNote = M.hidden && M.hidden.length && !M.allKeys ? '<p class="aiv-cap" style="margin-top:8px">Not counted: page-visit events marked as key events in GA4 (' + M.hidden.slice(0, 4).map(e => esc(e[0])).join(', ') + (M.hidden.length > 4 ? '…' : '') + '). They record a page being seen, not an action.</p>' : '';
   if (!fired.length && !reached.length) return '<div class="aiv-empty">No key events for this page in this period.</div>' + hidNote;
   const v = M.views[n.k] || 0;
-  const row = (name, a, b) => '<tr><td>★ ' + esc(keLabel(name)) + ' <span class="rp-pw-ev">' + esc(name) + '</span></td><td class="num">' + a + '</td>' + (b != null ? '<td class="num">' + b + '</td>' : '') + '</tr>';
+  const row = (name, a, b) => '<tr><td>' + pwTypeTag(name) + ' <b class="rp-pw-kn">' + esc(keLabel(name)) + '</b> <span class="rp-pw-ev">' + esc(name) + '</span></td><td class="num">' + a + '</td>' + (b != null ? '<td class="num">' + b + '</td>' : '') + '</tr>';
   let h = '';
   if (reached.length) h += '<h4>' + (n.step ? 'Sessions that started on ' + esc(n.l) + ' and fired a key event on ' + esc(n.k) : 'Sessions that started on ' + esc(n.k) + ' and reached a key event') + '</h4><div class="aiv-scroll" style="max-height:240px"><table class="aiv-table"><thead><tr><th>Key event</th><th class="num">Sessions</th><th class="num">Times</th></tr></thead><tbody>' +
     reached.map(r => row(r[0], fmt(r[1]), fmt(r[2]))).join('') + '</tbody></table></div>';
@@ -1798,15 +1832,25 @@ function pwKeysHtml(M, n){
   return h + hidNote;
 }
 const PW_CH = [['all', 'All traffic'], ['organic', 'Organic'], ['paid', 'Paid'], ['direct', 'Direct'], ['referral', 'Referral'], ['other', 'Other']];
+/* What kind of action a key event is, from its name. */
+const PW_TYPES = [[/call|phone|tel(_|$)|click_to_call/i, 'Call', '#0f7a58'], [/book|appointment|schedul|calendar|reserv/i, 'Booking', '#6250d6'],
+  [/purchase|order|checkout|cart|payment|transaction/i, 'Purchase', '#b8570f'], [/form|submit|lead|contact|quote|enquir|inquir|estimate|request|thank/i, 'Form', '#2a78d6'],
+  [/mail/i, 'Email', '#0b8fa3'], [/chat|whatsapp|messenger|sms/i, 'Chat', '#e87ba4'], [/download|pdf|brochure/i, 'Download', '#8a5a00'],
+  [/sign_?up|subscribe|newsletter|regist/i, 'Sign-up', '#4a3aa7'], [/click|tap|cta|button|direction|map/i, 'Click', '#57646f']];
+const pwType = name => { const t = PW_TYPES.find(x => x[0].test(String(name || ''))); return t ? {t: t[1], c: t[2]} : {t: 'Key event', c: '#b7791f'}; };
+const pwTypeTag = name => { const t = pwType(name); return '<span class="rp-pw-type" style="--tc:' + t.c + '">' + t.t + '</span>'; };
+const pwPlaceLabel = g => { const m = /^(country|region|city):(.+)$/.exec(String(g || '')); return m ? m[2] : 'All locations'; };
 W.ga4_pathways = {g: 'traffic', t: 'Pathways', d: 'Where sessions start, where they go next and which key events they reach (GA4). Open any page for its next step.', size: 'xl', needs: ['pathway'],
   render(h, ctx, w, D){
     const cf = w.cfg = w.cfg || {};
     const mOpt = () => ({all: !!cf.allKeys});
-    let ch = 'all', M = pathwayModel(D.pathway, mOpt()), q = '', allStarts = false, raw = D.pathway;
+    let ch = PW_CH.some(c => c[0] === cf.ch) ? cf.ch : 'all', geo = typeof cf.geo === 'string' ? cf.geo : '', M = pathwayModel(D.pathway, mOpt()), q = '', allStarts = false, raw = D.pathway;
+    let places = (D.pathway && D.pathway.places) || null, baseCh = M.channels;
+    const canFilter = !!ctx.loadPathway;
     let picked = Array.isArray(cf.starts) && cf.starts.length ? cf.starts.slice(0, 20) : null;
     const open = new Set();
     h.innerHTML = '<div class="rp-pw">' +
-      '<div class="rp-pw-bar"><div class="rp-pw-chs" data-chs></div></div>' +
+      '<div class="rp-pw-bar"><div class="rp-pw-chs" data-chs role="tablist" aria-label="Traffic type"></div><div class="rp-pw-locw" data-locw></div></div>' +
       '<div class="rp-pw-kpis" data-kpis></div>' +
       '<div class="rp-pw-split"><aside class="rp-pw-pick"><div class="rp-pw-ph">Starting pages</div><input type="search" data-q placeholder="Find a page…" aria-label="Find a starting page">' +
         '<div class="rp-pw-acts"><button type="button" class="aiv-chip" data-top="5">Top 5</button><button type="button" class="aiv-chip" data-top="10">Top 10</button><button type="button" class="aiv-chip off" data-top="0">Clear</button></div><div data-list></div></aside>' +
@@ -1815,17 +1859,68 @@ W.ga4_pathways = {g: 'traffic', t: 'Pathways', d: 'Where sessions start, where t
     const $ = s => h.querySelector(s);
     const tree = $('[data-tree]'), keysBox = $('[data-keys]');
     const save = () => { if (picked) cf.starts = picked.slice(); else delete cf.starts; if (ctx.saveItem) ctx.saveItem(w); };
+    const saveF = () => { if (ctx.saveItem){ if (ch !== 'all') cf.ch = ch; else delete cf.ch; if (geo) cf.geo = geo; else delete cf.geo; ctx.saveItem(w); } };
+    /* Traffic type and place: one request to the tracker each, then everything below redraws. */
+    const reload = () => {
+      tree.innerHTML = '<div class="rp-load"><span class="aiv-spin"></span></div>'; keysBox.innerHTML = '';
+      $('[data-kpis]').classList.add('busy');
+      const p = ch === 'all' && !geo && D.pathway && !D.pathway.geo ? Promise.resolve(D.pathway) : ctx.loadPathway(ch, geo);
+      return p.then(r => {
+        if (!r || r.error) throw new Error((r && r.error) || 'No data');
+        raw = r; M = pathwayModel(r, mOpt()); if (r.places) places = r.places;
+        if (!geo && M.channels) baseCh = M.channels; else M.channels = M.channels || baseCh;
+        open.clear(); $('[data-kpis]').classList.remove('busy'); drawAll();
+      }).catch(e => { $('[data-kpis]').classList.remove('busy'); tree.innerHTML = '<div class="rp-err">' + esc(e.message || String(e)) + '</div>'; });
+    };
     const drawChs = () => {
       const C = M.channels;
-      $('[data-chs]').innerHTML = PW_CH.map(c => '<button type="button" class="aiv-chip' + (c[0] === ch ? '' : ' off') + '" data-ch="' + c[0] + '"' + (C ? '' : ' disabled') + '>' + c[1] + (C ? ' <b>' + fmt(C[c[0]] || 0) + '</b>' : '') + '</button>').join('');
+      /* Only the traffic types this site actually gets (plus the one picked). */
+      const shown = PW_CH.filter(c => c[0] === 'all' || c[0] === ch || !C || (C[c[0]] || 0) > 0);
+      $('[data-chs]').innerHTML = shown.map(c => '<button type="button" role="tab" aria-selected="' + (c[0] === ch) + '" class="rp-pw-ch' + (c[0] === ch ? ' on' : '') + '" data-ch="' + c[0] + '"' + (canFilter || c[0] === ch ? '' : ' disabled') + '>' +
+        esc(c[1]) + (C ? '<b>' + fmt(C[c[0]] || 0) + '</b>' : '') + '</button>').join('');
       $('[data-chs]').querySelectorAll('[data-ch]').forEach(b => b.addEventListener('click', () => {
-        if (b.dataset.ch === ch) return;
-        if (b.dataset.ch !== 'all' && !ctx.loadPathway){ return; }
-        ch = b.dataset.ch; drawChs();
-        tree.innerHTML = '<div class="rp-load"><span class="aiv-spin"></span></div>';
-        (ch === 'all' ? Promise.resolve(D.pathway) : ctx.loadPathway(ch)).then(p => { raw = p; M = pathwayModel(p, mOpt()); M.channels = M.channels || pathwayModel(D.pathway).channels; drawAll(); })
-          .catch(e => { tree.innerHTML = '<div class="rp-err">' + esc(e.message || String(e)) + '</div>'; });
+        if (b.dataset.ch === ch || !canFilter) return;
+        ch = b.dataset.ch; saveF(); drawChs(); reload();
       }));
+      drawLoc();
+    };
+    const drawLoc = () => {
+      const box = $('[data-locw]');
+      if (!canFilter && !geo){ box.innerHTML = ''; return; }
+      box.innerHTML = '<button type="button" class="rp-pw-locb' + (geo ? ' on' : '') + '" data-loc aria-haspopup="true"' + (canFilter ? '' : ' disabled') + '>' +
+        '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>' +
+        '<span>' + esc(pwPlaceLabel(geo)) + '</span>' + (geo ? '<i data-locx title="All locations">×</i>' : '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>') + '</button>';
+      const x = box.querySelector('[data-locx]');
+      if (x) x.addEventListener('click', e => { e.stopPropagation(); geo = ''; saveF(); drawLoc(); reload(); });
+      const b = box.querySelector('[data-loc]');
+      if (b) b.addEventListener('click', e => { e.stopPropagation(); locPop(box); });
+    };
+    const locPop = box => {
+      const old = box.querySelector('.rp-pw-pop'); if (old){ old.remove(); return; }
+      const P = places || {countries: [], regions: [], cities: []};
+      const pop = document.createElement('div');
+      pop.className = 'rp-pw-pop';
+      pop.innerHTML = '<input type="search" placeholder="Find a city, province or country…" aria-label="Find a place"><div class="rp-pw-popl" data-pl></div>';
+      box.appendChild(pop);
+      const inp = pop.querySelector('input'), list = pop.querySelector('[data-pl]');
+      const max = Math.max(1, ...(P.countries || []).map(r => r[r.length - 1]));
+      const item = (g, name, sub, n) => '<button type="button" class="rp-pw-pl' + (g === geo ? ' on' : '') + '" data-g="' + esc(g) + '"><span class="nm">' + esc(name) + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</span>' +
+        '<span class="bar"><i style="width:' + Math.max(2, n / max * 100).toFixed(1) + '%"></i></span><span class="c">' + fmt(n) + '</span></button>';
+      const draw = () => {
+        const t = inp.value.trim().toLowerCase(), hit = (...a) => !t || a.join(' ').toLowerCase().indexOf(t) > -1;
+        const sec = (title, rows) => rows.length ? '<div class="rp-pw-plh">' + title + '</div>' + rows.join('') : '';
+        const co = (P.countries || []).filter(r => hit(r[0])).slice(0, t ? 40 : 6).map(r => item('country:' + r[0], r[0], '', r[1]));
+        const rg = (P.regions || []).filter(r => hit(r[0], r[1])).slice(0, t ? 60 : 8).map(r => item('region:' + r[0], r[0], r[1], r[2]));
+        const ci = (P.cities || []).filter(r => hit(r[0], r[1], r[2])).slice(0, t ? 80 : 12).map(r => item('city:' + r[0], r[0], [r[1], r[2]].filter(Boolean).join(', '), r[3]));
+        list.innerHTML = (t ? '' : '<button type="button" class="rp-pw-pl all' + (geo ? '' : ' on') + '" data-g=""><span class="nm">All locations</span></button>') +
+          sec('Cities', ci) + sec('Provinces &amp; states', rg) + sec('Countries', co) ||
+          '<div class="aiv-empty" style="padding:14px">' + (P.error ? 'Locations aren’t available for this site right now.' : places ? 'No place matches.' : 'Locations load with the first filter. Pick a traffic type first, or try again.') + '</div>';
+        list.querySelectorAll('[data-g]').forEach(b => b.addEventListener('click', () => { geo = b.dataset.g; pop.remove(); saveF(); drawLoc(); reload(); }));
+      };
+      inp.addEventListener('input', draw); draw(); setTimeout(() => inp.focus(), 0);
+      const away = e => { if (!pop.contains(e.target)){ pop.remove(); document.removeEventListener('pointerdown', away, true); } };
+      document.addEventListener('pointerdown', away, true);
+      if (!places && canFilter) ctx.loadPathway(ch, geo).then(r => { if (r && r.places){ places = r.places; if (pop.isConnected){ pop.remove(); locPop(box); } } }).catch(() => {});
     };
     const starts = () => (picked || M.landings.slice(0, 6).map(l => l.k)).filter(k => M.land[k]);
     const drawList = () => {
@@ -1844,7 +1939,7 @@ W.ga4_pathways = {g: 'traffic', t: 'Pathways', d: 'Where sessions start, where t
     };
     const drawKpis = () => {
       const onChart = starts().reduce((t, k) => t + (M.land[k] ? M.land[k].s : 0), 0);
-      $('[data-kpis]').innerHTML = '<div><b>' + fmt(M.total) + '</b><span>' + esc((PW_CH.find(c => c[0] === ch) || PW_CH[0])[1].toLowerCase()) + ' sessions</span></div>' +
+      $('[data-kpis]').innerHTML = '<div><b>' + fmt(M.total) + '</b><span>' + esc((PW_CH.find(c => c[0] === ch) || PW_CH[0])[1].toLowerCase()) + ' sessions' + (geo ? ' · ' + esc(pwPlaceLabel(geo)) : '') + '</span></div>' +
         '<div><b class="key">★ ' + fmt(M.reached) + '</b><span>reached a key event (' + pctS(M.reached, M.total) + ')</span></div>' +
         '<div><b>' + fmt(M.landings.length) + (M.landings.length >= 1500 ? '+' : '') + '</b><span>pages sessions start on</span></div>' +
         '<div><b>' + pctS(onChart, M.total) + '</b><span>of sessions on the chart</span></div>' +
@@ -1862,8 +1957,8 @@ W.ga4_pathways = {g: 'traffic', t: 'Pathways', d: 'Where sessions start, where t
     const showAllKeys = () => {
       const rows = Object.keys(M.keyTot).map(k => [k, M.keyTot[k][0], M.keyTot[k][1]]).sort((a, b) => b[1] - a[1]);
       keysBox.innerHTML = '<div class="rp-pw-keys"><div class="rp-pw-kh"><b>Key events reached</b><button type="button" class="aiv-btn" data-kx>✕ Close</button></div>' +
-        (rows.length ? '<div class="aiv-scroll" style="max-height:300px"><table class="aiv-table"><thead><tr><th>Key event</th><th class="num">Sessions</th><th class="num">Times</th><th>Started on (top)</th></tr></thead><tbody>' +
-          rows.map(r => '<tr><td>★ ' + esc(keLabel(r[0])) + ' <span class="rp-pw-ev">' + esc(r[0]) + '</span></td><td class="num">' + fmt(r[1]) + '</td><td class="num">' + fmt(r[2]) + '</td><td>' +
+        (rows.length ? '<div class="aiv-scroll" style="max-height:300px"><table class="aiv-table"><thead><tr><th>Key event</th><th class="num">Sessions</th><th class="num">Times</th><th>Where (top starting pages)</th></tr></thead><tbody>' +
+          rows.map(r => '<tr><td>' + pwTypeTag(r[0]) + ' <b class="rp-pw-kn">' + esc(keLabel(r[0])) + '</b> <span class="rp-pw-ev">' + esc(r[0]) + '</span></td><td class="num">' + fmt(r[1]) + '</td><td class="num">' + fmt(r[2]) + '</td><td>' +
             esc(Object.keys(M.keyLand).map(l => [l, (M.keyLand[l].find(x => x[0] === r[0]) || [0, 0])[1]]).filter(x => x[1]).sort((a, b) => b[1] - a[1]).slice(0, 3).map(x => pwLabel(x[0]) + ' (' + fmt(x[1]) + ')').join(', ')) + '</td></tr>').join('') + '</tbody></table></div>'
           : '<div class="aiv-empty">No key events in this period.</div>') + '</div>';
       keysBox.querySelector('[data-kx]').addEventListener('click', () => { keysBox.innerHTML = ''; });
@@ -1871,14 +1966,13 @@ W.ga4_pathways = {g: 'traffic', t: 'Pathways', d: 'Where sessions start, where t
     const showKeys = n => {
       keysBox.innerHTML = '<div class="rp-pw-keys"><div class="rp-pw-kh"><b>' + esc(n.kind ? '' : pwLabel(n.k)) + ' <span class="rp-pw-ev">' + esc(n.k) + '</span></b><button type="button" class="aiv-btn" data-kx>✕ Close</button></div>' + pwKeysHtml(M, n) + '</div>';
       keysBox.querySelector('[data-kx]').addEventListener('click', () => { keysBox.innerHTML = ''; });
-      keysBox.scrollIntoView({block: 'nearest', behavior: 'smooth'});
     };
     const drawTree = () => {
       drawKpis();
       const ks = starts();
       if (!ks.length){ tree.innerHTML = '<div class="aiv-empty">Tick a starting page to see where its sessions went.</div>'; $('[data-heads]').innerHTML = ''; return; }
       const kids = ks.map(k => ({k, v: M.land[k].s, reached: M.land[k].reached, depth: 1, mode: 'land', l: k, path: [k]}));
-      const root = {k: '', root: true, label: (PW_CH.find(c => c[0] === ch) || PW_CH[0])[1] + ' sessions', v: M.total, depth: 0, path: ['*'], rootKids: kids};
+      const root = {k: '', root: true, label: (PW_CH.find(c => c[0] === ch) || PW_CH[0])[1] + (geo ? ' · ' + pwPlaceLabel(geo) : '') + ' sessions', v: M.total, depth: 0, path: ['*'], rootKids: kids};
       if (!open.size){ open.add('*|'); ks.slice(0, 1).forEach(k => open.add(k + '|' + k)); }
       const r = drawPathTree(tree, ctx, M, [root], {open, onToggle: () => drawTree(), onKeys: showKeys});
       const heads = ['Sessions', 'Started on', 'Then went to', 'Then', 'Then', 'Then', 'Then', 'Then'];
@@ -1895,7 +1989,8 @@ W.ga4_pathways = {g: 'traffic', t: 'Pathways', d: 'Where sessions start, where t
     }));
     $('[data-foot]').innerHTML = 'GA4, ' + esc(ctx.R.text) + '. Sessions are grouped by the page they started on. The next page after a starting page is counted from page views whose previous page was that page; steps after that (≈) are estimated from how visitors moved on from each page. ★ on a starting page counts its sessions that reached a key event, and ★ on the page after it counts the sessions from that start that fired a key event on that page (both exact, each session once); ★≈ on later steps estimates the key events from the visitors on that step (the page’s key events per view × their visits). Every page visited is included: each step lists its top pages, and “more pages” opens all the others.' +
       (M.thresholded ? ' Google Analytics hid some small numbers for privacy (thresholding).' : '');
-    drawAll();
+    if (canFilter && (ch !== 'all' || geo)){ drawChs(); drawList(); reload(); }
+    else drawAll();
   }};
 
 /* ---------- AI assistants ---------- */
@@ -4752,11 +4847,12 @@ if (name === 'formsc') return ctx.get('forms');
 return Promise.reject(new Error('Unknown data source ' + name));
   };
   /* Pathways for one traffic type (all, organic, paid, direct, referral, other). */
-  ctx.loadPathway = ch => {
+  ctx.loadPathway = (ch, geo) => {
     if (domain.indexOf('.') < 0) return noSite();
     if (!s.url || !s.key) return noTracker();
-    const R = ctx.R, k = R.since + '|' + R.end + '|' + (ch || 'all');
-    return dc.pw[k] || (dc.pw[k] = AIV.apiGet(s.url, {action: 'pathway', domain, key: s.key, start: R.since, end: R.end, channel: ch || 'all'}).catch(e => { delete dc.pw[k]; throw e; }));
+    const R = ctx.R, k = R.since + '|' + R.end + '|' + (ch || 'all') + '|' + (geo || '');
+    return dc.pw[k] || (dc.pw[k] = AIV.apiGet(s.url, Object.assign({action: 'pathway', domain, key: s.key, start: R.since, end: R.end, channel: ch || 'all'}, geo ? {geo} : {}))
+      .then(r => { if (r && r.error) throw new Error(r.error); return r; }).catch(e => { delete dc.pw[k]; throw e; }));
   };
   /* One page, day by day (Page performance widget). */
   ctx.loadPage = path => {
