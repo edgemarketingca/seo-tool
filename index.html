@@ -5586,7 +5586,7 @@ body.embed-clean .rank-dot.wide{box-shadow:0 0 0 2px #fff,0 0 0 3.5px rgba(212,6
       <div class="lg"><img id="loginBrandLogo" alt=""/></div>
       <div class="eyebrow">EDGE workspace</div>
       <h2>Every client, in one place.</h2>
-      <p>The search console the whole EDGE team shares: rank grids, live SERP checks, client reporting and the Easyleads client portal.</p>
+      <p>The search console the whole EDGE team shares: rank grids, live SERP checks and client reporting.</p>
       <ul class="auth-feats">
         <li><i><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></i>GBP rank grids and the GBP Tracker</li>
         <li><i><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></i>Live SERP checks and keyword research</li>
@@ -26340,8 +26340,6 @@ function renderHubMeta(){
 function showHub(on, skipGate){
   const hub = $('hubScreen');
   if (!hub) return;
-  /* First stop after signing in: choose EDGE or Easyleads (easyleads-workspace.js). */
-  if (on && !skipGate && !document.body.classList.contains('embed-mode') && window.EL_WS && !window.EL_WS.gate(() => showHub(true, true))) return;
   if (document.body.classList.contains('embed-mode')) on = false;
   hubOpen = !!on;
   hub.classList.toggle('on', hubOpen);
@@ -28465,7 +28463,7 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
 
   const signedIn = () => { try{ return !!(fbAuth && fbAuth.currentUser); }catch(e){ return false; } };
   /* Leads belong to the EDGE interface only: never on the sign-in or loading
-     screen, the EDGE / Easyleads chooser, the Easyleads console or the hub. */
+     screen or the hub. */
   const onScreen = id => { const el = document.getElementById(id); return !!(el && el.classList.contains('on')); };
   const inEdge = () => {
     if (!signedIn() || onScreen('loginScreen') || onScreen('loadingScreen')) return false;
@@ -28940,7 +28938,5 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
 <script src="gsc-widgets.js"></script>
 <script src="reports.js"></script>
 <script src="connections.js"></script>
-<script src="portal-admin.js"></script>
-<script src="easyleads-workspace.js"></script>
 </body>
 </html>
