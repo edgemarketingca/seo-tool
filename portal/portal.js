@@ -1402,7 +1402,7 @@ function botOpen(on){
 function botDraw(){
   if (!BOT.el) return;
   const c = botClient(), cv = botConv(), box = BOT.el.querySelector('[data-msgs]'), who = cv.face;
-  BOT.el.querySelector('[data-bfoot]').textContent = 'Answers use ' + (c ? c.name : 'this dashboard') + '’s data for ' + rangeText() + '. Automated answers: please double-check anything important. Your Easyleads team can read these chats.';
+  const bft = BOT.el.querySelector('[data-bfoot]'); if (bft){ bft.textContent = ''; bft.style.display = 'none'; }
   if (!cv.msgs.length){
     const sug = BOT_SUG[(c && c.source) === 'site' ? 'site' : 'easyleads'];
     box.innerHTML = '<div class="bot-hello">' +
