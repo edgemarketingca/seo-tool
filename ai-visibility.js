@@ -1322,14 +1322,26 @@ function renderMessage(root, title, body, isErr){
 }
 
 /* ---------- tracker API ---------- */
-async function apiGet(base, params){
+/* Identical reads already on their way share one request: several widgets
+   often ask the tracker for the same thing at once, and every extra call
+   is another 5-40 s Apps Script run. */
+const inflight = {};
+function apiGet(base, params){
   const qs = Object.keys(params).filter(k => params[k] != null && params[k] !== '')
     .map(k => encodeURIComponent(k) + '=' + encodeURIComponent(params[k])).join('&');
-  const res = await fetch(base + (base.indexOf('?') > -1 ? '&' : '?') + qs, {redirect:'follow'});
-  if (!res.ok) throw new Error('The tracker answered with HTTP ' + res.status + '.');
-  const json = await res.json().catch(() => { throw new Error('The tracker did not return data. Check the web app is deployed with access set to Anyone.'); });
-  if (json && json.error) throw new Error(json.error === 'unauthorized' ? 'The tracker did not accept this key.' : json.error);
-  return json;
+  const url = base + (base.indexOf('?') > -1 ? '&' : '?') + qs;
+  if (inflight[url]) return inflight[url];
+  const p = (async () => {
+    const res = await fetch(url, {redirect:'follow'});
+    if (!res.ok) throw new Error('The tracker answered with HTTP ' + res.status + '.');
+    const json = await res.json().catch(() => { throw new Error('The tracker did not return data. Check the web app is deployed with access set to Anyone.'); });
+    if (json && json.error) throw new Error(json.error === 'unauthorized' ? 'The tracker did not accept this key.' : json.error);
+    return json;
+  })();
+  inflight[url] = p;
+  const done = () => { if (inflight[url] === p) delete inflight[url]; };
+  p.then(done, done);
+  return p;
 }
 /* text/plain keeps this a "simple" request, so the browser skips the CORS
    preflight Apps Script cannot answer. */
