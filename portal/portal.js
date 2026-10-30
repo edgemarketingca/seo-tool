@@ -270,10 +270,10 @@ const DEFAULT_DASHES = src => {
 };
 
 function errHtml(e){
-  if (e && e.code === 'scope') return '<div class="err">' + ic('lock', 22) + '<br><b>Not switched on yet</b><br>This needs “' + esc(e.scope) + '” access on your ' + esc(BRAND) + ' account. EDGE Marketing can turn it on for you.</div>';
+  if (e && e.code === 'scope') return '<div class="err">' + ic('lock', 22) + '<br><b>Not switched on yet</b><br>This needs “' + esc(e.scope) + '” access on your ' + esc(BRAND) + ' account. Your Easyleads team can turn it on for you.</div>';
   if (e && e.code === 'hidden') return '<div class="err">' + ic('lock', 22) + '<br><b>Hidden from this business</b><br>They don’t see this widget. It shows up for them by itself once it’s available.</div>';
-  if (e && e.code === 'notavailable') return '<div class="err">' + ic('lock', 22) + '<br><b>Not available for this business</b><br>This widget needs an ' + esc(BRAND) + ' account. EDGE Marketing can tell you more.</div>';
-  if (e && e.code === 'notconnected') return '<div class="err"><b>Your ' + esc(BRAND) + ' account isn’t connected yet.</b><br>EDGE Marketing will let you know when it’s ready.</div>';
+  if (e && e.code === 'notavailable') return '<div class="err">' + ic('lock', 22) + '<br><b>Not available for this business</b><br>This widget needs an ' + esc(BRAND) + ' account. Your Easyleads team can tell you more.</div>';
+  if (e && e.code === 'notconnected') return '<div class="err"><b>Your ' + esc(BRAND) + ' account isn’t connected yet.</b><br>Your Easyleads team will let you know when it’s ready.</div>';
   return '<div class="err">Couldn’t load this right now.<br><span style="font-size:12px">' + esc(e && e.message || e) + '</span></div>';
 }
 function rowHtml(o){
@@ -421,7 +421,7 @@ function drawNearCity(h, D, it){
 }
 /* ----- lead marks: Done / Pending / Spam, one per person, kept on the tracker ----- */
 const MARKS = {done: ['Done', '#0f9d6b', 'check'], pending: ['Pending', '#d9820b', 'clock'], spam: ['Spam', '#e0413a', 'x']};
-const myMarkName = () => S.me && S.me.edge ? 'EDGE Marketing' : (S.me && S.me.user.name) || '';
+const myMarkName = () => S.me && S.me.edge ? 'Easyleads team' : (S.me && S.me.user.name) || '';
 function marksFor(domain){
   S.marks = S.marks || {};
   const c = S.marks[domain];
@@ -1207,7 +1207,7 @@ function renderLogin(msg){
     '<div class="fld"><label for="em">Email</label><input id="em" type="email" autocomplete="username" required></div>' +
     '<div class="fld"><label for="pw">Password</label><input id="pw" type="password" autocomplete="current-password" required></div>' +
     '<button class="btn go big" type="submit">Sign in</button><div class="msg' + (msg ? ' err' : '') + '" role="alert">' + esc(msg || '') + '</div>' +
-    '<div class="foot">Need help or forgot your password? Contact EDGE Marketing.</div></form><div class="login-side">Powered by ' + esc(BRAND) + '</div></div>';
+    '<div class="foot">Need help or forgot your password? Contact your Easyleads team.</div></form><div class="login-side">Powered by ' + esc(BRAND) + '</div></div>';
   const f = app.querySelector('form');
   let busy = false;
   f.addEventListener('submit', async e => {
@@ -1247,7 +1247,7 @@ function startWith(session, me){
   S.domain = me.clients.some(c => c.domain === d) ? d : (me.clients[0] || {}).domain || '';
   S.period = ls.get('el_period', '30');
   if (!PERIODS.some(p => p[0] === S.period)) S.period = '30';
-  if (!me.clients.length){ app.innerHTML = '<div class="login"><div class="login-card"><div class="brandmark"><img src="img/easyleads-logo.png" alt=""></div><h1>Almost there</h1><p>Your account isn’t linked to a business yet. EDGE Marketing will let you know when it’s ready.</p><button class="btn" type="button" id="out">Sign out</button></div></div>'; app.querySelector('#out').addEventListener('click', () => signOut()); return; }
+  if (!me.clients.length){ app.innerHTML = '<div class="login"><div class="login-card"><div class="brandmark"><img src="img/easyleads-logo.png" alt=""></div><h1>Almost there</h1><p>Your account isn’t linked to a business yet. Your Easyleads team will let you know when it’s ready.</p><button class="btn" type="button" id="out">Sign out</button></div></div>'; app.querySelector('#out').addEventListener('click', () => signOut()); return; }
   renderApp();
 }
 /* Fresh numbers every few minutes while the page is open. */
@@ -1331,12 +1331,35 @@ function botWarm(){
   BOT.warm[k] = 1;
   api('portalChatWarm', Object.assign({session: S.session, domain: S.domain}, d)).catch(() => {});
 }
+/* What is on the screen right now, as plain text: the dashboard tab, the period and every widget the way
+   the person sees it this moment. Sent with each question, so answers follow the dashboard live. */
+function botScreen(){
+  try{
+    const dash = curDash(), out = ['Dashboard tab: ' + (dash ? dash.name : '') + ' · period: ' + rangeText()];
+    let left = 7000;
+    document.querySelectorAll('[data-grid] > section.w').forEach(w => {
+      if (left <= 0 || w.querySelector('.wl-badge')) return;
+      const h = w.querySelector('.wh h3'), body = w.querySelector('[data-body]');
+      const txt = (body ? body.innerText : '').replace(/\s*\n\s*/g, ' | ').replace(/\s{2,}/g, ' ').trim().slice(0, 600);
+      const line = '[' + (h ? h.textContent.trim() : (w.dataset.t || 'Widget')) + '] ' + txt;
+      out.push(line.slice(0, left)); left -= line.length;
+    });
+    return out.join('\n').slice(0, 7500);
+  }catch(e){ return ''; }
+}
+/* When the numbers on screen update while the assistant is open, it says so for a moment. */
+function botLive(){
+  if (!BOT.el || !BOT.open) return;
+  const r = BOT.el.querySelector('[data-hrole]'); if (!r) return;
+  r.textContent = 'Dashboard just updated · ask me about it'; r.classList.add('upd');
+  clearTimeout(BOT.lt); BOT.lt = setTimeout(() => { r.classList.remove('upd'); botHead(); }, 6000);
+}
 function botHead(){
   if (!BOT.el) return;
   const c = botClient(), f = botConv().face;
   BOT.el.querySelector('[data-hav]').innerHTML = botFace(f, 'bot-hface');
-  BOT.el.querySelector('[data-hname]').textContent = f ? f.n + ' from EDGE' : 'Ask about your dashboard';
-  BOT.el.querySelector('[data-hrole]').textContent = 'AI assistant · ' + ((c && c.source) === 'site' ? 'your dashboard data' : 'your Easyleads data');
+  BOT.el.querySelector('[data-hname]').textContent = f ? f.n + ' · Easyleads' : 'Easyleads Assistant';
+  BOT.el.querySelector('[data-hrole]').textContent = 'Automated assistant · watching your dashboard live';
 }
 function botMount(){
   const c = botClient();
@@ -1344,9 +1367,9 @@ function botMount(){
   if (!BOT.el){
     const el = BOT.el = document.createElement('div');
     el.className = 'botw';
-    el.innerHTML = '<button type="button" class="bot-fab" data-bopen aria-label="Ask about your dashboard"><span class="bot-faces" data-faces></span><span class="bot-fab-t"><b>Questions about your numbers?</b><small>Ask the EDGE team</small></span></button>' +
+    el.innerHTML = '<button type="button" class="bot-fab" data-bopen aria-label="Ask about your dashboard"><span class="bot-faces" data-faces></span><span class="bot-fab-t"><b>Questions about your numbers?</b><small>Instant answers from your dashboard</small></span></button>' +
       '<aside class="bot" role="dialog" aria-label="Dashboard assistant" aria-hidden="true">' +
-      '<header class="bot-h"><span class="bot-hav" data-hav></span><div class="bot-ht"><b data-hname>Ask about your dashboard</b><small data-hrole>AI assistant</small></div>' +
+      '<header class="bot-h"><span class="bot-hav" data-hav></span><div class="bot-ht"><b data-hname>Ask about your dashboard</b><small data-hrole>Automated assistant</small></div>' +
       '<button type="button" class="bot-x" data-bnew title="Start a new conversation">' + ic('plus', 15) + '</button><button type="button" class="bot-x" data-bclose aria-label="Close">' + ic('x', 16) + '</button></header>' +
       '<div class="bot-msgs" data-msgs></div>' +
       '<form class="bot-in" data-bform><textarea rows="1" data-bq maxlength="600" placeholder="Ask about your leads, calls, pipeline…"></textarea><button type="submit" class="bot-send" aria-label="Send">' + ic('send', 17) + '</button></form>' +
@@ -1364,6 +1387,7 @@ function botMount(){
     /* the launcher's faces take turns */
     const spin = () => { const t = botTeam(), f = q('[data-faces]'); if (!f || !t.length) return; const i = BOT.face; f.innerHTML = [0, 1, 2].map(k => botFace(t[(i + k) % t.length], 'bf' + k)).join(''); BOT.face = (BOT.face + 1) % t.length; };
     spin(); clearInterval(BOT.t); BOT.t = setInterval(() => { if (!BOT.open) spin(); }, 3600);
+    window.addEventListener('el-fresh', botLive);
   }
   botHead();
   botDraw();
@@ -1378,13 +1402,13 @@ function botOpen(on){
 function botDraw(){
   if (!BOT.el) return;
   const c = botClient(), cv = botConv(), box = BOT.el.querySelector('[data-msgs]'), who = cv.face;
-  BOT.el.querySelector('[data-bfoot]').textContent = 'Answers use ' + (c ? c.name : 'this dashboard') + '’s data for ' + rangeText() + '. AI can make mistakes; EDGE can read these chats.';
+  BOT.el.querySelector('[data-bfoot]').textContent = 'Answers use ' + (c ? c.name : 'this dashboard') + '’s data for ' + rangeText() + '. Automated answers: please double-check anything important. Your Easyleads team can read these chats.';
   if (!cv.msgs.length){
     const sug = BOT_SUG[(c && c.source) === 'site' ? 'site' : 'easyleads'];
     box.innerHTML = '<div class="bot-hello">' +
-      (who ? '<div class="bot-who">' + botFace(who, 'bot-who-img') + '<div><b>' + esc(who.n) + '</b><small>' + esc(who.r) + ' · EDGE Marketing</small></div><span class="bot-who-ai">AI</span></div>' : '<div class="bot-team">' + botTeam().slice(0, 5).map(m => botFace(m)).join('') + '</div>') +
+      (who ? '<div class="bot-who">' + botFace(who, 'bot-who-img') + '<div><b>' + esc(who.n) + '</b><small>' + esc(who.r) + ' · Easyleads</small></div><span class="bot-who-ai"><i></i>Live</span></div>' : '<div class="bot-team">' + botTeam().slice(0, 5).map(m => botFace(m)).join('') + '</div>') +
       '<b class="bot-hi">Hi' + (S.me && S.me.user.name ? ' ' + esc(S.me.user.name.split(' ')[0]) : '') + ', what would you like to know?</b>' +
-      '<p>Ask anything about the numbers on this dashboard. For anything else, the EDGE team is a message away.</p>' +
+      '<p>Ask anything about the numbers on this dashboard. For anything else, your Easyleads team is a message away.</p>' +
       '<div class="bot-sug">' + sug.map(s => '<button type="button" data-sug="' + esc(s) + '">' + esc(s) + '</button>').join('') + '</div></div>';
     box.querySelectorAll('[data-sug]').forEach(b => b.addEventListener('click', () => botAsk(b.dataset.sug)));
     return;
@@ -1425,7 +1449,7 @@ async function botAsk(text){
   const widgets = []; try{ layout().dashes.forEach(d => d.items.filter(visIt).forEach(it => { if (W[it.t] && it.t !== 'note') widgets.push(d.name + ': ' + (it.title || W[it.t].t)); })); }catch(e){}
   let reply;
   try{
-    const j = await api('portalChat', Object.assign({session: S.session, domain: dom, conv: cv.id, widgets,
+    const j = await api('portalChat', Object.assign({session: S.session, domain: dom, conv: cv.id, widgets, screen: botScreen(),
       messages: cv.msgs.filter(m => !m.err).slice(-10).map(m => ({role: m.role, content: m.content}))}, botDates()));
     reply = j && j.ok ? {role: 'assistant', content: j.answer} : {role: 'assistant', content: (j && j.error) || 'Something went wrong. Please try again.', err: true};
   }catch(e){ reply = {role: 'assistant', content: e.message || 'Something went wrong. Please try again.', err: true}; }
