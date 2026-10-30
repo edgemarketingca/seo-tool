@@ -1241,6 +1241,8 @@ setInterval(() => { if (S.me && !document.hidden && !S.editing && !document.quer
      and check the session behind it (a revoked or expired one still signs out). */
   const kept = !S.preview && ls.get('el_me', null);
   if (kept && kept.user && Array.isArray(kept.clients)){
+    /* Let the rest of this file finish loading first (the assistant below is used while drawing). */
+    await null;
     startWith(session, kept);
     api('portalMe', {session}).then(j => { if (!j || j.error || S.session !== session) return; if (JSON.stringify(j) !== JSON.stringify(kept)) startWith(session, j); else ls.set('el_me', j); }).catch(() => {});
     return;
