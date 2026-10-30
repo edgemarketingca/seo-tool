@@ -119,19 +119,27 @@ function prevRange(p){
 }
 const inR = (x, r) => x.at >= r.s && x.at < r.e + day;
 /* One request covers this period and the one before, so every widget can show the change. */
+/* A small key-value store in IndexedDB. localStorage on this site is nearly full with the
+   tool's own saved state (about 5 MB), so copies kept there never fit; IndexedDB has room. */
+const kv = (() => {
+  let dbp = null;
+  const db = () => dbp || (dbp = new Promise((res, rej) => { try{ const r = indexedDB.open('edge-cache', 1); r.onupgradeneeded = () => r.result.createObjectStore('kv'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }catch(e){ rej(e); } }).catch(() => null));
+  const tx = (mode, fn) => db().then(d => d ? new Promise(res => { try{ const t = d.transaction('kv', mode), q = fn(t.objectStore('kv')); t.oncomplete = () => res(q ? q.result : undefined); t.onerror = t.onabort = () => res(undefined); }catch(e){ res(undefined); } }) : undefined);
+  const each = (prefix, drop) => tx('readwrite', s => { const r = s.openCursor(); r.onsuccess = () => { const c = r.result; if (!c) return; if (String(c.key).indexOf(prefix) === 0 && drop(c.value)) c.delete(); c.continue(); }; return null; });
+  return {
+    get: k => tx('readonly', s => s.get(k)),
+    set: (k, v) => tx('readwrite', s => { s.put(v, k); return null; }),
+    del: k => tx('readwrite', s => { s.delete(k); return null; }),
+    clear: prefix => each(prefix, () => true),
+    prune: (prefix, age) => each(prefix, v => !v || !v.at || Date.now() - v.at > age)
+  };
+})();
 /* This browser's last copy of each widget's data (per person, per business, per period).
    A widget draws from it straight away; the live answer is fetched behind it and the
    widget redraws only if something changed. Kept 4 days; signing out clears it. */
 const LKEY = 'el_d1|';
 const sigOf = j => { const s = JSON.stringify(Object.assign({}, j, {at: 0, stale: 0})); let h = 2166136261; for (let i = 0; i < s.length; i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return s.length + ':' + (h >>> 0); };
-const lsKeys = () => { const out = []; try{ for (let i = 0; i < localStorage.length; i++){ const k = localStorage.key(i); if (k && k.indexOf(LKEY) === 0) out.push(k); } }catch(e){} return out; };
-function lsPut(k, v){
-  let s; try{ s = JSON.stringify(v); }catch(e){ return; }
-  if (s.length > 1500000) return;
-  try{ localStorage.setItem(k, s); return; }catch(e){}
-  /* Storage full: drop the older half of these copies, then try once more. */
-  try{ lsKeys().filter(x => x !== k).map(x => { let at = 0; try{ at = JSON.parse(localStorage.getItem(x)).at || 0; }catch(e){} return [x, at]; }).sort((a, b) => a[1] - b[1]).filter((x, i, all) => i < Math.ceil(all.length / 2)).forEach(x => localStorage.removeItem(x[0])); localStorage.setItem(k, s); }catch(e){}
-}
+setTimeout(() => kv.prune(LKEY, 4 * day), 8000);
 const fresh = kind => { const domain = S.domain; setTimeout(() => { try{ window.dispatchEvent(new CustomEvent('el-fresh', {detail: {kind, domain}})); }catch(e){} }, 0); };
 const shape = (kind, j, cur, prev) => { const all = j.rows || []; return {all, rows: kind === 'appts' ? all : all.filter(x => inR(x, cur)), prev: kind === 'appts' ? [] : all.filter(x => inR(x, prev)), extra: j.extra || null, at: j.at}; };
 /* One request covers this period and the one before, so every widget can show the change. */
@@ -142,20 +150,22 @@ function get(kind, p){
   if (c && Date.now() - c.at < 4 * 60000) return c.p;
   const body = {session: S.session, domain: S.domain, kind, start: iso(prev.s), end: iso(cur.e)};
   const lk = LKEY + ((S.me && S.me.user && S.me.user.email) || '') + '|' + k;
-  const had = ls.get(lk, null), mine = had && had.j && had.sig && Date.now() - had.at < 4 * day ? had : null;
   const check = j => { if (j.error){ const e = new Error(j.error); e.code = j.error; e.scope = j.scope; throw e; } return j; };
-  const keep = j => { const sig = sigOf(j); lsPut(lk, {at: Date.now(), sig, j}); return sig; };
+  const keep = j => { const sig = sigOf(j); kv.set(lk, {at: Date.now(), sig, j}); return sig; };
   /* The tracker may answer first with its last copy (stale); then it's asked for the live numbers. */
   const live = api('portalData', body).then(check).then(j => ({j, more: j.stale ? api('portalData', Object.assign({fresh: 1}, body)).then(check) : null}));
-  let shown = mine ? mine.sig : '';
+  live.catch(() => {});
+  let shown = '';
   const swap = j => { const sig = keep(j); if (sig !== shown){ shown = sig; S.cache[k] = {at: Date.now(), p: Promise.resolve(shape(kind, j, cur, prev))}; fresh(kind); } };
-  let pr;
-  if (mine){
-    pr = Promise.resolve(shape(kind, mine.j, cur, prev));
-    live.then(x => { swap(x.j); if (x.more) x.more.then(swap).catch(() => {}); }).catch(() => {});
-  } else {
-    pr = live.then(x => { shown = keep(x.j); if (x.more) x.more.then(swap).catch(() => {}); return shape(kind, x.j, cur, prev); });
-  }
+  const pr = kv.get(lk).then(had => {
+    const mine = had && had.j && had.sig && Date.now() - had.at < 4 * day ? had : null;
+    if (mine){
+      shown = mine.sig;
+      live.then(x => { swap(x.j); if (x.more) x.more.then(swap).catch(() => {}); }).catch(() => {});
+      return shape(kind, mine.j, cur, prev);
+    }
+    return live.then(x => { shown = keep(x.j); if (x.more) x.more.then(swap).catch(() => {}); return shape(kind, x.j, cur, prev); });
+  });
   S.cache[k] = {at: Date.now(), p: pr};
   pr.catch(() => { if (S.cache[k] && S.cache[k].p === pr) delete S.cache[k]; });
   return pr;
@@ -1200,7 +1210,7 @@ function signOut(silent){
   if (signingOut) return;
   signingOut = true;
   if (BOT.el){ BOT.el.remove(); BOT.el = null; }
-  ls.del(SKEY); ls.del('el_me'); lsKeys().forEach(k => ls.del(k)); const was = S.session; S.session = null; S.me = null; S.cache = {}; S.ui = {};
+  ls.del(SKEY); ls.del('el_me'); kv.clear(LKEY); const was = S.session; S.session = null; S.me = null; S.cache = {}; S.ui = {};
   closePops();
   if (silent || !was){ renderLogin(silent ? 'Your session ended. Please sign in again.' : ''); signingOut = false; return; }
   const v = veil('Signing out…');
