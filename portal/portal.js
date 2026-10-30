@@ -237,14 +237,37 @@ const arranging = () => !!(S.editing && canEdit());
 const dashList = () => { const L = layout(); const v = arranging() ? L.dashes : L.dashes.filter(visDash); return v.length ? v : L.dashes.slice(0, 1); };
 const curDash = () => { const L = layout(), v = dashList(), d = L.dashes[Math.min(S.dash, L.dashes.length - 1)]; return v.indexOf(d) >= 0 ? d : v[0]; };
 const item = (t, c, x) => Object.assign({id: uid(), t, c: c || W[t].c}, x || {});
-const DEFAULT_DASHES = src => (src || srcOf()) === 'site' ? [
-  {id: 'd1', name: 'Overview', items: [item('note', 12, {title: 'Your leads at a glance', about: 'kpis'}), item('kpis'), item('trend'), item('sources'), item('inbox'), item('locations'), item('pages')]},
-  {id: 'd2', name: 'Leads', items: [item('forms_by'), item('calls_list'), item('forms_list'), item('calls_mix')]}
-] : [
-  {id: 'd1', name: 'Overview', items: [item('kpis'), item('trend'), item('sources'), item('inbox'), item('locations'), item('calls_list'), item('forms_by'), item('appts')]},
-  {id: 'd2', name: 'Marketing', items: [item('email'), item('locations'), item('pages'), item('contacts_list')]},
-  {id: 'd3', name: 'Sales', items: [item('pipeline'), item('opps_list'), item('calls_mix', 4), item('calls_list', 8), item('people')]}
-];
+/* The standard dashboards. Every row fills the full width and the widgets side by side share one
+   height, so the grid lines up; each tab opens with a heading and a plain-words summary of its
+   numbers. Overview and Leads work for every business; Marketing and Sales need Easyleads. */
+const DEFAULT_DASHES = src => {
+  const H = 440;
+  const base = [
+    {id: 'd1', name: 'Overview', items: [
+      item('note', 12, {title: 'Your business at a glance', about: 'kpis', text: 'The headline numbers for the period picked at the top, compared with the period before.'}),
+      item('kpis'),
+      item('trend', 8, {h: 420}), item('sources', 4, {h: 420}),
+      item('locations', 6, {h: H}), item('forms_by', 6, {h: H}),
+      item('forms_list', 6, {h: H}), item('calls_list', 6, {h: H})]},
+    {id: 'd2', name: 'Leads', items: [
+      item('note', 12, {title: 'Every lead in one place', about: 'inbox', text: 'Search and filter every form submission by city, source, form and page. Click a lead to see everything they sent.'}),
+      item('inbox'),
+      item('pages', 6, {h: H}), item('calls_mix', 6, {h: H})]}
+  ];
+  if ((src || srcOf()) === 'site') return base;
+  return base.concat([
+    {id: 'd3', name: 'Marketing', items: [
+      item('note', 12, {title: 'Email marketing', about: 'email', text: 'Every campaign that went out, how many were delivered, who replied, and the leads and pipeline that came from email.'}),
+      item('email'),
+      item('contacts_list', 6, {h: 460}), item('sources', 6, {h: 460})]},
+    {id: 'd4', name: 'Sales', items: [
+      item('note', 12, {title: 'Sales pipeline', about: 'pipeline', text: 'Open deals by stage with their value, the newest opportunities, and the bookings coming up.'}),
+      item('pipeline', 6, {h: 460}), item('opps_list', 6, {h: 460}),
+      item('appts', 12),
+      item('note', 12, {title: 'Your contacts', about: 'people', text: 'Everyone in your account. Search by name, email, phone or company.'}),
+      item('people')]}
+  ]);
+};
 
 function errHtml(e){
   if (e && e.code === 'scope') return '<div class="err">' + ic('lock', 22) + '<br><b>Not switched on yet</b><br>This needs “' + esc(e.scope) + '” access on your ' + esc(BRAND) + ' account. EDGE Marketing can turn it on for you.</div>';
@@ -874,7 +897,7 @@ function layout(){
   if ((S.layout.v || 1) < LAYOUT_V){
     const L = S.layout, first = L.dashes[0];
     if (first && !first.items.some(i => i.t === 'inbox')) first.items.splice(Math.min(1, first.items.length), 0, item('inbox'));
-    if (!L.dashes.some(d => d.items.some(i => i.t === 'email'))) L.dashes.push(DEFAULT_DASHES()[1]);
+    if (!L.dashes.some(d => d.items.some(i => i.t === 'email'))) { const mk = DEFAULT_DASHES().find(d => d.items.some(i => i.t === 'email')); if (mk) L.dashes.push(mk); }
     if (!L.dashes.some(d => d.items.some(i => i.t === 'people'))){ const sales = L.dashes.find(d => /sales/i.test(d.name)); if (sales) sales.items.push(item('people')); else L.dashes.push({id: uid(), name: 'Contacts', items: [item('people')]}); }
     L.v = LAYOUT_V; setTimeout(saveLayout, 0);
   }
