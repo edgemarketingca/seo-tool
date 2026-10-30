@@ -4802,28 +4802,33 @@ function teamUrl(c, tab){ return location.origin + location.pathname + '#/' + ta
    straight away from the last copy this browser saw, the live answer is
    fetched behind it, and the widget redraws only if something changed.
    Copies older than four days are ignored; signing out clears them. */
-const RP_KEY = 'rpData1|', RP_MAX_AGE = 4 * 864e5, RP_MAX_LEN = 900000;
+/* A small key-value store in IndexedDB. localStorage on this site is nearly full with the
+   tool's own saved state (about 5 MB), so copies kept there never fit; IndexedDB has room. */
+const rpKv = (() => {
+  let dbp = null;
+  const db = () => dbp || (dbp = new Promise((res, rej) => { try{ const r = indexedDB.open('edge-cache', 1); r.onupgradeneeded = () => r.result.createObjectStore('kv'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }catch(e){ rej(e); } }).catch(() => null));
+  const tx = (mode, fn) => db().then(d => d ? new Promise(res => { try{ const t = d.transaction('kv', mode), q = fn(t.objectStore('kv')); t.oncomplete = () => res(q ? q.result : undefined); t.onerror = t.onabort = () => res(undefined); }catch(e){ res(undefined); } }) : undefined);
+  const each = (prefix, drop) => tx('readwrite', s => { const r = s.openCursor(); r.onsuccess = () => { const c = r.result; if (!c) return; if (String(c.key).indexOf(prefix) === 0 && drop(c.value)) c.delete(); c.continue(); }; return null; });
+  return {
+    get: k => tx('readonly', s => s.get(k)),
+    set: (k, v) => tx('readwrite', s => { s.put(v, k); return null; }),
+    del: k => tx('readwrite', s => { s.delete(k); return null; }),
+    clear: prefix => each(prefix, () => true),
+    prune: (prefix, age) => each(prefix, v => !v || !v.at || Date.now() - v.at > age)
+  };
+})();
+const RP_KEY = 'rpData1|', RP_MAX_AGE = 4 * 864e5, RP_MAX_LEN = 4000000;
 function rpSig(s){ let h = 2166136261; for (let i = 0; i < s.length; i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return s.length + ':' + (h >>> 0); }
-function rpRead(ck){
-  try{ const o = JSON.parse(localStorage.getItem(ck) || 'null'); return o && o.sig && Date.now() - o.at < RP_MAX_AGE ? o : null; }catch(e){ return null; }
-}
-function rpKeys(){ const out = []; try{ for (let i = 0; i < localStorage.length; i++){ const k = localStorage.key(i); if (k && k.indexOf(RP_KEY) === 0) out.push(k); } }catch(e){} return out; }
+const rpRead = ck => rpKv.get(ck).then(o => o && o.sig && Date.now() - o.at < RP_MAX_AGE ? o : null, () => null);
 function rpWrite(ck, v){
   let json; try{ json = JSON.stringify(v); }catch(e){ return ''; }
   const sig = rpSig(json || '');
-  if (!json || json.length > RP_MAX_LEN) return sig;
-  const val = '{"at":' + Date.now() + ',"sig":"' + sig + '","v":' + json + '}';
-  try{ localStorage.setItem(ck, val); return sig; }catch(e){}
-  /* Storage full: drop the older half of these copies and try once more. */
-  try{
-    rpKeys().filter(k => k !== ck).map(k => { let at = 0; try{ at = JSON.parse(localStorage.getItem(k)).at || 0; }catch(e){} return [k, at]; })
-      .sort((a, b) => a[1] - b[1]).filter((x, i, all) => i < Math.ceil(all.length / 2)).forEach(x => localStorage.removeItem(x[0]));
-    localStorage.setItem(ck, val);
-  }catch(e){}
+  if (json && json.length <= RP_MAX_LEN) rpKv.set(ck, {at: Date.now(), sig, v});
   return sig;
 }
 function rpFresh(domain, name){ setTimeout(() => { try{ window.dispatchEvent(new CustomEvent('rp-fresh', {detail: {domain, name}})); }catch(e){} }, 0); }
-window.addEventListener('edge:signing-out', () => { rpKeys().forEach(k => { try{ localStorage.removeItem(k); }catch(e){} }); });
+window.addEventListener('edge:signing-out', () => { rpKv.clear(RP_KEY); });
+setTimeout(() => rpKv.prune(RP_KEY, RP_MAX_AGE), 8000);
 
 /* ---------- data loaders for one client ---------- */
 function ctxFor(c){
@@ -4834,15 +4839,19 @@ function ctxFor(c){
   const ctx = {domain, clientName: c.name || '', cms: c.cms || ''};
   /* Last copy now (if this browser has one), live answer behind it; keep() swaps the live one into memory. */
   const swr = (name, k, load, keep) => {
-    const ck = RP_KEY + domain + '|' + name + '|' + k, had = rpRead(ck);
-    const live = load().then(v => {
-      const sig = rpWrite(ck, v);
-      if (had){ keep(Promise.resolve(v)); if (sig !== had.sig) rpFresh(domain, name); }
-      return v;
-    });
-    if (!had) return live;
+    const ck = RP_KEY + domain + '|' + name + '|' + k;
+    const live = load();
     live.catch(() => {});
-    return Promise.resolve(had.v);
+    return rpRead(ck).then(had => {
+      const done = live.then(v => {
+        const sig = rpWrite(ck, v);
+        if (had){ keep(Promise.resolve(v)); if (sig !== had.sig) rpFresh(domain, name); }
+        return v;
+      });
+      if (!had) return done;
+      done.catch(() => {});
+      return had.v;
+    });
   };
   ctx.people = peopleStore(c);
   const noTracker = () => Promise.reject(new Error('Connect the AI Visibility Tracker first (AI Visibility tab, ⚙).'));
