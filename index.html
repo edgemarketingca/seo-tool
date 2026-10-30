@@ -1235,6 +1235,12 @@ body.embed-mode .hub{display:none !important;}
 .tn-bell-d{font-size:12px; color:var(--ink-2); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
 .tn-bell-t{font-size:11px; color:var(--ink-3); margin-top:2px;}
 .tn-bell-empty,.tn-bell-err{padding:18px 14px; font-size:12.5px; color:var(--ink-3); line-height:1.6;}
+.tn-bell-loading{display:flex; align-items:center; gap:10px;}
+.tn-bell-spin{flex:none; width:15px; height:15px; border-radius:50%; border:2px solid rgba(232,119,34,.25); border-top-color:#e87722; animation:spin .8s linear infinite;}
+.tn-bell-skel{padding:0 14px 14px;}
+.tn-bell-skel i{display:block; height:40px; margin-top:8px; border-radius:10px; background:linear-gradient(90deg,rgba(128,128,128,.07) 25%,rgba(128,128,128,.16) 50%,rgba(128,128,128,.07) 75%); background-size:200% 100%; animation:tnSkel 1.2s linear infinite;}
+@keyframes tnSkel{0%{background-position:100% 0}100%{background-position:-100% 0}}
+.tn-bell.loading::after{content:""; position:absolute; top:3px; right:3px; width:7px; height:7px; border-radius:50%; border:1.5px solid rgba(232,119,34,.3); border-top-color:#e87722; animation:spin .8s linear infinite;}
 .tn-bell-err{color:var(--alert);}
 .tn-bell-pop{position:fixed; z-index:9600; display:flex; flex-direction:column; gap:2px; min-width:250px; max-width:340px; padding:11px 34px 11px 14px; background:#1b222a; color:#fff; border-radius:12px; box-shadow:0 14px 34px -12px rgba(0,0,0,.55); border-left:4px solid var(--brand); cursor:pointer; font-family:var(--ui); animation:rise .25s var(--ease);}
 .tn-bell-pop b{font-size:12.5px;}
@@ -28390,10 +28396,27 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
   const right = document.querySelector('.tn-right');
   if (!right || typeof isPublicView !== 'function' || isPublicView()) return;
   const SEEN_KEY = 'edgeBellSeen', POLL_MS = 20 * 1000;
-  let rows = [], tracked = null, lastLead = null, seen = null, timer = null, busy = false, lastErr = '', firstLoad = true;
+  let rows = [], tracked = null, lastLead = null, seen = null, timer = null, busy = false, lastErr = '', firstLoad = true, loaded = false;
   const readSeen = () => { try{ const v = JSON.parse(localStorage.getItem(SEEN_KEY) || 'null'); return v && Array.isArray(v.ids) ? v : null; }catch(e){ return null; } };
   const writeSeen = () => { try{ localStorage.setItem(SEEN_KEY, JSON.stringify({ids: seen.ids.slice(-600), at: Date.now()})); }catch(e){} };
   seen = readSeen();
+  /* The last answer is kept in this browser (per signed-in person), so the buttons
+     show it the moment the tool opens, while the tracker (5-40 s) is asked again.
+     Until there is something to show, the trays say they are loading - never
+     "nothing new". Signing out clears it. */
+  const CACHE_KEY = 'edgeBellCache';
+  const uidNow = () => { try{ return (fbAuth && fbAuth.currentUser && fbAuth.currentUser.uid) || ''; }catch(e){ return ''; } };
+  const writeCache = data => { try{ localStorage.setItem(CACHE_KEY, JSON.stringify({uid: uidNow(), at: Date.now(), rows: data.rows, tracked: Array.isArray(data.tracked) ? data.tracked : null, last: data.last && typeof data.last === 'object' ? data.last : null})); }catch(e){} };
+  function fromCache(){
+    try{
+      const v = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null'), uid = uidNow();
+      if (!v || !uid || v.uid !== uid || !Array.isArray(v.rows) || Date.now() - v.at > 3 * 864e5) return false;
+      rows = v.rows.filter(r => r && r.id && r.ms); tracked = Array.isArray(v.tracked) ? v.tracked : null; lastLead = v.last || null;
+      loaded = true;
+      return true;
+    }catch(e){ return false; }
+  }
+  const loadingHtml = msg => '<div class="tn-bell-empty tn-bell-loading"><span class="tn-bell-spin"></span>' + esc(msg) + '</div><div class="tn-bell-skel"><i></i><i></i><i></i></div>';
 
   const ICON = {
     bell: '<svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>',
@@ -28514,6 +28537,7 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
   }
 
   function paintBadge(){
+  ['forms', 'calls', 'slow'].forEach(k => TRAYS[k].btn.classList.toggle('loading', !loaded && !lastErr));
     const on = !TRAYS.forms.btn.hidden;
     ['forms', 'calls'].forEach(k => {
       const t = TRAYS[k], n = unread(k).length, el = t.btn.querySelector('.tn-bell-n');
@@ -28567,10 +28591,11 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
     const srcs = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
     if (t.view !== 'all' && !counts[t.view]) t.view = 'all';
     const list = all.filter(r => t.view === 'all' || sourceOf(r) === t.view).slice(0, 60);
-    let html = '<div class="tn-bell-h"><b>Form submissions</b><span>' + (unread('forms').length ? unread('forms').length + ' new' : 'All caught up') + '</span>' +
+    let html = '<div class="tn-bell-h"><b>Form submissions</b><span>' + (!loaded && !lastErr ? 'Loading…' : unread('forms').length ? unread('forms').length + ' new' : 'All caught up') + '</span>' +
       tabsHtml(t, [['all', 'All', all.length]].concat(srcs.map(s => [s, s, counts[s]]))) + '</div>';
     if (lastErr) html += '<div class="tn-bell-err">' + esc(lastErr) + '</div>';
-    if (list.length) html += rowsHtml(list, u);
+    if (!loaded && !lastErr && !list.length) html += loadingHtml('Loading form submissions…');
+    else if (list.length) html += rowsHtml(list, u);
     else if (!lastErr) html += '<div class="tn-bell-empty">No form submissions in the last two weeks.</div>';
     t.panel.innerHTML = html;
   }
@@ -28578,10 +28603,11 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
     const t = TRAYS.calls, u = newIds('calls'), all = rows.filter(t.match);
     const nAds = all.filter(r => r.ads).length;
     const list = all.filter(r => t.view === 'all' || (t.view === 'ads' ? r.ads : !r.ads)).slice(0, 60);
-    let html = '<div class="tn-bell-h"><b>Phone calls</b><span>' + (unread('calls').length ? unread('calls').length + ' new' : 'All caught up') + '</span>' +
+    let html = '<div class="tn-bell-h"><b>Phone calls</b><span>' + (!loaded && !lastErr ? 'Loading…' : unread('calls').length ? unread('calls').length + ' new' : 'All caught up') + '</span>' +
       tabsHtml(t, [['all', 'All', all.length], ['ads', 'From ads', nAds], ['site', 'From the website', all.length - nAds]]) + '</div>';
     if (lastErr) html += '<div class="tn-bell-err">' + esc(lastErr) + '</div>';
-    if (list.length) html += rowsHtml(list, u);
+    if (!loaded && !lastErr && !list.length) html += loadingHtml('Loading phone calls…');
+    else if (list.length) html += rowsHtml(list, u);
     else if (!lastErr) html += '<div class="tn-bell-empty">No phone calls in the last two weeks. Calls show up here once a client’s GA4 records a tap on their phone number.</div>';
     html += '<div class="tn-bell-foot">Taps on a client’s phone number, recorded by GA4 - usually a few hours behind.</div>';
     t.panel.innerHTML = html;
@@ -28590,7 +28616,7 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
     const t = TRAYS.slow, slow = slowClients();
     let html = '<div class="tn-bell-h"><b>Slow this week</b><span>No forms or calls since Monday</span></div>';
     if (lastErr) html += '<div class="tn-bell-err">' + esc(lastErr) + '</div>';
-    if (!tracked) html += '<div class="tn-bell-empty">Waiting for the tracker…</div>';
+    if (!tracked) html += !loaded && !lastErr ? loadingHtml('Checking this week’s leads…') : '<div class="tn-bell-empty">Waiting for the tracker…</div>';
     else if (!slow.length) html += '<div class="tn-bell-empty">Every client the tracker hears from has had a lead this week.</div>';
     else {
       const now = Date.now();
@@ -28825,6 +28851,7 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
     if (!signedIn() || !t.url || !t.key){ showButtons(false); return; }
     showButtons(true);
     busy = true;
+    if (!loaded) paintBadge();
     const who = (fbAuth.currentUser && fbAuth.currentUser.uid) || '';
     try{
       const res = await fetch(t.url + (t.url.indexOf('?') > -1 ? '&' : '?') + 'action=formsRecent&key=' + encodeURIComponent(t.key), {redirect: 'follow'});
@@ -28836,6 +28863,8 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
         rows = data.rows.filter(r => r && r.id && r.ms);
         tracked = Array.isArray(data.tracked) ? data.tracked : null;
         lastLead = data.last && typeof data.last === 'object' ? data.last : null;
+        loaded = true;
+        writeCache(data);
         lastErr = '';
         if (!seen){
           /* First time on this browser: anything older than a day counts as seen. */
@@ -28879,14 +28908,14 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
     const now = signedIn();
     if (now !== wasIn){
       wasIn = now;
-      rows = []; tracked = null; lastLead = null; firstLoad = true; seen = readSeen(); lastErr = ''; lastFresh = [];
+      rows = []; tracked = null; lastLead = null; firstLoad = true; loaded = false; seen = readSeen(); lastErr = ''; lastFresh = [];
       Object.keys(TRAYS).forEach(k => { TRAYS[k].panel.innerHTML = ''; });
-      if (now) poll(); else { showButtons(false); hideAll(); }
+      if (now){ fromCache(); paintBadge(); poll(); } else { showButtons(false); hideAll(); }
     }
     if (!inEdge()) hideAll();
   }
   setInterval(guard, 400);
-  window.addEventListener('edge:signing-out', () => { showButtons(false); hideAll(); rows = []; lastFresh = []; });
+  window.addEventListener('edge:signing-out', () => { showButtons(false); hideAll(); rows = []; lastFresh = []; loaded = false; try{ localStorage.removeItem(CACHE_KEY); }catch(e){} });
   start();
 })();
 </script>
