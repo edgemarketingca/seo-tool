@@ -3946,7 +3946,7 @@ function renderBoard(root, o){
 
     /* data */
     const needs = def.needs || [];
-    Promise.all(needs.map(n => ctx.get(n).then(v => [n, v], e => [n, null, e]))).then(res => {
+    const load = () => Promise.all(needs.map(n => ctx.get(n).then(v => [n, v], e => [n, null, e]))).then(res => {
       if (!body.isConnected) return;
       const D = {}, errs = [];
       res.forEach(r => { D[r[0]] = r[1]; if (r[2]) errs.push(r[2]); });
@@ -3957,6 +3957,15 @@ function renderBoard(root, o){
       catch(err){ console.warn('widget', it.type, err); body.innerHTML = '<div class="rp-err">This widget couldn’t draw: ' + esc(err.message) + '</div>'; }
       if (it.h || free) body.querySelectorAll('.aiv-scroll').forEach(x => { x.style.maxHeight = 'none'; });
     });
+    load();
+    /* A newer copy of this widget's data arrived (see swr): draw it again, unless it is being edited. */
+    const fresh = e => {
+      if (!body.isConnected){ window.removeEventListener('rp-fresh', fresh); return; }
+      const x = e.detail || {};
+      if (x.domain !== ctx.domain || body.querySelector('.rp-form')) return;
+      if (needs.indexOf(x.name) > -1 || (x.name === 'forms' && needs.indexOf('formsc') > -1)) load();
+    };
+    if (needs.length) window.addEventListener('rp-fresh', fresh);
 
     /* actions */
     const redraw = () => { const n = drawWidget(it); el.replaceWith(n); return n; };
@@ -4787,6 +4796,35 @@ function teamUrl(c, tab){ return location.origin + location.pathname + '#/' + ta
   setTimeout(tryOpen, 300);
 })();
 
+/* ---------- this browser's copy of each widget's data ----------
+   The tracker is an Apps Script web app (5 s warm, 30-40 s cold per call),
+   and every widget used to wait for it on every visit. Now a widget draws
+   straight away from the last copy this browser saw, the live answer is
+   fetched behind it, and the widget redraws only if something changed.
+   Copies older than four days are ignored; signing out clears them. */
+const RP_KEY = 'rpData1|', RP_MAX_AGE = 4 * 864e5, RP_MAX_LEN = 900000;
+function rpSig(s){ let h = 2166136261; for (let i = 0; i < s.length; i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return s.length + ':' + (h >>> 0); }
+function rpRead(ck){
+  try{ const o = JSON.parse(localStorage.getItem(ck) || 'null'); return o && o.sig && Date.now() - o.at < RP_MAX_AGE ? o : null; }catch(e){ return null; }
+}
+function rpKeys(){ const out = []; try{ for (let i = 0; i < localStorage.length; i++){ const k = localStorage.key(i); if (k && k.indexOf(RP_KEY) === 0) out.push(k); } }catch(e){} return out; }
+function rpWrite(ck, v){
+  let json; try{ json = JSON.stringify(v); }catch(e){ return ''; }
+  const sig = rpSig(json || '');
+  if (!json || json.length > RP_MAX_LEN) return sig;
+  const val = '{"at":' + Date.now() + ',"sig":"' + sig + '","v":' + json + '}';
+  try{ localStorage.setItem(ck, val); return sig; }catch(e){}
+  /* Storage full: drop the older half of these copies and try once more. */
+  try{
+    rpKeys().filter(k => k !== ck).map(k => { let at = 0; try{ at = JSON.parse(localStorage.getItem(k)).at || 0; }catch(e){} return [k, at]; })
+      .sort((a, b) => a[1] - b[1]).filter((x, i, all) => i < Math.ceil(all.length / 2)).forEach(x => localStorage.removeItem(x[0]));
+    localStorage.setItem(ck, val);
+  }catch(e){}
+  return sig;
+}
+function rpFresh(domain, name){ setTimeout(() => { try{ window.dispatchEvent(new CustomEvent('rp-fresh', {detail: {domain, name}})); }catch(e){} }, 0); }
+window.addEventListener('edge:signing-out', () => { rpKeys().forEach(k => { try{ localStorage.removeItem(k); }catch(e){} }); });
+
 /* ---------- data loaders for one client ---------- */
 function ctxFor(c){
   const domain = AIV.normDomain(c.website || '');
@@ -4794,6 +4832,18 @@ function ctxFor(c){
   const dc = dataCache[domain] = dataCache[domain] || {g4: {}, gsc: {}, pages: {}, pg: {}, pw: {}, at: Date.now()};
   if (Date.now() - dc.at > 15 * 60 * 1000){ dataCache[domain] = {g4: {}, gsc: {}, pages: {}, pg: {}, pw: {}, at: Date.now()}; return ctxFor(c); }
   const ctx = {domain, clientName: c.name || '', cms: c.cms || ''};
+  /* Last copy now (if this browser has one), live answer behind it; keep() swaps the live one into memory. */
+  const swr = (name, k, load, keep) => {
+    const ck = RP_KEY + domain + '|' + name + '|' + k, had = rpRead(ck);
+    const live = load().then(v => {
+      const sig = rpWrite(ck, v);
+      if (had){ keep(Promise.resolve(v)); if (sig !== had.sig) rpFresh(domain, name); }
+      return v;
+    });
+    if (!had) return live;
+    live.catch(() => {});
+    return Promise.resolve(had.v);
+  };
   ctx.people = peopleStore(c);
   const noTracker = () => Promise.reject(new Error('Connect the AI Visibility Tracker first (AI Visibility tab, ⚙).'));
   const noSite = () => Promise.reject(new Error('Add this client’s website on the Dashboard tab first.'));
@@ -4806,43 +4856,43 @@ function ctxFor(c){
     const R = ctx.R;
     if (name === 'g4'){
       const k = R.prevSince + '|' + R.end;
-      return dc.g4[k] || (dc.g4[k] = AIV.apiGet(s.url, {action: 'ga4report', domain, key: s.key, start: R.prevSince, end: R.end}).catch(e => { delete dc.g4[k]; throw e; }));
+      return dc.g4[k] || (dc.g4[k] = swr('g4', k, () => AIV.apiGet(s.url, {action: 'ga4report', domain, key: s.key, start: R.prevSince, end: R.end}), v => { dc.g4[k] = v; }).catch(e => { delete dc.g4[k]; throw e; }));
     }
     if (name === 'gsc'){
       const k = R.since + '|' + R.end;
-      return dc.gsc[k] || (dc.gsc[k] = AIV.apiGet(s.url, {action: 'gscQueries', domain, key: s.key, start: R.since, end: R.end}).catch(e => { delete dc.gsc[k]; throw e; }));
+      return dc.gsc[k] || (dc.gsc[k] = swr('gsc', k, () => AIV.apiGet(s.url, {action: 'gscQueries', domain, key: s.key, start: R.since, end: R.end}), v => { dc.gsc[k] = v; }).catch(e => { delete dc.gsc[k]; throw e; }));
     }
     if (name === 'pages'){
       const k = R.prevSince + '|' + R.since + '|' + R.end;
-      return dc.pages[k] || (dc.pages[k] = AIV.apiGet(s.url, {action: 'pages', domain, key: s.key, start: R.prevSince, split: R.since, end: R.end})
-        .then(r => { if (r && r.error) throw new Error(r.error); return r; }).catch(e => { delete dc.pages[k]; throw e; }));
+      return dc.pages[k] || (dc.pages[k] = swr('pages', k, () => AIV.apiGet(s.url, {action: 'pages', domain, key: s.key, start: R.prevSince, split: R.since, end: R.end})
+        .then(r => { if (r && r.error) throw new Error(r.error); return r; }), v => { dc.pages[k] = v; }).catch(e => { delete dc.pages[k]; throw e; }));
     }
     if (name === 'pathway') return ctx.loadPathway('all');
-    if (name === 'gsch') return dc.gsch || (dc.gsch = AIV.apiGet(s.url, {action: 'gscHealth', domain, key: s.key, start: R.since, end: R.end})
-      .then(r => { if (r && r.error) throw new Error(r.error); return r; }).catch(e => { dc.gsch = null; throw e; }));
+    if (name === 'gsch') return dc.gsch || (dc.gsch = swr('gsch', R.since + '|' + R.end, () => AIV.apiGet(s.url, {action: 'gscHealth', domain, key: s.key, start: R.since, end: R.end})
+      .then(r => { if (r && r.error) throw new Error(r.error); return r; }), v => { dc.gsch = v; }).catch(e => { dc.gsch = null; throw e; }));
     if (name === 'forms'){
       const k = R.prevSince + '|' + fsR(R).end;
       dc.forms = dc.forms || {};
-      return dc.forms[k] || (dc.forms[k] = AIV.apiGet(s.url, {action: 'forms', domain, key: s.key, start: R.prevSince, end: fsR(R).end})
-        .then(r => { if (r && r.error) throw new Error(r.error); return r; }).catch(e => { delete dc.forms[k]; throw e; }));
+      return dc.forms[k] || (dc.forms[k] = swr('forms', k, () => AIV.apiGet(s.url, {action: 'forms', domain, key: s.key, start: R.prevSince, end: fsR(R).end})
+        .then(r => { if (r && r.error) throw new Error(r.error); return r; }), v => { dc.forms[k] = v; }).catch(e => { delete dc.forms[k]; throw e; }));
     }
     if (name === 'easyleads'){
       const k = R.prevSince + '|' + fsR(R).end;
       dc.el = dc.el || {};
-      return dc.el[k] || (dc.el[k] = AIV.apiGet(s.url, {action: 'forms', src: 'easyleads', domain, key: s.key, start: R.prevSince, end: fsR(R).end})
-        .then(r => { if (r && r.error) throw new Error(r.error); return r; }).catch(e => { delete dc.el[k]; throw e; }));
+      return dc.el[k] || (dc.el[k] = swr('easyleads', k, () => AIV.apiGet(s.url, {action: 'forms', src: 'easyleads', domain, key: s.key, start: R.prevSince, end: fsR(R).end})
+        .then(r => { if (r && r.error) throw new Error(r.error); return r; }), v => { dc.el[k] = v; }).catch(e => { delete dc.el[k]; throw e; }));
     }
     /* Client personas: every form on file, website and Easyleads, all time (the period doesn't narrow it). */
     if (name === 'people'){
       if (dc.people) return dc.people;
       const end = isoDay(new Date()), one = src => AIV.apiGet(s.url, Object.assign({action: 'forms', domain, key: s.key, start: '2010-01-01', end}, src ? {src} : {}))
         .then(r => (r && !r.error ? r : null), () => null);
-      return dc.people = Promise.all([one(''), one('easyleads')]).then(res => {
+      return dc.people = swr('people', 'all', () => Promise.all([one(''), one('easyleads')]).then(res => {
         const a = res[0], b = res[1];
         if (!a && !b){ dc.people = null; throw new Error('Couldn’t read the form submissions from the tracker.'); }
         const tag = (x, src) => (x && Array.isArray(x.rows) ? x.rows : []).filter(r => r && r.t).map(r => Object.assign({}, r, {_src: src}));
         return {rows: tag(a, 'web').concat(tag(b, 'el')), details: !!((a && a.details) || (b && b.details)), first: [a && a.first, b && b.first].filter(Boolean).sort()[0] || ''};
-      });
+      }), v => { dc.people = v; });
     }
     /* Form inbox: the same forms payload (the team key sees every detail). */
 if (name === 'formsc') return ctx.get('forms');
@@ -4853,8 +4903,8 @@ return Promise.reject(new Error('Unknown data source ' + name));
     if (domain.indexOf('.') < 0) return noSite();
     if (!s.url || !s.key) return noTracker();
     const R = ctx.R, k = R.since + '|' + R.end + '|' + (ch || 'all') + '|' + (geo || '');
-    return dc.pw[k] || (dc.pw[k] = AIV.apiGet(s.url, Object.assign({action: 'pathway', domain, key: s.key, start: R.since, end: R.end, channel: ch || 'all'}, geo ? {geo} : {}))
-      .then(r => { if (r && r.error) throw new Error(r.error); return r; }).catch(e => { delete dc.pw[k]; throw e; }));
+    return dc.pw[k] || (dc.pw[k] = swr('pathway', k, () => AIV.apiGet(s.url, Object.assign({action: 'pathway', domain, key: s.key, start: R.since, end: R.end, channel: ch || 'all'}, geo ? {geo} : {}))
+      .then(r => { if (r && r.error) throw new Error(r.error); return r; }), v => { dc.pw[k] = v; }).catch(e => { delete dc.pw[k]; throw e; }));
   };
   /* One page, day by day (Page performance widget). */
   ctx.loadPage = path => {
