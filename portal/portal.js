@@ -1287,13 +1287,15 @@ setInterval(() => { if (S.me && !document.hidden && !S.editing && !document.quer
    reading and the asking), and nothing else. The EDGE team's faces take
    turns: a new one each time it opens and with every answer.
    ========================================================================== */
-const BOT = {el: null, open: false, conv: {}, busy: false, face: Math.floor(Math.random() * 8), t: null};
+const BOT = {el: null, open: false, conv: {}, busy: false, face: Math.floor(Math.random() * 8), t: null, warm: {}, typing: null};
 const botClient = () => { const c = S.me && S.me.clients.find(x => x.domain === S.domain); return c && c.bot ? c : null; };
 const botTeam = () => (S.me && Array.isArray(S.me.team) ? S.me.team : []).filter(m => m && /^https:\/\//.test(m.img || ''));
 const botNext = () => { const t = botTeam(); if (!t.length) return null; BOT.face = (BOT.face + 1) % t.length; return t[BOT.face]; };
 const botFace = (m, cls) => m ? '<img class="' + (cls || '') + '" src="' + esc(m.img) + '" alt="' + esc(m.n) + '" title="' + esc(m.n + ', ' + m.r) + '" loading="lazy" referrerpolicy="no-referrer">' : '<span class="' + (cls || '') + ' bot-mono">' + ic('spark', 16) + '</span>';
 const BOT_SUG = {easyleads: ['How many leads did I get?', 'Where are my leads coming from?', 'Any missed calls to follow up?', 'What’s in my pipeline?'],
   site: ['How many leads did I get?', 'Which pages bring in leads?', 'Which form is used most?', 'How many calls came from the website?']};
+/* One conversation per business in this browser tab. The team member who answers is picked when the
+   conversation starts and stays with it to the end; a new conversation brings the next person. */
 function botConv(){
   const d = S.domain;
   if (!BOT.conv[d]){
@@ -1301,7 +1303,9 @@ function botConv(){
     try{ saved = JSON.parse(sessionStorage.getItem('el_bot_' + d) || 'null'); }catch(e){}
     BOT.conv[d] = saved && Array.isArray(saved.msgs) ? saved : {id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7), msgs: []};
   }
-  return BOT.conv[d];
+  const cv = BOT.conv[d];
+  if (!cv.face || !cv.face.img){ const f = botNext(); if (f) cv.face = f; }
+  return cv;
 }
 const botSave = () => { try{ sessionStorage.setItem('el_bot_' + S.domain, JSON.stringify(botConv())); }catch(e){} };
 /* Light formatting for answers: paragraphs, bullets and bold, everything else as text. */
@@ -1310,12 +1314,29 @@ function botFormat(t){
   let h = '', list = false;
   lines.forEach(l => {
     const b = /^\s*(?:[-*•]|\d+[.)])\s+(.*)$/.exec(l);
-    const inl = x => esc(x).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+    const inl = x => esc(x).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\*\*/g, '');
     if (b){ if (!list){ h += '<ul>'; list = true; } h += '<li>' + inl(b[1]) + '</li>'; return; }
     if (list){ h += '</ul>'; list = false; }
     if (l.trim()) h += '<p>' + inl(l.replace(/^#+\s*/, '')) + '</p>';
   });
   return h + (list ? '</ul>' : '');
+}
+/* The dates the widgets read (this period and the one before), so the assistant reuses their data. */
+const botDates = () => { const r = range(); return {start: iso(r.s), end: iso(r.e), dstart: iso(prevRange().s)}; };
+/* Ask the tracker to get this dashboard's data ready as soon as the assistant opens. */
+function botWarm(){
+  const c = botClient(); if (!c) return;
+  const d = botDates(), k = S.domain + '|' + d.dstart + '|' + d.end;
+  if (BOT.warm[k]) return;
+  BOT.warm[k] = 1;
+  api('portalChatWarm', Object.assign({session: S.session, domain: S.domain}, d)).catch(() => {});
+}
+function botHead(){
+  if (!BOT.el) return;
+  const c = botClient(), f = botConv().face;
+  BOT.el.querySelector('[data-hav]').innerHTML = botFace(f, 'bot-hface');
+  BOT.el.querySelector('[data-hname]').textContent = f ? f.n + ' from EDGE' : 'Ask about your dashboard';
+  BOT.el.querySelector('[data-hrole]').textContent = 'AI assistant · ' + ((c && c.source) === 'site' ? 'your dashboard data' : 'your Easyleads data');
 }
 function botMount(){
   const c = botClient();
@@ -1323,20 +1344,20 @@ function botMount(){
   if (!BOT.el){
     const el = BOT.el = document.createElement('div');
     el.className = 'botw';
-    el.innerHTML = '<button type="button" class="bot-fab" data-bopen aria-label="Ask about your dashboard"><span class="bot-faces" data-faces></span><span class="bot-fab-t"><b>Questions about your numbers?</b><small>Ask the EDGE assistant</small></span></button>' +
+    el.innerHTML = '<button type="button" class="bot-fab" data-bopen aria-label="Ask about your dashboard"><span class="bot-faces" data-faces></span><span class="bot-fab-t"><b>Questions about your numbers?</b><small>Ask the EDGE team</small></span></button>' +
       '<aside class="bot" role="dialog" aria-label="Dashboard assistant" aria-hidden="true">' +
-        '<header class="bot-h"><span class="bot-hav" data-hav></span><div class="bot-ht"><b>Ask about your dashboard</b><small><i></i>AI assistant · EDGE Marketing team</small></div>' +
-        '<button type="button" class="bot-x" data-bnew title="Start a new conversation">' + ic('plus', 15) + '</button><button type="button" class="bot-x" data-bclose aria-label="Close">' + ic('x', 16) + '</button></header>' +
-        '<div class="bot-msgs" data-msgs></div>' +
-        '<form class="bot-in" data-bform><textarea rows="1" data-bq maxlength="600" placeholder="Ask about your leads, calls, pipeline…"></textarea><button type="submit" class="bot-send" aria-label="Send">' + ic('send', 17) + '</button></form>' +
-        '<div class="bot-foot" data-bfoot></div></aside>';
+      '<header class="bot-h"><span class="bot-hav" data-hav></span><div class="bot-ht"><b data-hname>Ask about your dashboard</b><small data-hrole>AI assistant</small></div>' +
+      '<button type="button" class="bot-x" data-bnew title="Start a new conversation">' + ic('plus', 15) + '</button><button type="button" class="bot-x" data-bclose aria-label="Close">' + ic('x', 16) + '</button></header>' +
+      '<div class="bot-msgs" data-msgs></div>' +
+      '<form class="bot-in" data-bform><textarea rows="1" data-bq maxlength="600" placeholder="Ask about your leads, calls, pipeline…"></textarea><button type="submit" class="bot-send" aria-label="Send">' + ic('send', 17) + '</button></form>' +
+      '<div class="bot-foot" data-bfoot></div></aside>';
     document.body.appendChild(el);
     const q = s => el.querySelector(s);
     q('[data-bopen]').addEventListener('click', () => botOpen(true));
     q('[data-bclose]').addEventListener('click', () => botOpen(false));
-    q('[data-bnew]').addEventListener('click', () => { BOT.conv[S.domain] = null; try{ sessionStorage.removeItem('el_bot_' + S.domain); }catch(e){} botDraw(); });
+    q('[data-bnew]').addEventListener('click', () => { botStopTyping(); BOT.conv[S.domain] = null; try{ sessionStorage.removeItem('el_bot_' + S.domain); }catch(e){} botHead(); botDraw(); });
     const ta = q('[data-bq]');
-    ta.addEventListener('input', () => { ta.style.height = 'auto'; ta.style.height = Math.min(120, ta.scrollHeight) + 'px'; });
+    ta.addEventListener('input', () => { ta.style.height = 'auto'; ta.style.height = Math.min(110, ta.scrollHeight) + 'px'; });
     ta.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); botAsk(ta.value); } });
     q('[data-bform]').addEventListener('submit', e => { e.preventDefault(); botAsk(ta.value); });
     document.addEventListener('keydown', e => { if (e.key === 'Escape' && BOT.open) botOpen(false); });
@@ -1344,6 +1365,7 @@ function botMount(){
     const spin = () => { const t = botTeam(), f = q('[data-faces]'); if (!f || !t.length) return; const i = BOT.face; f.innerHTML = [0, 1, 2].map(k => botFace(t[(i + k) % t.length], 'bf' + k)).join(''); BOT.face = (BOT.face + 1) % t.length; };
     spin(); clearInterval(BOT.t); BOT.t = setInterval(() => { if (!BOT.open) spin(); }, 3600);
   }
+  botHead();
   botDraw();
 }
 function botOpen(on){
@@ -1351,46 +1373,69 @@ function botOpen(on){
   BOT.open = on;
   BOT.el.classList.toggle('open', on);
   BOT.el.querySelector('.bot').setAttribute('aria-hidden', on ? 'false' : 'true');
-  if (on){ BOT.el.querySelector('[data-hav]').innerHTML = botFace(botNext(), 'bot-hface'); botDraw(); setTimeout(() => { const t = BOT.el && BOT.el.querySelector('[data-bq]'); if (t) t.focus(); }, 220); }
+  if (on){ botWarm(); botHead(); botDraw(); setTimeout(() => { const t = BOT.el && BOT.el.querySelector('[data-bq]'); if (t) t.focus(); }, 220); }
 }
 function botDraw(){
   if (!BOT.el) return;
-  const c = botClient(), cv = botConv(), box = BOT.el.querySelector('[data-msgs]');
+  const c = botClient(), cv = botConv(), box = BOT.el.querySelector('[data-msgs]'), who = cv.face;
   BOT.el.querySelector('[data-bfoot]').textContent = 'Answers use ' + (c ? c.name : 'this dashboard') + '’s data for ' + rangeText() + '. AI can make mistakes; EDGE can read these chats.';
-  const hav = BOT.el.querySelector('[data-hav]'); if (!hav.innerHTML) hav.innerHTML = botFace(botTeam()[BOT.face % (botTeam().length || 1)], 'bot-hface');
   if (!cv.msgs.length){
     const sug = BOT_SUG[(c && c.source) === 'site' ? 'site' : 'easyleads'];
-    box.innerHTML = '<div class="bot-hello"><div class="bot-team">' + botTeam().slice(0, 5).map(m => botFace(m)).join('') + '</div><b>Hi' + (S.me && S.me.user.name ? ' ' + esc(S.me.user.name.split(' ')[0]) : '') + ', what would you like to know?</b>' +
+    box.innerHTML = '<div class="bot-hello">' +
+      (who ? '<div class="bot-who">' + botFace(who, 'bot-who-img') + '<div><b>' + esc(who.n) + '</b><small>' + esc(who.r) + ' · EDGE Marketing</small></div><span class="bot-who-ai">AI</span></div>' : '<div class="bot-team">' + botTeam().slice(0, 5).map(m => botFace(m)).join('') + '</div>') +
+      '<b class="bot-hi">Hi' + (S.me && S.me.user.name ? ' ' + esc(S.me.user.name.split(' ')[0]) : '') + ', what would you like to know?</b>' +
       '<p>Ask anything about the numbers on this dashboard. For anything else, the EDGE team is a message away.</p>' +
       '<div class="bot-sug">' + sug.map(s => '<button type="button" data-sug="' + esc(s) + '">' + esc(s) + '</button>').join('') + '</div></div>';
     box.querySelectorAll('[data-sug]').forEach(b => b.addEventListener('click', () => botAsk(b.dataset.sug)));
     return;
   }
-  box.innerHTML = cv.msgs.map(m => m.role === 'user'
-    ? '<div class="bm me"><div class="bb">' + esc(m.content) + '</div></div>'
-    : '<div class="bm"><span class="bav">' + botFace(m.face || null) + '</span><div class="bb' + (m.err ? ' err' : '') + '">' + botFormat(m.content) + '</div></div>').join('') +
-    (BOT.busy ? '<div class="bm"><span class="bav">' + botFace(BOT.pending || null) + '</span><div class="bb typing"><i></i><i></i><i></i></div></div>' : '');
+  const ty = BOT.typing;
+  box.innerHTML = cv.msgs.map((m, i) => {
+    if (m.role === 'user') return '<div class="bm me"><div class="bb">' + esc(m.content) + '</div></div>';
+    const live = ty && ty.i === i;
+    return '<div class="bm"><span class="bav">' + botFace(m.face || who || null) + '</span><div class="bb' + (m.err ? ' err' : '') + '"' + (live ? ' data-typing' : '') + '>' +
+      (live ? botFormat(m.content.slice(0, ty.n)) + '<span class="bcaret"></span>' : botFormat(m.content)) + '</div></div>';
+  }).join('') +
+    (BOT.busy ? '<div class="bm"><span class="bav">' + botFace(who || null) + '</span><div class="bb thinking"><span class="bt-name">' + esc(who ? who.n + ' is looking at your numbers' : 'Looking at your numbers') + '</span><span class="bt-dots"><i></i><i></i><i></i></span></div></div>' : '');
   box.scrollTop = box.scrollHeight;
+}
+/* The answer appears word by word, quickly (about a second whatever its length). */
+function botStopTyping(){ if (BOT.typing){ clearInterval(BOT.typing.t); BOT.typing = null; } }
+function botType(i){
+  botStopTyping();
+  const cv = botConv(), m = cv.msgs[i]; if (!m) return;
+  const full = String(m.content || ''), step = Math.max(3, Math.ceil(full.length / 55));
+  const ty = BOT.typing = {i, n: 0, t: 0};
+  ty.t = setInterval(() => {
+    let n = full.indexOf(' ', ty.n + step); ty.n = n < 0 ? full.length : n;
+    const bb = BOT.el && BOT.el.querySelector('[data-typing]');
+    const done = ty.n >= full.length;
+    if (bb){ bb.innerHTML = botFormat(full.slice(0, ty.n)) + (done ? '' : '<span class="bcaret"></span>'); const box = BOT.el.querySelector('[data-msgs]'); box.scrollTop = box.scrollHeight; }
+    if (done){ botStopTyping(); if (bb) bb.removeAttribute('data-typing'); }
+  }, 18);
 }
 async function botAsk(text){
   text = String(text || '').trim();
   if (!text || BOT.busy || !BOT.el) return;
+  if (BOT.typing){ botStopTyping(); botDraw(); }
   const ta = BOT.el.querySelector('[data-bq]'); ta.value = ''; ta.style.height = 'auto';
-  const cv = botConv(), dom = S.domain;
+  const cv = botConv(), dom = S.domain, face = cv.face || null;
   cv.msgs.push({role: 'user', content: text.slice(0, 600)});
-  BOT.busy = true; BOT.pending = botNext(); botDraw();
-  const r = range();
+  BOT.busy = true; botDraw();
   const widgets = []; try{ layout().dashes.forEach(d => d.items.filter(visIt).forEach(it => { if (W[it.t] && it.t !== 'note') widgets.push(d.name + ': ' + (it.title || W[it.t].t)); })); }catch(e){}
   let reply;
   try{
-    const j = await api('portalChat', {session: S.session, domain: dom, start: iso(r.s), end: iso(r.e), conv: cv.id, widgets,
-      messages: cv.msgs.filter(m => !m.err).slice(-10).map(m => ({role: m.role, content: m.content}))});
+    const j = await api('portalChat', Object.assign({session: S.session, domain: dom, conv: cv.id, widgets,
+      messages: cv.msgs.filter(m => !m.err).slice(-10).map(m => ({role: m.role, content: m.content}))}, botDates()));
     reply = j && j.ok ? {role: 'assistant', content: j.answer} : {role: 'assistant', content: (j && j.error) || 'Something went wrong. Please try again.', err: true};
   }catch(e){ reply = {role: 'assistant', content: e.message || 'Something went wrong. Please try again.', err: true}; }
-  reply.face = BOT.pending;
-  (BOT.conv[dom] || cv).msgs.push(reply);
-  BOT.busy = false; BOT.pending = null;
-  if (BOT.el && BOT.open){ const h = BOT.el.querySelector('[data-hav]'); if (h && reply.face) h.innerHTML = botFace(reply.face, 'bot-hface'); }
-  botSave(); botDraw();
+  reply.face = face;
+  const conv = BOT.conv[dom] || cv;
+  conv.msgs.push(reply);
+  BOT.busy = false;
+  botSave();
+  if (S.domain !== dom || BOT.conv[dom] !== cv){ botDraw(); return; }
+  if (!reply.err){ BOT.typing = {i: conv.msgs.length - 1, n: 0, t: 0}; botDraw(); botType(conv.msgs.length - 1); }
+  else botDraw();
 }
 })();
