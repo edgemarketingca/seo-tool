@@ -119,18 +119,45 @@ function prevRange(p){
 }
 const inR = (x, r) => x.at >= r.s && x.at < r.e + day;
 /* One request covers this period and the one before, so every widget can show the change. */
+/* This browser's last copy of each widget's data (per person, per business, per period).
+   A widget draws from it straight away; the live answer is fetched behind it and the
+   widget redraws only if something changed. Kept 4 days; signing out clears it. */
+const LKEY = 'el_d1|';
+const sigOf = j => { const s = JSON.stringify(Object.assign({}, j, {at: 0, stale: 0})); let h = 2166136261; for (let i = 0; i < s.length; i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return s.length + ':' + (h >>> 0); };
+const lsKeys = () => { const out = []; try{ for (let i = 0; i < localStorage.length; i++){ const k = localStorage.key(i); if (k && k.indexOf(LKEY) === 0) out.push(k); } }catch(e){} return out; };
+function lsPut(k, v){
+  let s; try{ s = JSON.stringify(v); }catch(e){ return; }
+  if (s.length > 1500000) return;
+  try{ localStorage.setItem(k, s); return; }catch(e){}
+  /* Storage full: drop the older half of these copies, then try once more. */
+  try{ lsKeys().filter(x => x !== k).map(x => { let at = 0; try{ at = JSON.parse(localStorage.getItem(x)).at || 0; }catch(e){} return [x, at]; }).sort((a, b) => a[1] - b[1]).filter((x, i, all) => i < Math.ceil(all.length / 2)).forEach(x => localStorage.removeItem(x[0])); localStorage.setItem(k, s); }catch(e){}
+}
+const fresh = kind => { const domain = S.domain; setTimeout(() => { try{ window.dispatchEvent(new CustomEvent('el-fresh', {detail: {kind, domain}})); }catch(e){} }, 0); };
+const shape = (kind, j, cur, prev) => { const all = j.rows || []; return {all, rows: kind === 'appts' ? all : all.filter(x => inR(x, cur)), prev: kind === 'appts' ? [] : all.filter(x => inR(x, prev)), extra: j.extra || null, at: j.at}; };
+/* One request covers this period and the one before, so every widget can show the change. */
 function get(kind, p){
   const cur = range(p), prev = kind === 'appts' ? cur : prevRange(p);
   const k = [S.domain, kind, iso(prev.s), iso(cur.e)].join('|');
   const c = S.cache[k];
   if (c && Date.now() - c.at < 4 * 60000) return c.p;
-  const pr = api('portalData', {session: S.session, domain: S.domain, kind, start: iso(prev.s), end: iso(cur.e)}).then(j => {
-    if (j.error){ const e = new Error(j.error); e.code = j.error; e.scope = j.scope; throw e; }
-    const all = j.rows || [];
-    return {all, rows: kind === 'appts' ? all : all.filter(x => inR(x, cur)), prev: kind === 'appts' ? [] : all.filter(x => inR(x, prev)), extra: j.extra || null, at: j.at};
-  });
+  const body = {session: S.session, domain: S.domain, kind, start: iso(prev.s), end: iso(cur.e)};
+  const lk = LKEY + ((S.me && S.me.user && S.me.user.email) || '') + '|' + k;
+  const had = ls.get(lk, null), mine = had && had.j && had.sig && Date.now() - had.at < 4 * day ? had : null;
+  const check = j => { if (j.error){ const e = new Error(j.error); e.code = j.error; e.scope = j.scope; throw e; } return j; };
+  const keep = j => { const sig = sigOf(j); lsPut(lk, {at: Date.now(), sig, j}); return sig; };
+  /* The tracker may answer first with its last copy (stale); then it's asked for the live numbers. */
+  const live = api('portalData', body).then(check).then(j => ({j, more: j.stale ? api('portalData', Object.assign({fresh: 1}, body)).then(check) : null}));
+  let shown = mine ? mine.sig : '';
+  const swap = j => { const sig = keep(j); if (sig !== shown){ shown = sig; S.cache[k] = {at: Date.now(), p: Promise.resolve(shape(kind, j, cur, prev))}; fresh(kind); } };
+  let pr;
+  if (mine){
+    pr = Promise.resolve(shape(kind, mine.j, cur, prev));
+    live.then(x => { swap(x.j); if (x.more) x.more.then(swap).catch(() => {}); }).catch(() => {});
+  } else {
+    pr = live.then(x => { shown = keep(x.j); if (x.more) x.more.then(swap).catch(() => {}); return shape(kind, x.j, cur, prev); });
+  }
   S.cache[k] = {at: Date.now(), p: pr};
-  pr.catch(() => { delete S.cache[k]; });
+  pr.catch(() => { if (S.cache[k] && S.cache[k].p === pr) delete S.cache[k]; });
   return pr;
 }
 function delta(a, b){
@@ -958,15 +985,19 @@ function drawGrid(dash){
     const body = el.querySelector('[data-body]');
     const needs = needsOf(it);
     if (!visIt(it)){ body.innerHTML = errHtml({code: 'hidden'}); el.style.opacity = '.6'; }
-    else Promise.all(needs.filter(k => srcOf() === 'easyleads' || SITE_K[k]).map(k => get(k).then(v => [k, v], e => [k, null, e]))).then(res => {
+    else { const load = () => Promise.all(needs.filter(k => srcOf() === 'easyleads' || SITE_K[k]).map(k => get(k).then(v => [k, v], e => [k, null, e]))).then(res => {
       if (!body.isConnected) return;
       const D = {}, errs = [];
       res.forEach(r => { if (r[1]) D[r[0]] = r[1]; else errs.push(r[2]); });
       const hard = it.t !== 'note' && needs.length && (errs.length === res.length || (!def.soft && errs.length));
       if (hard){ const ec = errs[0] && errs[0].code; if (!arranging() && (ec === 'scope' || ec === 'notavailable')){ if (ro) ro.unobserve(el); el.remove(); return; } body.innerHTML = errHtml(errs[0]); return; }
-      try{ def.draw(body, D, it); }catch(e){ console.warn(e); body.innerHTML = errHtml(e); }
+      try{ body.innerHTML = ''; def.draw(body, D, it); }catch(e){ console.warn(e); body.innerHTML = errHtml(e); }
       fitRow(el);
-    });
+    }); load();
+      /* Newer numbers for this widget arrived: draw them in place (not while arranging the dashboard). */
+      const onFresh = e => { if (!body.isConnected){ window.removeEventListener('el-fresh', onFresh); return; } const x = e.detail || {}; if (x.domain === S.domain && needs.indexOf(x.kind) > -1 && !arranging()) load(); };
+      window.addEventListener('el-fresh', onFresh);
+    }
     if (!canEdit()) return;
     const setC = c => { it.c = Math.max(3, Math.min(12, c)); el.style.setProperty('--c', it.c); el.querySelector('[data-size] span').textContent = it.c + '/12'; saveLayout(); };
     const setH = h => { it.h = h ? Math.max(MINH, Math.min(MAXH, Math.round(h / 10) * 10)) : 0; el.classList.toggle('fixed', !!it.h); if (it.h) el.style.setProperty('--h', it.h + 'px'); else el.style.removeProperty('--h'); fitRow(el); saveLayout(); };
@@ -1159,7 +1190,6 @@ function renderLogin(msg){
       const j = await api('portalLogin', {email: em, password: pw});
       if (j.error) throw new Error(j.error);
       cover.querySelector('span:last-child').textContent = 'Loading your dashboard…';
-      await new Promise(r => setTimeout(r, 250));
       startWith(j.session, j.me);
     }catch(err){ cover.remove(); m.textContent = err.message; m.className = 'msg err'; btn.disabled = false; busy = false; f.querySelector('#pw').select(); }
   });
@@ -1170,14 +1200,14 @@ function signOut(silent){
   if (signingOut) return;
   signingOut = true;
   if (BOT.el){ BOT.el.remove(); BOT.el = null; }
-  ls.del(SKEY); const was = S.session; S.session = null; S.me = null; S.cache = {}; S.ui = {};
+  ls.del(SKEY); ls.del('el_me'); lsKeys().forEach(k => ls.del(k)); const was = S.session; S.session = null; S.me = null; S.cache = {}; S.ui = {};
   closePops();
   if (silent || !was){ renderLogin(silent ? 'Your session ended. Please sign in again.' : ''); signingOut = false; return; }
   const v = veil('Signing out…');
   setTimeout(() => { v.done(); renderLogin(''); signingOut = false; }, 650);
 }
 function startWith(session, me){
-  S.session = session; S.me = me;
+  S.session = session; S.me = me; if (!S.preview) ls.set('el_me', me);
   if (!S.preview) ls.set(SKEY, session);
   S.layout = me.layout || ls.get('el_layout_' + me.user.email, null);
   const d = ls.get('el_domain', '');
@@ -1197,6 +1227,14 @@ setInterval(() => { if (S.me && !document.hidden && !S.editing && !document.quer
   /* A preview session is kept in this tab only, never saved in the browser. */
   if (hash.get('s')){ session = hash.get('s'); S.preview = true; history.replaceState(null, '', location.pathname); }
   if (!session){ renderLogin(); return; }
+  /* Signed in before on this browser: open the dashboard straight away from what was kept,
+     and check the session behind it (a revoked or expired one still signs out). */
+  const kept = !S.preview && ls.get('el_me', null);
+  if (kept && kept.user && Array.isArray(kept.clients)){
+    startWith(session, kept);
+    api('portalMe', {session}).then(j => { if (!j || j.error || S.session !== session) return; if (JSON.stringify(j) !== JSON.stringify(kept)) startWith(session, j); else ls.set('el_me', j); }).catch(() => {});
+    return;
+  }
   renderShell();
   try{
     const j = await api('portalMe', {session});
