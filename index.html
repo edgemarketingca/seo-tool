@@ -28404,17 +28404,34 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
      show it the moment the tool opens, while the tracker (5-40 s) is asked again.
      Until there is something to show, the trays say they are loading - never
      "nothing new". Signing out clears it. */
+  /* A small key-value store in IndexedDB. localStorage on this site is nearly full with the
+     tool's own saved state (about 5 MB), so copies kept there never fit; IndexedDB has room. */
+  const bellKv = (() => {
+    let dbp = null;
+    const db = () => dbp || (dbp = new Promise((res, rej) => { try{ const r = indexedDB.open('edge-cache', 1); r.onupgradeneeded = () => r.result.createObjectStore('kv'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }catch(e){ rej(e); } }).catch(() => null));
+    const tx = (mode, fn) => db().then(d => d ? new Promise(res => { try{ const t = d.transaction('kv', mode), q = fn(t.objectStore('kv')); t.oncomplete = () => res(q ? q.result : undefined); t.onerror = t.onabort = () => res(undefined); }catch(e){ res(undefined); } }) : undefined);
+    const each = (prefix, drop) => tx('readwrite', s => { const r = s.openCursor(); r.onsuccess = () => { const c = r.result; if (!c) return; if (String(c.key).indexOf(prefix) === 0 && drop(c.value)) c.delete(); c.continue(); }; return null; });
+    return {
+      get: k => tx('readonly', s => s.get(k)),
+      set: (k, v) => tx('readwrite', s => { s.put(v, k); return null; }),
+      del: k => tx('readwrite', s => { s.delete(k); return null; }),
+      clear: prefix => each(prefix, () => true),
+      prune: (prefix, age) => each(prefix, v => !v || !v.at || Date.now() - v.at > age)
+    };
+  })();
   const CACHE_KEY = 'edgeBellCache';
   const uidNow = () => { try{ return (fbAuth && fbAuth.currentUser && fbAuth.currentUser.uid) || ''; }catch(e){ return ''; } };
-  const writeCache = data => { try{ localStorage.setItem(CACHE_KEY, JSON.stringify({uid: uidNow(), at: Date.now(), rows: data.rows, tracked: Array.isArray(data.tracked) ? data.tracked : null, last: data.last && typeof data.last === 'object' ? data.last : null})); }catch(e){} };
+  const writeCache = data => { bellKv.set(CACHE_KEY, {uid: uidNow(), at: Date.now(), rows: data.rows, tracked: Array.isArray(data.tracked) ? data.tracked : null, last: data.last && typeof data.last === 'object' ? data.last : null}); };
   function fromCache(){
-    try{
-      const v = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null'), uid = uidNow();
-      if (!v || !uid || v.uid !== uid || !Array.isArray(v.rows) || Date.now() - v.at > 3 * 864e5) return false;
+    const uid = uidNow();
+    if (!uid) return;
+    bellKv.get(CACHE_KEY).then(v => {
+      if (loaded || uidNow() !== uid || !v || v.uid !== uid || !Array.isArray(v.rows) || Date.now() - v.at > 3 * 864e5) return;
       rows = v.rows.filter(r => r && r.id && r.ms); tracked = Array.isArray(v.tracked) ? v.tracked : null; lastLead = v.last || null;
       loaded = true;
-      return true;
-    }catch(e){ return false; }
+      paintBadge();
+      Object.keys(TRAYS).forEach(k => { if (!TRAYS[k].panel.hidden) paintTray(k); });
+    });
   }
   const loadingHtml = msg => '<div class="tn-bell-empty tn-bell-loading"><span class="tn-bell-spin"></span>' + esc(msg) + '</div><div class="tn-bell-skel"><i></i><i></i><i></i></div>';
 
@@ -28915,7 +28932,7 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
     if (!inEdge()) hideAll();
   }
   setInterval(guard, 400);
-  window.addEventListener('edge:signing-out', () => { showButtons(false); hideAll(); rows = []; lastFresh = []; loaded = false; try{ localStorage.removeItem(CACHE_KEY); }catch(e){} });
+  window.addEventListener('edge:signing-out', () => { showButtons(false); hideAll(); rows = []; lastFresh = []; loaded = false; bellKv.del(CACHE_KEY); });
   start();
 })();
 </script>
