@@ -1842,26 +1842,45 @@ body.embed-mode .hub{display:none !important;}
 .seo-loc-adv-target{display:flex; align-items:center; gap:9px; font-size:11.5px; color:var(--ink-2); border-top:1px dashed var(--line); padding-top:9px;}
 .seo-loc-adv-target input{flex:1; min-width:0; padding:6px 8px; border-radius:7px; border:1px solid var(--line); font-family:var(--mono); font-size:11px; background:var(--card);}
 /* "view the search" snapshot panel */
-.seo-snap-ov{position:fixed;inset:0;z-index:9000;background:rgba(15,20,26,.45);display:flex;align-items:center;justify-content:center;padding:16px;}
-.seo-snap{background:var(--card);border-radius:var(--r-lg);box-shadow:var(--sh-3);width:min(580px,100%);max-height:calc(100vh - 32px);overflow:auto;padding:18px 20px;}
+.seo-snap-ov{position:fixed;inset:0;z-index:9000;background:rgba(15,20,26,.5);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:16px;animation:seoSnapFade .2s ease;}
+@keyframes seoSnapFade{from{opacity:0}}
+.seo-snap{background:var(--card);border-radius:var(--r-lg);box-shadow:var(--sh-3);width:min(640px,100%);max-height:calc(100vh - 32px);overflow:auto;padding:20px 22px;animation:seoSnapPop .3s cubic-bezier(.2,.8,.2,1);}
+@keyframes seoSnapPop{from{opacity:0;transform:translateY(10px) scale(.98)}}
 .seo-snap header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}
-.seo-snap-k{font-family:var(--display);font-size:16px;font-weight:600;color:var(--ink);}
-.seo-snap-sub{font-size:12px;color:var(--ink-3);margin-top:3px;}
-.seo-snap-x{border:none;background:none;font-size:22px;line-height:1;color:var(--ink-3);cursor:pointer;padding:0 4px;}
+.seo-snap-q{display:inline-flex;align-items:center;gap:9px;border:1px solid var(--line);border-radius:999px;padding:8px 16px 8px 13px;font-size:14.5px;font-weight:600;color:var(--ink);box-shadow:0 1px 6px rgba(32,33,36,.12);max-width:100%;}
+.seo-snap-q svg{color:var(--ink-3);flex:none}
+.seo-snap-q span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.seo-snap-sub{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--ink-3);margin:8px 0 0 4px;}
+.seo-snap-x{border:none;background:none;font-size:24px;line-height:1;color:var(--ink-3);cursor:pointer;padding:0 4px;}
 .seo-snap-x:hover{color:var(--ink);}
-.seo-snap-h{font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);font-weight:700;margin:16px 0 6px;}
-.seo-snap-h span{text-transform:none;letter-spacing:0;font-weight:500;}
-.seo-snap-list{list-style:none;margin:0;padding:0;border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden;}
-.seo-snap-list li{display:flex;align-items:center;gap:12px;padding:9px 12px;border-bottom:1px solid var(--line-2);font-size:13px;color:var(--ink-2);}
+.seo-snap-hero{display:flex;align-items:center;gap:14px;margin:16px 0 4px;padding:12px 14px;border-radius:var(--r-md);}
+.seo-snap-hero .big{font-family:var(--display);font-size:26px;font-weight:700;min-width:58px;height:50px;border-radius:12px;display:grid;place-items:center;color:#fff;background:var(--brand);box-shadow:0 8px 18px -8px rgba(232,119,34,.8);}
+.seo-snap-hero b{display:block;font-size:14px;color:var(--ink);}
+.seo-snap-hero span{display:block;font-size:12px;color:var(--ink-3);margin-top:2px;}
+.seo-snap-hero.win{background:linear-gradient(90deg,rgba(232,119,34,.14),rgba(232,119,34,.03));}
+.seo-snap-hero.miss{background:var(--line-2,#f3f4f6);}
+.seo-snap-hero.miss .big{background:#9aa3ad;box-shadow:none;}
+.seo-snap-h{display:flex;align-items:center;gap:6px;font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);font-weight:700;margin:18px 0 7px;}
+.seo-snap-h span{text-transform:none;letter-spacing:0;font-weight:500;margin-left:2px;}
+.seo-snap-list{list-style:none;margin:0;padding:0;border:1px solid var(--line);border-radius:var(--r-md);overflow:visible;}
+.seo-snap-list li{position:relative;display:flex;align-items:center;gap:12px;padding:10px 12px;border-bottom:1px solid var(--line-2);font-size:13px;color:var(--ink-2);transition:background .3s;}
 .seo-snap-list li:last-child{border-bottom:none;}
-.seo-snap-list .pos{font-family:var(--mono);font-size:11.5px;color:var(--ink-3);min-width:34px;flex:none;}
-.seo-snap-list .what{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.seo-snap-list .what small{display:block;font-family:var(--mono);font-size:11px;color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;}
-.seo-snap-list li.me{background:linear-gradient(90deg,rgba(232,119,34,.24),rgba(232,119,34,.08));box-shadow:inset 4px 0 0 var(--brand);color:var(--ink);}
-.seo-snap-list li.me .pos{color:var(--brand-deep);font-weight:700;}
-.seo-snap-list li.me b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;}
-.seo-snap-list .tag{flex:none;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#fff;background:var(--brand);border-radius:10px;padding:2px 8px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.seo-snap-list li.gap{justify-content:center;color:var(--ink-3);padding:3px;}
+.seo-snap-list .pos{font-family:var(--mono);font-size:11.5px;color:var(--ink-3);min-width:26px;flex:none;text-align:right;}
+.seo-snap-list .res{flex:1;min-width:0;display:flex;align-items:center;gap:10px;}
+.seo-snap-list .fav{width:26px;height:26px;border-radius:50%;background:#f1f3f4;padding:5px;flex:none;}
+.seo-snap-list .txt{min-width:0;flex:1;}
+.seo-snap-list .cr{font-size:12px;color:#4d5156;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.seo-snap-list .cr span{color:#70757a;}
+.seo-snap-list .ti{font-size:14.5px;color:#1a0dab;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:1px;}
+.seo-snap-list.pack .ti{color:var(--ink);font-size:13.5px;}
+.seo-snap-list li:not(.me):not(.gap){opacity:.72;}
+.seo-snap-list li.me{background:linear-gradient(90deg,rgba(232,119,34,.22),rgba(232,119,34,.06));box-shadow:inset 4px 0 0 var(--brand),0 0 0 2px var(--brand);border-radius:10px;margin:4px;border-bottom-color:transparent;color:var(--ink);z-index:1;}
+.seo-snap-list li.me .pos{color:var(--brand-deep);font-weight:700;font-size:13px;}
+.seo-snap-list li.me .ti{font-weight:600;}
+.seo-snap-list li.me.ping{animation:seoSnapPing 1.6s ease-out 2;}
+@keyframes seoSnapPing{0%{box-shadow:inset 4px 0 0 var(--brand),0 0 0 2px var(--brand),0 0 0 0 rgba(232,119,34,.55)}100%{box-shadow:inset 4px 0 0 var(--brand),0 0 0 2px var(--brand),0 0 0 12px rgba(232,119,34,0)}}
+.seo-snap-list .tag{flex:none;display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#fff;background:var(--brand);border-radius:10px;padding:3px 9px;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.seo-snap-list li.gap{justify-content:center;color:var(--ink-3);padding:2px;opacity:1;}
 .seo-snap-note{font-size:12px;color:var(--ink-3);line-height:1.6;margin:14px 0 0;}
 .seo-snap footer{display:flex;justify-content:flex-end;gap:8px;margin-top:14px;}
 
@@ -22337,36 +22356,39 @@ function seoPackIsClient(it, client){
    website results around the client, the client's own rows highlighted. */
 function seoOpenSnapshot(loc, k, c, liveUrl){
   const s = loc && loc.snap;
-  if (!s) return;
   const old = document.getElementById('seoSnap');
   if (old) old.remove();
-  const live = seoFreshUule(liveUrl || (loc.snap && loc.sourceUrl ? seoRankPageUrl(loc) || loc.sourceUrl : '') || '');
-  /* Live Google is only offered on page one. Further down, positions swing by
-     ten or twenty places between searches, so a live page usually doesn't show
-     the client at all - the snapshot above is the reliable view there. */
-  const showLive = !!live;
-  const who = esc(c && c.name ? c.name : 'Client');
+  const live = seoFreshUule(liveUrl || (loc && loc.sourceUrl ? seoRankPageUrl(loc) || loc.sourceUrl : '') || '');
+  /* No saved results (a reading from before snapshots, or a pinned report):
+     the live search, opened on the right page with the client's result
+     highlighted, is the best view there is. */
+  if (!s){ if (live) window.open(live, '_blank', 'noopener'); return; }
+  const who = esc(c && c.name ? c.name : 'Your result');
+  const rank = Number(loc.rank) || 0, page = rank > 0 ? seoRankPage(loc) : 1;
   const rows = Array.isArray(s.r) ? s.r : [];
   const first = rows.length ? rows[0][0] : 1, last = rows.length ? rows[rows.length - 1][0] : 0;
+  const fav = d => '<img class="fav" alt="" loading="lazy" src="https://www.google.com/s2/favicons?domain=' + encodeURIComponent(String(d || '').split('/')[0]) + '&sz=32" onerror="this.style.visibility=\'hidden\'">';
+  const crumb = u => { const p = String(u || '').split('/'); return esc(p[0]) + (p.length > 1 && p.slice(1).join('/') ? ' <span>› ' + esc(p.slice(1).join(' › ')) + '</span>' : ''); };
   const rowHtml = r => r[2]
-    ? '<li class="me"><span class="pos">#' + esc(String(r[0])) + '</span><span class="what"><b>' + esc(r[3] || '') + '</b><small>' + esc(r[1] || '') + '</small></span><span class="tag">' + who + '</span></li>'
-    : '<li><span class="pos">#' + esc(String(r[0])) + '</span><span class="what">' + esc(r[1] || '') + '</span></li>';
+    ? '<li class="me"><span class="pos">' + esc(String(r[0])) + '</span><div class="res">' + fav(r[1]) + '<div class="txt"><div class="cr">' + crumb(r[1]) + '</div><div class="ti">' + esc(r[3] || r[1] || '') + '</div></div></div><span class="tag">' + glyphCheck() + who + '</span></li>'
+    : '<li><span class="pos">' + esc(String(r[0])) + '</span><div class="res">' + fav(r[1]) + '<div class="txt"><div class="cr">' + esc(r[1] || '') + '</div></div></div></li>';
   const packHtml = Array.isArray(s.m) && s.m.length
-    ? '<div class="seo-snap-h">Map pack</div><ol class="seo-snap-list">' + s.m.map(m =>
-        '<li' + (m[2] ? ' class="me"' : '') + '><span class="pos">' + esc(String(m[0])) + '</span><span class="what">' + esc(m[1] || '') + '</span>' + (m[2] ? '<span class="tag">' + who + '</span>' : '') + '</li>').join('') + '</ol>'
+    ? '<div class="seo-snap-h">' + seoMapIcon() + 'Map pack</div><ol class="seo-snap-list pack">' + s.m.map(m =>
+        '<li' + (m[2] ? ' class="me"' : '') + '><span class="pos">' + esc(String(m[0])) + '</span><div class="res"><div class="txt"><div class="ti">' + esc(m[1] || '') + '</div></div></div>' + (m[2] ? '<span class="tag">' + glyphCheck() + who + '</span>' : '') + '</li>').join('') + '</ol>'
     : '';
+  const verdict = rank > 0
+    ? '<div class="seo-snap-hero win"><div class="big">#' + rank + '</div><div><b>' + who + ' ranked #' + rank + '</b><span>' + (page > 1 ? 'Page ' + page + ' of Google' : 'Page one of Google') + (s.at ? ' · scanned ' + esc(fmtWhen(s.at)) : '') + '</span></div></div>'
+    : '<div class="seo-snap-hero miss"><div class="big">—</div><div><b>Not in the ' + (s.n ? 'first ' + s.n + ' results' : 'results') + ' Google returned</b><span>The top results are below' + (s.at ? ' · scanned ' + esc(fmtWhen(s.at)) : '') + '</span></div></div>';
   const ov = document.createElement('div');
   ov.id = 'seoSnap';
   ov.className = 'seo-snap-ov';
   ov.innerHTML = '<div class="seo-snap" role="dialog" aria-label="What the scan saw">' +
-    '<header><div><div class="seo-snap-k">' + esc(k && k.text ? k.text : '') + '</div><div class="seo-snap-sub">' +
-      esc(loc.label || '') + (s.at ? ' · scanned ' + esc(fmtWhen(s.at)) : '') + (loc.rank > 0 ? ' · ranked #' + esc(String(loc.rank)) : ' · not found') +
-    '</div></div><button type="button" class="seo-snap-x" aria-label="Close">×</button></header>' +
-    packHtml +
-    '<div class="seo-snap-h">Website results' + (rows.length ? ' #' + first + '–' + last : '') + (s.n ? ' <span>(' + s.n + ' read)</span>' : '') + '</div>' +
-    '<ol class="seo-snap-list">' + (first > 1 ? '<li class="gap">…</li>' : '') + rows.map(rowHtml).join('') + (last && s.n && last < s.n ? '<li class="gap">…</li>' : '') + '</ol>' +
-    '<p class="seo-snap-note">This is exactly what Google returned to the scan. A live search moves results around from one search to the next and for people signed in to Google, so today’s live page can show them a few places higher or lower.' + (Number(loc.rank) > 10 ? ' Past page one the swings are bigger, so the live preview opens a few results above where the scan saw them to keep them on screen.' : '') + '</p>' +
-    '<footer>' + (showLive ? '<a class="btn btn-sm" target="_blank" rel="noopener" data-snap-live href="' + esc(live) + '">Open live preview' + (Number(loc.rank) > 9 && /[?&]start=/.test(live) ? ' (page ' + seoRankPage(loc) + ')' : '') + ' \u2197</a>' : '') +
+    '<header><div><div class="seo-snap-q">' + seoSearchIcon() + '<span>' + esc(k && k.text ? k.text : '') + '</span></div><div class="seo-snap-sub">' + (loc.label ? seoPinIcon() + esc(loc.label) : '') + '</div></div><button type="button" class="seo-snap-x" aria-label="Close">×</button></header>' +
+    verdict + packHtml +
+    '<div class="seo-snap-h">' + seoSearchIcon() + 'Website results' + (rows.length ? ' #' + first + '–' + last : '') + (s.n ? ' <span>of ' + s.n + ' read</span>' : '') + '</div>' +
+    '<ol class="seo-snap-list">' + (first > 1 ? '<li class="gap">⋮</li>' : '') + rows.map(rowHtml).join('') + (last && s.n && last < s.n ? '<li class="gap">⋮</li>' : '') + '</ol>' +
+    '<p class="seo-snap-note">These are the exact results Google returned to the scan. Live Google reshuffles a little between searches and for signed-in users, so a live page can show the result a few places higher or lower.</p>' +
+    '<footer>' + (live ? '<a class="btn btn-sm" target="_blank" rel="noopener" data-snap-live href="' + esc(live) + '" title="Opens Google pinned to this location, on the right page, with the result highlighted (Chrome and Edge)">Open on Google' + (page > 1 ? ' (page ' + page + ')' : '') + ' ↗</a>' : '') +
     '<button type="button" class="btn btn-sm btn-go seo-snap-done">Done</button></footer></div>';
   const onKey = e => { if (e.key === 'Escape') close(); };
   const close = () => { ov.remove(); document.removeEventListener('keydown', onKey, true); };
@@ -22377,9 +22399,13 @@ function seoOpenSnapshot(loc, k, c, liveUrl){
   document.body.appendChild(ov);
   const sl = ov.querySelector('[data-snap-live]');
   if (sl){ const f = () => { sl.href = seoFreshUule(sl.href); }; sl.addEventListener('pointerdown', f); sl.addEventListener('click', f); }
-  const me = ov.querySelector('.seo-snap-list li.me');
-  if (me && me.scrollIntoView) me.scrollIntoView({block: 'nearest'});
+  const me = ov.querySelector('.seo-snap-list:not(.pack) li.me') || ov.querySelector('.seo-snap-list li.me');
+  if (me){ if (me.scrollIntoView) me.scrollIntoView({block: 'center'}); setTimeout(() => me.classList.add('ping'), 120); }
 }
+function glyphCheck(){ return '<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg>'; }
+function seoSearchIcon(){ return '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>'; }
+function seoPinIcon(){ return '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>'; }
+function seoMapIcon(){ return '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/></svg>'; }
 
 /* Posts one shaped task and hands back the raw response. Deliberately its
    own function rather than a change to dfsQuery(), which the whole GBP grid
@@ -24721,13 +24747,14 @@ function seoLocGroupRow(c, k, loc){
     statusEl.innerHTML = esc(fmtWhen(loc.checkedAt)) +
       (loc.precision === 'country' ? ' \u00b7 <b title="The pinned search was refused, so this position was read for the whole country instead of from this city.">country-wide reading</b>' : '') +
       via + score + miss + reads +
-      (loc.snap ? ' \u00b7 <a href="' + esc(seoRankPageUrl(loc) || loc.sourceUrl) + '" target="_blank" rel="noopener" data-view-search="1" title="Shows the exact results this rank came from.">view the search' + (seoRankPage(loc) > 1 ? ' (page ' + seoRankPage(loc) + ')' : '') + '</a>' : '') +
+      ((loc.snap || loc.sourceUrl) ? ' \u00b7 <a href="' + esc(seoLiveUrl(loc)) + '" target="_blank" rel="noopener" data-view-search="1" title="' + (loc.snap ? 'Shows the exact results this rank came from, with the result highlighted.' : 'Opens this search on Google, on the right page, with the result highlighted.') + '">view the search' + (seoRankPage(loc) > 1 ? ' (page ' + seoRankPage(loc) + ')' : '') + '</a>' : '') +
       ' \u00b7 <a href="' + esc(seoLiveUrl(loc)) + '" target="_blank" rel="noopener" data-live-preview="1" class="seo-live-a" title="Opens live Google pinned to ' + esc(loc.label || 'this location') + ', on the page the client sits on' + (Number(loc.rank) > 0 ? ' with their result highlighted' : '') + '. Live results shift a little between searches and for people signed in to Google; a private window gives the cleanest view.">Open live preview' + (Number(loc.rank) > 0 && seoRankPage(loc) > 1 ? ' (page ' + seoRankPage(loc) + ')' : '') + ' \u2197</a>';
     /* "view the search" shows the results this rank came from. Live Google moves
        results around between searches and for signed-in users, so a live page
        can miss the client even when the rank is right. A modified click (Ctrl,
        Cmd, Shift, middle button) still opens live Google. */
     const viewA = statusEl.querySelector('a[data-view-search]');
+    if (viewA && !loc.snap){ const f = () => { viewA.href = seoLiveUrl(loc); }; viewA.addEventListener('pointerdown', f); }
     if (viewA && loc.snap) viewA.addEventListener('click', e => {
       if (e.ctrlKey || e.metaKey || e.shiftKey || e.button === 1) return;
       e.preventDefault();
@@ -26703,7 +26730,7 @@ function buildSeoReportPayload(c, opts){
               : null,
             /* What the scan saw, so the report link opens the same results the rank came
                from. Live figures only, and stored as text (Firestore refuses nested lists). */
-            snapshot: (opts.showLinks && !asOf && loc.snap && Number(snap.rank) === Number(loc.rank)) ? JSON.stringify(loc.snap) : null,
+            snapshot: (opts.showLinks && loc.snap && Number(snap.rank) === Number(loc.rank)) ? JSON.stringify(loc.snap) : null,
             /* How deep the scan looked before reporting a miss. Additive and
                optional: a report published before today simply omits it and
                its unranked rows read "Not found" rather than a depth. */
@@ -27953,11 +27980,11 @@ function renderSeoReport(data){
     /* Only rows with a scan snapshot get "view the search": a link to a fresh
        Google search can show different results from the ones in this report.
        Older rows get theirs when the keyword is scanned and the report republished. */
-    if (k.sourceUrl && k.snapshot){
+    if (k.sourceUrl || k.snapshot){
       /* Reports published before links carried the page still point at page
          one; for those, the page is estimated from the rank so a #14 opens
          page two. Newer links already carry it and are used as they are. */
-      let href = k.sourceUrl, pg = 1;
+      let href = k.sourceUrl || '#', pg = 1;
       const st = /[?&]start=(\d+)/.exec(href);
       if (st) pg = k.rank > 9 ? 2 + Math.floor((k.rank - 10) / 10) : (k.rank > 0 ? 1 : Math.floor(Number(st[1]) / 10) + 1);
       else if (k.rank > 9 && href.indexOf('#') === -1){
@@ -27972,6 +27999,10 @@ function renderSeoReport(data){
          results to whoever clicks. Ctrl-click (or "Open live Google") still goes live. */
       let snapData = null;
       try{ snapData = k.snapshot ? JSON.parse(k.snapshot) : null; }catch(e){ snapData = null; }
+      if (!snapData && typeof seoFreshUule === 'function'){
+        const a1 = meta.querySelector('a');
+        if (a1 && a1.getAttribute('href') !== '#'){ const f = () => { a1.href = seoFreshUule(a1.href); }; a1.addEventListener('pointerdown', f); a1.addEventListener('click', f); }
+      }
       if (snapData && typeof seoOpenSnapshot === 'function'){
         const a0 = meta.querySelector('a');
         if (a0) a0.addEventListener('click', e => {
