@@ -849,7 +849,7 @@ function kwRows(c){
   ((c && c.keywords) || []).forEach(k => (k.locations || []).forEach(l => {
     const hist = (l.history || []).filter(h => h && h.checkedAt);
     out.push({kw: k.text, loc: l.label || '', rank: l.rank == null ? null : l.rank, prev: l.prevRank == null ? null : l.prevRank,
-      at: l.checkedAt || 0, url: l.sourceUrl || '', hist: hist.slice(-24).map(h => [h.checkedAt, h.rank])});
+      at: l.checkedAt || 0, url: l.sourceUrl || '', gurl: (typeof seoLiveUrl === 'function' ? seoLiveUrl(l) : '') || l.sourceUrl || '', snap: l.snap || null, hist: hist.slice(-24).map(h => [h.checkedAt, h.rank])});
   }));
   return out;
 }
@@ -2343,7 +2343,7 @@ W.kw_cards = {g: 'kw', t: 'Keyword scorecards', d: 'One card per keyword: positi
        report keeps the position history one click away on the card. */
     h.innerHTML = '<div class="rp-kwc">' + rows.map((r, i) => {
       const col = r.rank > 0 && r.rank <= 10 ? '#0f7a58' : r.rank > 0 && r.rank <= 20 ? '#2a78d6' : '#eb6834';
-      const href = safeUrl(r.url);
+      const href = safeUrl(r.gurl || r.url);
       const inner = '<div class="r"><span class="big">' + (r.rank > 0 ? '#' + r.rank : '<span style="font-size:16px;color:var(--a-ink3)">100+</span>') + '</span>' + moveChip(r.rank, r.prev) + '</div>' +
         '<div class="k" title="' + esc(r.kw) + '">' + esc(r.kw) + '</div>' +
         (r.loc ? '<div class="l">' + glyph('pin', 12) + esc(r.loc) + '</div>' : '') + rankSpark(r.hist, col) +
@@ -2352,7 +2352,20 @@ W.kw_cards = {g: 'kw', t: 'Keyword scorecards', d: 'One card per keyword: positi
       return href ? '<a class="rp-kwa" href="' + esc(href) + '" target="_blank" rel="noopener noreferrer" title="Open this search on Google">' + inner + '</a>' : '<div>' + inner + '</div>';
     }).join('') + '</div>';
     h.querySelectorAll('[data-i]').forEach(el => el.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); DRILL.kw(ctx, rows[Number(el.dataset.i)]); }));
+    h.querySelectorAll('a.rp-kwa').forEach((a, i) => kwSearchClick(a, rows[i], ctx));
   }};
+/* "View search": the exact results the scan saw, with the client's result
+   highlighted (seoOpenSnapshot). Without a saved snapshot, or with Ctrl/Cmd,
+   live Google opens on the right page with the result highlighted. */
+function kwSearchClick(a, r, ctx){
+  if (!a || !r) return;
+  a.addEventListener('pointerdown', () => { if (typeof seoFreshUule === 'function') a.href = seoFreshUule(a.href); });
+  a.addEventListener('click', e => {
+    if (e.defaultPrevented || !r.snap || typeof seoOpenSnapshot !== 'function' || e.ctrlKey || e.metaKey || e.shiftKey || e.button === 1) return;
+    e.preventDefault();
+    seoOpenSnapshot({snap: r.snap, rank: r.rank, label: r.loc, sourceUrl: ''}, {text: r.kw}, {name: ctx && ctx.clientName ? ctx.clientName : ''}, r.gurl || '');
+  });
+}
 W.kw_table = {g: 'kw', t: 'Keyword positions', d: 'Every tracked keyword and location with its position, change and trend.', size: 'xl', needs: ['kw'],
   render(h, ctx, w, D){
     table(h, D.kw, [
@@ -2362,9 +2375,15 @@ W.kw_table = {g: 'kw', t: 'Keyword positions', d: 'Every tracked keyword and loc
       {key: 'mv', label: 'Change', num: true, fmt: r => { const m = rankMove(r.rank, r.prev); return m.txt && m.txt !== '=' ? '<span class="aiv-delta ' + m.cls + '">' + esc(m.txt) + '</span>' : '<span style="color:var(--a-ink3)">—</span>'; },
         sort: r => (r.prev == null || r.rank == null) ? 0 : (r.prev === 0 ? 101 : r.prev) - (r.rank === 0 ? 101 : r.rank)},
       {key: 'tr', label: 'Trend', fmt: r => '<span style="display:inline-block;width:90px;height:24px;vertical-align:middle">' + rankSpark(r.hist, '#2a78d6').replace('class="sp"', 'class="sp" style="width:90px;height:24px;display:block"') + '</span>', sort: r => r.hist.length},
-      {key: 'url', label: 'Search', fmt: r => safeUrl(r.url) ? '<a href="' + esc(r.url) + '" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">View on Google ↗</a>' : '—', sort: r => r.url ? 1 : 0},
+      {key: 'url', label: 'Search', fmt: r => safeUrl(r.gurl || r.url) ? '<a class="rp-kws" data-kws="' + esc(r.kw + '|' + r.loc) + '" href="' + esc(r.gurl || r.url) + '" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">View search ↗</a>' : '—', sort: r => r.url ? 1 : 0},
       {key: 'at', label: 'Checked', fmt: r => r.at ? esc(shortDate(isoDay(new Date(r.at)))) : '—'}
     ], {sort: 'rank', asc: true, maxH: w.h ? 0 : 460, empty: 'No keywords tracked for this client yet.', onRow: ctx.drill ? r => DRILL.kw(ctx, r) : null});
+    /* The table re-draws on sort, so the search links are handled from the widget itself. */
+    if (!h.__kws){ h.__kws = 1; h.addEventListener('pointerdown', e => { const a = e.target.closest && e.target.closest('a.rp-kws'); if (a && typeof seoFreshUule === 'function') a.href = seoFreshUule(a.href); }, true);
+      h.addEventListener('click', e => { const a = e.target.closest && e.target.closest('a.rp-kws'); if (!a) return; const r = (h.__kwRows || []).find(x => x.kw + '|' + x.loc === a.dataset.kws);
+        if (!r || !r.snap || typeof seoOpenSnapshot !== 'function' || e.ctrlKey || e.metaKey || e.shiftKey || e.button === 1) return;
+        e.preventDefault(); e.stopPropagation(); seoOpenSnapshot({snap: r.snap, rank: r.rank, label: r.loc, sourceUrl: ''}, {text: r.kw}, {name: ctx.clientName || ''}, r.gurl || ''); }, true); }
+    h.__kwRows = D.kw;
   }};
 W.kw_movers = {g: 'kw', t: 'Biggest movers', d: 'Keywords that moved most since the previous check, up and down.', size: 'l', needs: ['kw'],
   render(h, ctx, w, D){
