@@ -22648,9 +22648,12 @@ async function seoLiveCheck(keyword, p, region, opts){
     const it = r.organic.find(match);
     return it ? posAt(r, it) : 0;
   };
-  const confirmFound = async first => {
+  const confirmFound = async (first, extras) => {
     if (!o.confirm) return first;
     const runs = [{out: first, pages: pagesOf(first)}];
+    /* Reads that ran alongside the one that found the site (same wave) are
+       confirmation reads already: they count exactly as a re-check would. */
+    (extras || []).forEach(r => runs.push({out: r, pages: hit(r) ? pagesOf(r) : new Map()}));
     const another = async () => {
       for (let attempt = 0; attempt < 2; attempt++){
         if (stopped()) return false;
@@ -22661,7 +22664,7 @@ async function seoLiveCheck(keyword, p, region, opts){
           return true;
         }catch(err){
           if (err && err.fatal) throw err;
-          await seoDelay(1000 + Math.round(Math.random() * 1000));
+          await seoDelay(600 + Math.round(Math.random() * 400));
         }
       }
       return false;
@@ -22674,14 +22677,13 @@ async function seoLiveCheck(keyword, p, region, opts){
         return {u, hits, n: hits.length, med: ps[Math.floor((ps.length - 1) / 2)], spread: ps[ps.length - 1] - ps[0]};
       }).sort((a, b) => b.n - a.n || a.med - b.med);
     };
-    await seoDelay(800 + Math.round(Math.random() * 800));
-    await another();
+    if (runs.length < 2) await another();
     let t = tally();
     /* Two reads that saw the same page within two places agree. Otherwise read
        on until one page has been seen at least twice, five reads at most. */
     if (!(t[0] && t[0].n >= 2 && t[0].spread <= 2)){
       while (runs.length < 5){
-        await seoDelay(800 + Math.round(Math.random() * 800));
+        await seoDelay(150);
         if (!(await another())) break;
         t = tally();
         if (t[0] && t[0].n >= 2 && runs.length >= 3) break;
@@ -22706,26 +22708,32 @@ async function seoLiveCheck(keyword, p, region, opts){
 
   /* Each read that comes back counts towards maxReads; an attempt that errors
      doesn't, but attempts are capped so a provider that is down can't loop. */
+  /* FASTER, SAME READS. The first read goes alone (most keywords are found on
+     it). After a miss, the re-checks run two at a time instead of one after
+     another with pauses: every read is still its own live request, the total
+     never goes past maxReads, and a read that ran next to the one that found
+     the site is used as its confirmation read, so nothing is spent twice. */
   while (reads < maxReads && tries < maxReads * 2){
     if (stopped()) break;
-    const shape = shapes[tries % 2];
-    tries++;
+    const n = Math.min(reads === 0 ? 1 : 2, maxReads - reads);
     if (o.onRead){ try{ o.onRead(reads + 1, maxReads); }catch(e){} }
-    let out;
-    try{
-      out = await readOnce(shape, depth, 'coordinate');
-    }catch(err){
-      if (err && err.fatal) throw err;
-      lastErr = err; failed++;
-      await seoDelay(1200 + Math.round(Math.random() * 1200));
-      continue;
+    const wave = await Promise.all(Array.from({length: n}, (_, k) => {
+      const shape = shapes[tries % 2];
+      tries++;
+      return seoDelay(k * 300).then(() => readOnce(shape, depth, 'coordinate')).then(out => ({out}), err => ({err}));
+    }));
+    const fatal = wave.find(w => w.err && w.err.fatal);
+    if (fatal) throw fatal.err;
+    wave.forEach(w => { if (w.err){ lastErr = w.err; failed++; } });
+    const good = wave.filter(w => w.out).map(w => w.out);
+    const at = good.findIndex(hit);
+    if (at > -1){
+      reads += at + 1;
+      return answer(await confirmFound(good[at], good.filter((_, k) => k !== at)), {found: true});
     }
-    reads++;
-    if (hit(out)) return answer(await confirmFound(out), {found: true});
-    keep(out);
-    /* A short, slightly uneven pause before the next read, so it lands on a
-       fresh request rather than a replay of the one that just missed. */
-    if (reads < maxReads) await seoDelay(1500 + Math.round(Math.random() * 1500));
+    reads += good.length;
+    good.forEach(keep);
+    if (!good.length) await seoDelay(1200 + Math.round(Math.random() * 1200));
   }
   if (stopped() && reads < maxReads){
     const e = new Error('Stopped before every re-check ran');
