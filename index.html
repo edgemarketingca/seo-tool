@@ -24452,8 +24452,16 @@ function seoRankLink(url, rank, page, domain, title){
     }
     head = head.replace(/(\s+[^\w\s]+)+$/, '');   /* no dangling | or - */
     n = head ? head.split(' ').length : 0;
+    /* Google shows each result as site name, web address, then title. The range
+       therefore starts at the client's address and ends at their title right below
+       it, so only their result lights up, address through title. (Starting at the
+       title matched the first similar title higher on the page and ran down to the
+       address, lighting up every result in between.) The title is only used when it
+       has two or more words, so it can't stop early on a word in the address
+       (land-use-planning). When Google shows a different title, the address alone
+       is highlighted. */
     const dirs = [];
-    if (n >= 2) dirs.push('text=' + seoTextFrag(head) + ',' + seoTextFrag(d));
+    if (n >= 2) dirs.push('text=' + seoTextFrag(d) + ',' + seoTextFrag(head));
     dirs.push('text=' + seoTextFrag(d));
     u += '#:~:' + dirs.join('&');
   }
