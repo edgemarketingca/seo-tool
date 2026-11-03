@@ -22715,7 +22715,10 @@ async function seoLiveCheck(keyword, p, region, opts){
      the site is used as its confirmation read, so nothing is spent twice. */
   while (reads < maxReads && tries < maxReads * 2){
     if (stopped()) break;
-    const n = Math.min(reads === 0 ? 1 : 2, maxReads - reads);
+    /* The first two reads go out together when positions are confirmed: the second is
+       always needed (as the confirmation if the first finds the site, as the first
+       re-check if it doesn't), so starting it at once costs nothing and halves the wait. */
+    const n = Math.min(reads === 0 ? (o.confirm && maxReads >= 2 ? 2 : 1) : 2, maxReads - reads);
     if (o.onRead){ try{ o.onRead(reads + 1, maxReads); }catch(e){} }
     const wave = await Promise.all(Array.from({length: n}, (_, k) => {
       const shape = shapes[tries % 2];
