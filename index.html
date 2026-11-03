@@ -28721,6 +28721,7 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
     /* What was new when it opened stays marked until it is closed. */
     if (t.match) t.fresh = unread(k).map(r => r.id);
     paintTray(k); place(t); t.panel.hidden = false;
+    if (t.match) setTimeout(() => prefetchDetails(rows.filter(t.match).sort((a, b) => b.ms - a.ms).slice(0, 15)), 0);
     document.addEventListener('mousedown', outside, true);
     if (seen && t.match){ rows.forEach(r => { if (t.match(r) && seen.ids.indexOf(r.id) === -1) seen.ids.push(r.id); }); writeSeen(); }
     paintBadge();
@@ -28812,8 +28813,16 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
         '<div class="tn-sub-sec">Where it came from</div>' +
         row('Page', full.page, /^https?:/.test(full.page || '') ? full.page : '') + row('Channel', full.channel) + row('Source / medium', full.sm) +
         row('Campaign', full.campaign) + row('Landing page', full.land, /^https?:/.test(full.land || '') ? full.land : '') + row('Referrer', full.ref);
+    } else if (state0){
+      body = '<div class="tn-sub-wait">' + esc(state0) + '</div>';
     } else {
-      body = '<div class="tn-sub-wait">' + esc(state0 || 'Loading the submission…') + '</div>';
+      /* What the bell already knows shows at once; the rest shimmers in. */
+      const sk = w => '<div class="tn-sub-sk" style="width:' + w + '"></div>';
+      body = '<div class="tn-sub-sec">Contact</div>' + (r.name ? row('Name', r.name) : '') +
+        '<div class="tn-sub-skrow">' + sk('34%') + sk('52%') + '</div><div class="tn-sub-skrow">' + sk('28%') + sk('44%') + '</div>' +
+        '<div class="tn-sub-sec">Message</div>' + sk('96%') + sk('88%') + sk('60%') +
+        '<div class="tn-sub-sec">Where it came from</div>' + (r.page ? row('Page', r.page) : '') + (formChannel(r) ? row('Channel', formChannel(r)) : '') +
+        '<div class="tn-sub-skrow">' + sk('30%') + sk('48%') + '</div>';
     }
     return '<div class="tn-sub" role="dialog" aria-label="Form submission">' +
       '<header><div><div class="tn-sub-client">' + esc(c ? c.name : (r.client || r.domain)) + '</div>' +
@@ -28824,11 +28833,69 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
       '<footer>' + (c ? '<button type="button" class="btn btn-sm tn-sub-client-btn">Open ' + esc(c.name) + '</button>' : '') +
       '<button type="button" class="btn btn-sm btn-go tn-sub-done">Done</button></footer></div>';
   }
+  /* FAST DETAILS. Full submissions are kept on this browser (IndexedDB, per person, 30 days)
+     and fetched ahead: the newest ones after every poll, the ones in a tray when it opens, and
+     the one under the pointer. One tracker call per client returns every submission in its
+     window, so neighbours come for free; the same call is never made twice at once. */
+  const subMem = new Map(), subFlight = new Map();
+  const subKey = id => 'sub:' + id;
+  function subPut(full){
+    if (!full || !full.id) return;
+    subMem.set(full.id, full);
+    try{ bellKv.set(subKey(full.id), {uid: uidNow(), at: Date.now(), full}); }catch(e){}
+  }
+  async function subGet(id){
+    if (subMem.has(id)) return subMem.get(id);
+    try{ const v = await bellKv.get(subKey(id)); if (v && v.full && v.uid === uidNow() && Date.now() - v.at < 30 * 864e5){ subMem.set(id, v.full); return v.full; } }catch(e){}
+    return null;
+  }
+  function subFetch(domain, fromMs, toMs){
+    const t = tracker();
+    if (!t.url || !t.key) return Promise.resolve([]);
+    const from = dayIso(fromMs - 36 * 3600 * 1000), to = dayIso(toMs + 36 * 3600 * 1000), k = domain + '|' + from + '|' + to;
+    if (subFlight.has(k)) return subFlight.get(k);
+    const q = 'action=forms&src=all&domain=' + encodeURIComponent(domain) + '&start=' + from + '&end=' + to + '&key=' + encodeURIComponent(t.key);
+    const p = fetch(t.url + (t.url.indexOf('?') > -1 ? '&' : '?') + q, {redirect: 'follow'}).then(res => res.json()).then(data => {
+      const list = data && Array.isArray(data.rows) ? data.rows.filter(x => x && x.id) : [];
+      list.forEach(subPut);
+      return list;
+    }).finally(() => setTimeout(() => subFlight.delete(k), 1500));
+    subFlight.set(k, p);
+    return p;
+  }
+  async function loadDetail(r){
+    const hit = await subGet(r.id);
+    if (hit) return hit;
+    const list = await subFetch(r.domain, r.ms, r.ms);
+    return list.find(x => x.id === r.id) || null;
+  }
+  let prefetching = false;
+  async function prefetchDetails(list){
+    if (prefetching || !inEdge()) return;
+    prefetching = true;
+    try{
+      const want = [];
+      for (const r of list){ if (r && r.id && r.domain && r.origin !== 'call' && !subMem.has(r.id) && !(await subGet(r.id))) want.push(r); }
+      const byDom = {};
+      want.forEach(r => { const g = byDom[r.domain] = byDom[r.domain] || {min: r.ms, max: r.ms}; g.min = Math.min(g.min, r.ms); g.max = Math.max(g.max, r.ms); });
+      for (const d of Object.keys(byDom).slice(0, 6)){
+        const g = byDom[d];
+        if (g.max - g.min > 10 * 864e5) g.min = g.max - 10 * 864e5;
+        try{ await subFetch(d, g.min, g.max); }catch(e){}
+      }
+    }finally{ prefetching = false; }
+  }
+  const prefetchOne = r => { if (r && r.origin !== 'call' && !subMem.has(r.id)) subGet(r.id).then(h => { if (!h) subFetch(r.domain, r.ms, r.ms).catch(() => {}); }); };
   async function openDetail(r){
     if (!r || !inEdge()) return;
     close();
     if (pop) pop.hidden = true;
     markSeen(r);
+    if (!document.getElementById('tnSubSk')){
+      const st = document.createElement('style'); st.id = 'tnSubSk';
+      st.textContent = '.tn-sub-sk{position:relative;overflow:hidden;height:12px;border-radius:7px;background:#eef1f4;margin:9px 0}.tn-sub-sk:after{content:"";position:absolute;inset:0;transform:translateX(-100%);background:linear-gradient(90deg,transparent,rgba(255,255,255,.85),transparent);animation:tnSubSh 1.15s ease-in-out infinite}@keyframes tnSubSh{to{transform:translateX(100%)}}.tn-sub-skrow{display:flex;gap:14px;align-items:center}.tn-sub-skrow .tn-sub-sk{flex:none}';
+      document.head.appendChild(st);
+    }
     if (!drawer){
       drawer = document.createElement('div');
       drawer.className = 'tn-sub-ov';
@@ -28850,13 +28917,10 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
     drawer.hidden = false;
     document.addEventListener('keydown', drawerKey, true);
     if (r.origin === 'call'){ drawer.innerHTML = callHtml(r); return; }
-    const t = tracker();
+    const mem = subMem.get(r.id);
+    if (mem){ drawer.innerHTML = drawerHtml(r, mem); return; }
     try{
-      const from = dayIso(r.ms - 36 * 3600 * 1000), to = dayIso(r.ms + 36 * 3600 * 1000);
-      const q = 'action=forms&src=all&domain=' + encodeURIComponent(r.domain) + '&start=' + from + '&end=' + to + '&key=' + encodeURIComponent(t.key);
-      const res = await fetch(t.url + (t.url.indexOf('?') > -1 ? '&' : '?') + q, {redirect: 'follow'});
-      const data = await res.json();
-      const full = data && Array.isArray(data.rows) ? data.rows.find(x => x && x.id === r.id) : null;
+      const full = await loadDetail(r);
       if (openId !== r.id) return;
       drawer.innerHTML = drawerHtml(r, full, full ? '' : 'This submission couldn’t be found on the tracker any more.');
     }catch(e){
@@ -28891,6 +28955,7 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
       const li = e.target.closest('li[data-id]');
       if (li) openDetail(rows.find(r => r.id === li.dataset.id));
     });
+    t.panel.addEventListener('pointerover', e => { const li = e.target.closest('li[data-id]'); if (li && !li.dataset.pf){ li.dataset.pf = '1'; prefetchOne(rows.find(r => r.id === li.dataset.id)); } });
   });
 
   async function poll(){
@@ -28922,6 +28987,7 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
         const fresh = rows.filter(r => !r.test && !before.has(r.id) && seen.ids.indexOf(r.id) === -1);
         /* Leads that arrive while another screen is showing simply wait on the badge. */
         if (!firstLoad && fresh.length && inEdge()) notify(fresh);
+        setTimeout(() => prefetchDetails(rows.filter(r => r.origin !== 'call').sort((a, b) => b.ms - a.ms).slice(0, 12)), 1200);
         firstLoad = false;
       } else {
         lastErr = data && data.error === 'domain required'
@@ -28963,7 +29029,7 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
     if (!inEdge()) hideAll();
   }
   setInterval(guard, 400);
-  window.addEventListener('edge:signing-out', () => { showButtons(false); hideAll(); rows = []; lastFresh = []; loaded = false; bellKv.del(CACHE_KEY); });
+  window.addEventListener('edge:signing-out', () => { showButtons(false); hideAll(); rows = []; lastFresh = []; loaded = false; bellKv.del(CACHE_KEY); subMem.clear(); try{ bellKv.clear('sub:'); }catch(e){} });
   start();
 })();
 </script>
