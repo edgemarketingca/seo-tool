@@ -355,6 +355,25 @@ const css = `
 .mt-bsec-h{display:flex;align-items:center;gap:8px;padding:11px 14px 6px;font:700 11px/1 var(--ui,Inter,sans-serif);letter-spacing:.08em;text-transform:uppercase;color:#c53035}
 .mt-bsec.ok .mt-bsec-h{color:#0f7a58}
 .mt-bsec-h svg{width:14px;height:14px}
+.mt-bsec-h[data-fold]{cursor:pointer;user-select:none}
+.mt-bsec-h .mt-bcount{display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:#e5484d;color:#fff;font-size:10.5px;letter-spacing:0}
+.mt-fold{display:grid;place-items:center;width:22px;height:22px;border-radius:7px;color:var(--ink-3,#8b98a3);transition:background .15s}
+.mt-bsec-h[data-fold]:hover .mt-fold{background:rgba(20,26,33,.06);color:var(--ink,#1b222a)}
+.mt-car{width:14px;height:14px;transition:transform .28s cubic-bezier(.2,.8,.2,1)}
+.mt-bsec.folded .mt-car{transform:rotate(-90deg)}
+.mt-bbody{display:grid;grid-template-rows:1fr;transition:grid-template-rows .32s cubic-bezier(.2,.8,.2,1),opacity .25s}
+.mt-binner{overflow:hidden;min-height:0}
+.mt-bsec.folded .mt-bbody{grid-template-rows:0fr;opacity:0}
+.mt-bsec.folded .mt-bsec-h{padding-bottom:11px}
+.mt-brow{position:relative;transition:height .26s cubic-bezier(.2,.8,.2,1),opacity .2s,transform .26s,padding .26s}
+.mt-brow.going{height:0!important;opacity:0;transform:translateX(24px);padding-top:0;padding-bottom:0;overflow:hidden}
+.mt-bx{flex:none;width:22px;height:22px;border:0;border-radius:50%;background:transparent;color:var(--ink-3,#8b98a3);font-size:15px;line-height:1;cursor:pointer;opacity:0;transition:opacity .15s,background .15s,color .15s}
+.mt-brow:hover .mt-bx,.mt-bx:focus-visible{opacity:1}
+.mt-bx:hover{background:rgba(229,72,77,.12);color:#c53035}
+.mt-bhid{display:flex;align-items:center;gap:8px;padding:6px 14px 10px;font-size:11.5px;color:var(--ink-3,#8b98a3)}
+.mt-bhid button{margin-left:auto;border:0;background:none;font:600 11.5px var(--ui,Inter,sans-serif);color:#c53035;cursor:pointer}
+.mt-pop{transition:opacity .25s,transform .25s cubic-bezier(.2,.8,.2,1)}
+.mt-pop.out{opacity:0;transform:translateY(-8px) scale(.98)}
 .mt-bsec-h button{margin-left:auto;border:0;background:none;font:600 11.5px var(--ui,Inter,sans-serif);letter-spacing:0;text-transform:none;color:var(--ink-2,#57646f);cursor:pointer}
 .mt-bsec-h button:hover{color:var(--ink,#1b222a)}
 .mt-brow{display:flex;align-items:center;gap:10px;padding:8px 14px;cursor:pointer;transition:background .12s}
@@ -392,7 +411,7 @@ const setView = v => { view = Object.assign(view, v); try{ localStorage.setItem(
 let q = '', pop = null;
 
 const visible = () => { const s = $('maintStage'); return !!(s && s.style.display !== 'none' && !document.body.classList.contains('hub-locked')); };
-function commit(){ try{ save(); }catch(e){} if (pop) pop.hidden = true; render(); paintAlerts(); }
+function commit(){ try{ save(); }catch(e){} if (pop) hidePop(); render(); paintAlerts(); }
 
 /* ---------- rings ---------- */
 function ring(done, total, size, stroke, color, cls){
@@ -680,22 +699,57 @@ function paintBell(){
   const panel = document.querySelector('.tn-bell-panel.tn-bp-forms');
   if (panel && !panel.hidden) injectPanel(panel);
 }
-function injectPanel(panel){
+/* The bell's section can be collapsed (remembered in this browser) and each
+   site can be cleared from the list like any other notification. A cleared
+   site comes back the next day while it is still due, and the red count on
+   the bell never drops until the maintenance is actually marked done. */
+const HIDE_KEY = 'edgeMaintHidden', FOLD_KEY = 'edgeMaintFolded';
+const hiddenIds = () => { try{ const v = JSON.parse(localStorage.getItem(HIDE_KEY) || 'null'); return v && v.day === isoDay(Date.now()) && Array.isArray(v.ids) ? v.ids : []; }catch(e){ return []; } };
+const hideId = id => { const ids = hiddenIds(); if (ids.indexOf(id) < 0) ids.push(id); try{ localStorage.setItem(HIDE_KEY, JSON.stringify({day: isoDay(Date.now()), ids})); }catch(e){} };
+const unhideAll = () => { try{ localStorage.removeItem(HIDE_KEY); }catch(e){} };
+const folded = () => { try{ return localStorage.getItem(FOLD_KEY) === '1'; }catch(e){ return false; } };
+function injectPanel(panel, force){
   const list = sites(), due = dueSites(), was = panel.querySelector('.mt-bsec');
   if (!list.length){ if (was) was.remove(); return; }
+  const hid = hiddenIds(), shown = due.filter(c => hid.indexOf(c.id) < 0), nHid = due.length - shown.length, fold = folded();
+  const caret = '<svg class="mt-car" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
   const html = due.length
-    ? '<div class="mt-bsec-h">' + svg(IC.wrench) + 'Website maintenance due<button type="button" data-all>View all</button></div>' +
-      due.map(c => { const s = statusOf(c); return '<div class="mt-brow" data-site="' + esc(c.id) + '">' + logoHtml(c, 'mt-logo') + '<div><b>' + esc(c.name) + '</b><small>' + esc('Not done for ' + monthName() + ' · ' + s.line) + '</small></div><em>' + s.late + 'd</em></div>'; }).join('')
-    : '<div class="mt-bsec-h">' + svg(IC.check) + 'Website maintenance<button type="button" data-all>Open</button></div><div class="mt-bok">' + svg(IC.check) + 'Every WordPress site is maintained for ' + esc(monthName()) + '</div>';
-  const sig = html.length + ':' + due.map(c => c.id).join(',');
-  if (was && was.dataset.sig === sig) return;
+    ? '<div class="mt-bsec-h" data-fold role="button" tabindex="0" aria-expanded="' + !fold + '">' + svg(IC.wrench) + 'Website maintenance due<b class="mt-bcount">' + due.length + '</b>' +
+        '<button type="button" data-all>View all</button><span class="mt-fold" title="' + (fold ? 'Show' : 'Collapse') + '">' + caret + '</span></div>' +
+      '<div class="mt-bbody"><div class="mt-binner">' +
+        shown.map(c => { const s = statusOf(c); return '<div class="mt-brow" data-site="' + esc(c.id) + '">' + logoHtml(c, 'mt-logo') + '<div><b>' + esc(c.name) + '</b><small>' + esc('Not done for ' + monthName() + ' · ' + s.line) + '</small></div><em>' + s.late + 'd</em>' +
+          '<button type="button" class="mt-bx" data-hide="' + esc(c.id) + '" title="Clear for today (it stays due and comes back tomorrow)" aria-label="Clear ' + esc(c.name) + '">×</button></div>'; }).join('') +
+        (nHid ? '<div class="mt-bhid">' + nHid + (nHid === 1 ? ' site' : ' sites') + ' cleared for today · still due<button type="button" data-unhide>Show</button></div>' : '') +
+      '</div></div>'
+    : '<div class="mt-bsec-h" data-fold role="button" tabindex="0" aria-expanded="' + !fold + '">' + svg(IC.check) + 'Website maintenance<button type="button" data-all>Open</button><span class="mt-fold">' + caret + '</span></div>' +
+      '<div class="mt-bbody"><div class="mt-binner"><div class="mt-bok">' + svg(IC.check) + 'Every WordPress site is maintained for ' + esc(monthName()) + '</div></div></div>';
+  const sig = html.length + ':' + due.map(c => c.id).join(',') + ':' + hid.join(',') + ':' + fold;
+  if (was && was.dataset.sig === sig && !force) return;
   const sec = document.createElement('div');
-  sec.className = 'mt-bsec' + (due.length ? '' : ' ok'); sec.dataset.sig = sig; sec.innerHTML = html;
+  sec.className = 'mt-bsec' + (due.length ? '' : ' ok') + (fold ? ' folded' : ''); sec.dataset.sig = sig; sec.innerHTML = html;
   sec.addEventListener('click', e => {
+    const x = e.target.closest('[data-hide]');
+    if (x){
+      e.stopPropagation();
+      const row = x.closest('.mt-brow');
+      hideId(x.dataset.hide);
+      row.style.height = row.offsetHeight + 'px'; void row.offsetHeight; row.classList.add('going');
+      setTimeout(() => injectPanel(panel, true), 260);
+      return;
+    }
+    if (e.target.closest('[data-unhide]')){ e.stopPropagation(); unhideAll(); injectPanel(panel, true); return; }
+    if (e.target.closest('[data-all]')){ e.stopPropagation(); openSite(''); return; }
     const r = e.target.closest('[data-site]');
     if (r) return openSite(r.dataset.site);
-    if (e.target.closest('[data-all]')) openSite('');
+    if (e.target.closest('[data-fold]')){
+      const f = !sec.classList.contains('folded');
+      try{ localStorage.setItem(FOLD_KEY, f ? '1' : '0'); }catch(err){}
+      sec.classList.toggle('folded', f);
+      sec.querySelector('[data-fold]').setAttribute('aria-expanded', String(!f));
+      sec.dataset.sig = sec.dataset.sig.replace(/:(true|false)$/, ':' + f);
+    }
   });
+  sec.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[data-fold]')){ e.preventDefault(); e.target.click(); } });
   if (was) was.replaceWith(sec);
   else { const h = panel.querySelector('.tn-bell-h'); if (h) h.after(sec); else panel.prepend(sec); }
 }
@@ -707,6 +761,13 @@ function watchPanel(){
   panelObs = new MutationObserver(() => { if (!panel.hidden && !panel.querySelector('.mt-bsec')) injectPanel(panel); });
   panelObs.observe(panel, {childList: true, attributes: true, attributeFilter: ['hidden']});
   if (!panel.hidden) injectPanel(panel);
+}
+let popTimer = 0;
+function hidePop(){
+  if (!pop || pop.hidden) return;
+  clearTimeout(popTimer);
+  pop.classList.add('out');
+  setTimeout(() => { if (pop && pop.classList.contains('out')){ pop.hidden = true; pop.classList.remove('out'); } }, 260);
 }
 function notifyDue(force){
   if (!inApp()) return;
@@ -722,13 +783,15 @@ function notifyDue(force){
   if (!pop){
     pop = document.createElement('div'); pop.className = 'mt-pop'; pop.setAttribute('role', 'alert');
     document.body.appendChild(pop);
-    pop.addEventListener('click', e => { pop.hidden = true; if (!e.target.closest('button')) openSite(dueSites().length === 1 ? dueSites()[0].id : ''); });
+    pop.addEventListener('click', e => { const x = !!e.target.closest('button'); hidePop(); if (!x) openSite(dueSites().length === 1 ? dueSites()[0].id : ''); });
+    pop.addEventListener('mouseenter', () => clearTimeout(popTimer));
+    pop.addEventListener('mouseleave', () => { clearTimeout(popTimer); popTimer = setTimeout(hidePop, 6000); });
   }
   pop.innerHTML = '<span class="ic">' + svg(IC.wrench) + '</span><div><b>' + esc(title) + '</b><span>' + esc(line) + '</span></div><button type="button" aria-label="Dismiss">×</button>';
   const bell = $('tnBell'), anchor = bell && !bell.hidden && bell.offsetWidth ? bell : document.querySelector('.tn-right');
   const r = anchor && anchor.offsetWidth ? anchor.getBoundingClientRect() : {bottom: 54, right: window.innerWidth - 16};
   pop.style.top = (r.bottom + 10) + 'px'; pop.style.right = Math.max(8, window.innerWidth - r.right) + 'px';
-  pop.hidden = false;
+  pop.classList.remove('out'); pop.hidden = false;
   if (bell){ bell.classList.remove('ring'); void bell.offsetWidth; bell.classList.add('ring'); }
   try{
     if (window.Notification && Notification.permission === 'granted'){
@@ -738,7 +801,7 @@ function notifyDue(force){
       try{ Notification.requestPermission(); }catch(e){}
     }
   }catch(e){}
-  setTimeout(() => { if (pop) pop.hidden = true; }, 20000);
+  clearTimeout(popTimer); popTimer = setTimeout(hidePop, 20000);
 }
 function paintAlerts(){ paintNav(); paintHub(); paintBell(); }
 
