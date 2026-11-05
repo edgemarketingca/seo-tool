@@ -5657,11 +5657,25 @@ body.embed-clean .rank-dot.wide{box-shadow:0 0 0 2px #fff,0 0 0 3.5px rgba(212,6
 
     <div class="hub-hero">
       <span class="hub-eyebrow">Choose a workspace</span>
-      <h2>Three tools. One shared database.</h2>
+      <h2>Four tools. One shared database.</h2>
       <p>Everything your team adds in any of these lives in the same cloud record — every client, profile, keyword and scan is visible to everyone, on every computer, the moment it's saved.</p>
     </div>
 
     <div class="hub-grid" id="hubGrid">
+
+      <button class="hub-card mt-hub" data-go="maint" type="button">
+        <span class="hub-key">M</span>
+        <span class="hub-ico">
+          <svg viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18v3h3l6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></svg>
+        </span>
+        <div class="mt-hub-t">
+          <p class="hub-sub" id="hubMaintSub">WordPress care, every month</p>
+          <h3 class="hub-title">Web Maintenance</h3>
+          <p class="hub-desc">Every WordPress website you look after: red until this month&rsquo;s maintenance is done, green once it is. Backups, updates, security, speed and form checks, with reminders in the bell.</p>
+        </div>
+        <span class="hub-meta mt-hub-s" id="hubMetaMaint"></span>
+        <span class="hub-go">Open Web Maintenance <svg viewBox="0 0 24 24"><path d="M5 12h13M13 6l6 6-6 6"/></svg></span>
+      </button>
 
       <button class="hub-card" data-go="gbp" type="button">
         <span class="hub-key">1</span>
@@ -5722,6 +5736,10 @@ body.embed-clean .rank-dot.wide{box-shadow:0 0 0 2px #fff,0 0 0 3.5px rgba(212,6
     <div class="tn-sep"></div>
 
     <div class="tn-mods" id="tnMods">
+      <button class="tn-mod" data-module="maint" id="modBtnMaint" type="button" title="Web Maintenance (Alt+M)">
+        <svg viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18v3h3l6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></svg>
+        <span>Web Maintenance</span>
+      </button>
       <button class="tn-mod on" data-module="gbp" id="modBtnGbp" type="button" title="GBP Tracker (Alt+1)">
         <svg viewBox="0 0 24 24"><path d="M12 21s-7-5.33-7-11a7 7 0 0 1 14 0c0 5.67-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
         <span>GBP Tracker</span>
@@ -6670,6 +6688,10 @@ body.embed-clean .rank-dot.wide{box-shadow:0 0 0 2px #fff,0 0 0 3.5px rgba(212,6
       </div>
     </div>
   </main>
+
+  <!-- ==================== WEB MAINTENANCE (drawn by maintenance.js) ==================== -->
+  <aside class="rail mt-rail" id="maintRail" style="display:none"></aside>
+  <main class="stage mt-stage" id="maintStage" style="display:none"></main>
 
   <!-- ==================== SEO CLIENTS RAIL ==================== -->
   <aside class="rail" id="seoRail" style="display:none">
@@ -12536,7 +12558,10 @@ function setScreen(which){
      shell is mounted underneath it so whichever module is picked is already
      laid out and only has to be revealed. */
   if (typeof window.EDGE_showHub === 'function' && !document.body.classList.contains('embed-mode')){
-    window.EDGE_showHub(which === 'app' || which === 'hub');
+    /* Signing in now opens Web Maintenance, so a WordPress site that's due is
+       the first thing anyone sees. The hub is one click (or Alt+H) away. */
+    if (which === 'app' && window.EDGE && typeof window.EDGE.go === 'function') window.EDGE.go('maint');
+    else window.EDGE_showHub(which === 'app' || which === 'hub');
   }
   if (inApp) setTimeout(() => { try{ map.invalidateSize(); cmpMap.invalidateSize(); }catch(e){} }, 80);
   /* a sign-in or sign-out loading screen goes once the next screen is in place */
@@ -26337,6 +26362,7 @@ function renderSeoAll(){
    modules — it only decides which rail + stage pair is on screen.
    ========================================================================== */
 const MODULES = {
+  maint:{ rail:'maintRail', stage:'maintStage', label:'Web Maintenance' },
   gbp:  { rail:'gbpRail',  stage:'gbpStage',  label:'GBP Tracker' },
   serp: { rail:'serpRail', stage:'serpStage', label:'Live SERP'   },
   seo:  { rail:'seoRail',  stage:'seoStage',  label:'SEO Clients' }
@@ -26528,6 +26554,8 @@ function setModule(m){
     seoShowTab('dashboard');
     renderSeoAll();
     renderSeoTabs();
+  } else if (m === 'maint'){
+    if (window.EDGE_maint) window.EDGE_maint.render();
   } else if (m === 'serp'){
     serpShowView(state.serpView || 'checker');
     renderSerpRecents();
@@ -26589,7 +26617,7 @@ document.addEventListener('keydown', e => {
 
   if (!hubOpen || typing) return;
   if (e.key === 'Escape'){ e.preventDefault(); showHub(false); return; }
-  const pick = {'1':'gbp', '2':'serp', '3':'seo'};
+  const pick = {'1':'gbp', '2':'serp', '3':'seo', 'm':'maint', 'M':'maint'};
   if (pick[e.key]){ e.preventDefault(); EDGE.go(pick[e.key]); }
 });
 
@@ -29057,5 +29085,6 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
 <script src="reports.js"></script>
 <script src="connections.js"></script>
 <script src="edge-ui.js"></script>
+<script src="maintenance.js"></script>
 </body>
 </html>
