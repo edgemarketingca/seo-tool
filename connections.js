@@ -303,18 +303,27 @@ function cmsOf(c, data){
 
 /* ---------- AI visibility: is AI data being collected for this client? ----------
    Read from the same feed the AI Visibility tab uses (window.AIVis), so it costs
-   nothing extra when that tab was opened already. Four sources:
-     AI assistant visits   GA4 (ChatGPT, Perplexity, Gemini, Copilot...)    weekly
-     Google AI search      Search Console AI Overviews / AI Mode impressions
-     AI Overview checks    the real results page for each tracked keyword    weekly
-     Copilot citations     Bing Webmaster Tools (optional)
-   A source is "collecting" when it is connected and its newest data is recent;
-   connected but old means the weekly update or the import has stopped. */
+   nothing extra when that tab was opened already. The tracker's own schedule:
+     AI assistant visits   GA4, pulled automatically once a month (the 27th, 7am)
+     AI Overview checks    the real results page for each tracked keyword, same run
+     Google AI search      Search Console AI Overviews / AI Mode, monthly export or browser sync
+     Copilot citations     Bing Webmaster Tools, monthly export or browser sync (optional)
+   A source is "collecting" when it is connected and its newest data is as recent
+   as that schedule allows; older than that means a run or an import was missed. */
 const aiFeed = {};
-const AI_FRESH_DAYS = 10;
+const RUN_DAY = 27, RUN_GRACE = 3, EXPORT_DAYS = 45;
 const daysOld = d => d ? Math.floor((Date.now() - new Date(String(d).slice(0, 10) + 'T12:00:00').getTime()) / 864e5) : null;
 const dayD = d => { const t = new Date(String(d).slice(0, 10) + 'T12:00:00'); return isNaN(t) ? '' : t.toLocaleDateString(undefined, {month: 'short', day: 'numeric', year: 'numeric'}); };
+const isoD = t => { const d = new Date(t); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
 const maxDay = list => list.reduce((m, d) => (d && d > m ? d : m), '');
+/* The tracker's latest monthly run that should have finished by now (a couple of days' grace), and the next one. */
+function runDates(){
+  const now = new Date(), y = now.getFullYear(), m = now.getMonth();
+  let last = new Date(y, m, RUN_DAY);
+  if (now.getTime() < last.getTime() + RUN_GRACE * 864e5) last = new Date(y, m - 1, RUN_DAY);
+  let next = new Date(y, m, RUN_DAY); if (next.getTime() <= now.getTime()) next = new Date(y, m + 1, RUN_DAY);
+  return {last, next};
+}
 function aiLoad(c, domain, force){
   const a = aiFeed[domain] = aiFeed[domain] || {};
   if (a.busy || !window.AIVis || typeof window.AIVis.getFeed !== 'function') return;
@@ -327,7 +336,10 @@ function aiLoad(c, domain, force){
 function aiState(domain){
   const a = aiFeed[domain] || {}, f = a.feed;
   if (!f) return {loading: !a.err && !!window.AIVis, err: a.err || (window.AIVis ? '' : 'The AI Visibility module didn’t load.')};
-  const up = f.updated || {}, tr = f.tracking || {};
+  const up = f.updated || {}, tr = f.tracking || {}, R = runDates();
+  /* Monthly run: its data runs to the day before the run, so anything from (last run - 4 days) on means it ran. */
+  const ranSince = last => !!last && last >= isoD(R.last.getTime() - 4 * 864e5);
+  const exportOk = last => !!last && daysOld(last) <= EXPORT_DAYS;
   const ga4Rows = (f.ga4 && f.ga4.daily) || [], chRows = (f.channels && f.channels.daily) || [];
   const ga4Last = maxDay([up.ga4, chRows.length ? chRows[chRows.length - 1].d : '', ga4Rows.length ? ga4Rows[ga4Rows.length - 1].d : '']);
   const v30 = ga4Rows.filter(r => daysOld(r.d) <= 30).reduce((n, r) => n + (Number(r.s) || 0), 0);
@@ -335,16 +347,21 @@ function aiState(domain){
   const checks = (f.aio && f.aio.checks) || [], aioLast = maxDay(checks.map(x => x.d));
   const lastRun = checks.filter(x => x.d === aioLast), cited = lastRun.filter(x => x.cited).length, shown = lastRun.filter(x => x.shown).length;
   const bRows = (f.bing && f.bing.daily) || [], b30 = bRows.filter(r => daysOld(r.d) <= 30).reduce((n, r) => n + (Number(r.n || r.c) || 0), 0);
-  const st = (on, last) => !on ? 'off' : daysOld(last) != null && daysOld(last) <= AI_FRESH_DAYS ? 'live' : 'stale';
+  const st = (on, fresh) => !on ? 'off' : fresh ? 'live' : 'stale';
+  const nextRun = 'next pull ' + R.next.toLocaleDateString(undefined, {month: 'short', day: 'numeric'});
   const src = [
-    {name: 'AI assistant visits', via: 'GA4', state: st(!!tr.ga4, ga4Last), last: ga4Last,
-      note: tr.ga4 ? fmt(v30) + ' AI visit' + (v30 === 1 ? '' : 's') + ' in the last 30 days' : 'Needs GA4 connected (tile above)'},
-    {name: 'Google AI Overviews & AI Mode', via: 'Search Console', state: st(!!up.google, up.google), last: up.google,
-      note: up.google ? fmt(g30) + ' AI impressions in the last 30 days' : 'Not imported yet · needs Search Console access'},
-    {name: 'AI Overview checks', via: 'Tracked keywords', state: st(checks.length > 0, aioLast), last: aioLast,
-      note: checks.length ? lastRun.length + ' searches checked · ' + shown + ' showed an Overview · ' + cited + ' cite the site' : 'First check runs on the next weekly update (keywords need a location)'},
-    {name: 'Copilot citations', via: 'Bing Webmaster Tools', state: st(!!up.bing, up.bing), last: up.bing, opt: true,
-      note: up.bing ? fmt(b30) + ' citations in the last 30 days' : 'Optional · not connected'}
+    {name: 'AI assistant visits', via: 'GA4 · monthly', state: st(!!tr.ga4, ranSince(ga4Last)), last: ga4Last, sched: nextRun,
+      note: tr.ga4 ? fmt(v30) + ' AI visit' + (v30 === 1 ? '' : 's') + ' in the last 30 days' : 'Needs GA4 connected (tile above)',
+      fix: 'The tracker’s monthly run on the ' + RUN_DAY + 'th didn’t bring in GA4 data. Use “Check again”, or run it from the tracker sheet.'},
+    {name: 'Google AI Overviews & AI Mode', via: 'Search Console · monthly export', state: st(!!up.google, exportOk(up.google)), last: up.google, sched: 'next export due ' + (up.google ? new Date(new Date(up.google + 'T12:00:00').getTime() + 34 * 864e5).toLocaleDateString(undefined, {month: 'short', day: 'numeric'}) : 'now'),
+      note: up.google ? fmt(g30) + ' AI impressions in the last 30 days' : 'Not imported yet · needs a Search Console export or browser sync',
+      fix: 'This comes from a monthly Search Console export or browser sync, and the last one is over ' + EXPORT_DAYS + ' days old.'},
+    {name: 'AI Overview checks', via: 'Tracked keywords · monthly', state: st(checks.length > 0, ranSince(aioLast)), last: aioLast, sched: nextRun,
+      note: checks.length ? lastRun.length + ' searches checked · ' + shown + ' showed an Overview · ' + cited + ' cite the site' : 'Runs with the monthly update for keywords that have a location',
+      fix: 'The last monthly run didn’t check this client’s keywords.'},
+    {name: 'Copilot citations', via: 'Bing Webmaster Tools · monthly export', state: st(!!up.bing, exportOk(up.bing)), last: up.bing, opt: true, sched: '',
+      note: up.bing ? fmt(b30) + ' citations in the last 30 days' : 'Optional · needs the site in Bing Webmaster Tools and a monthly export',
+      fix: 'The last Bing Webmaster Tools export is over ' + EXPORT_DAYS + ' days old.'}
   ];
   const core = src.filter(x => !x.opt), live = core.filter(x => x.state === 'live').length, on = core.filter(x => x.state !== 'off').length;
   return {src, live, on, total: core.length, ok: live === core.length, any: on > 0, at: a.at, generated: f.generatedAt};
@@ -355,10 +372,10 @@ function aiTile(domain){
   if (!A.src) return {cls: 'warn', pill: 'Couldn’t check', ok: false, inner: '<div class="conn-line">Couldn’t read the AI data: ' + esc(A.err || 'unknown error') + '</div><div class="conn-act"><button class="btn btn-sm" type="button" data-conn-aicheck>' + ic('redo', 13) + 'Check again</button></div>'};
   const stale = A.src.filter(x => !x.opt && x.state === 'stale');
   const label = {live: 'Collecting', stale: 'No new data', off: 'Not connected'};
-  const lastTxt = x => x.last ? (x.state === 'live' ? 'Latest data ' + dayD(x.last) : 'Last data ' + dayD(x.last) + ' · ' + daysOld(x.last) + ' days ago') : '';
-  const line = A.ok ? 'AI data is being collected for <b>' + esc(domain) + '</b> from every source.'
+  const lastTxt = x => x.last ? (x.state === 'live' ? 'Data to ' + dayD(x.last) + (x.sched ? ' · ' + x.sched : '') : 'Last data ' + dayD(x.last) + ' · ' + daysOld(x.last) + ' days ago') : '';
+  const line = A.ok ? 'AI data is being collected for <b>' + esc(domain) + '</b> and every source is up to date for its schedule' + (A.src.some(x => x.opt && x.state === 'off') ? ' (Copilot is optional and not connected).' : '.')
     : !A.any ? 'No AI data is being collected for <b>' + esc(domain) + '</b> yet.'
-    : stale.length ? '<b>' + stale.length + (stale.length === 1 ? ' source has' : ' sources have') + ' stopped updating</b> (nothing new in over ' + AI_FRESH_DAYS + ' days). The tracker’s weekly update may not be running, or the Search Console import needs redoing.'
+    : stale.length ? '<b>' + stale.length + (stale.length === 1 ? ' source is' : ' sources are') + ' behind schedule.</b> ' + esc(stale.map(x => x.fix).join(' '))
     : 'Some AI sources aren’t connected yet.';
   const inner = '<div class="conn-line">' + line + '</div>' +
     '<div class="conn-ai-grid">' + A.src.map(x => '<div class="conn-ai-src ' + x.state + (x.opt ? ' opt' : '') + '"><div class="conn-ai-h"><i></i><b>' + esc(x.name) + '</b></div>' +
