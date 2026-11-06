@@ -177,6 +177,18 @@ function injectStyles(){
 #seoConnCard .conn-ai-n{margin-top:5px;font-size:11.8px;color:var(--ink-2);line-height:1.45}
 #seoConnCard .conn-ai-d{margin-top:4px;font-size:11px;color:var(--ink-3)}
 #seoConnCard .conn-ai-src.stale .conn-ai-d{color:#a54c07;font-weight:600}
+#seoConnCard .conn-ai-acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+#seoConnCard .conn-ai-btn{display:inline-flex;align-items:center;gap:5px;font:600 11.5px var(--ui,Inter,sans-serif);padding:5px 9px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);cursor:pointer;text-decoration:none;transition:border-color .15s,background .15s}
+#seoConnCard .conn-ai-btn:hover{border-color:#e87722;color:#b85a12}
+#seoConnCard .conn-ai-btn.go{background:#171614;border-color:#171614;color:#fff}
+#seoConnCard .conn-ai-btn.go:hover{background:#2a2825;color:#fff}
+#seoConnCard .conn-ai-btn.arm{background:#fff3e6;border-color:#e87722;color:#b85a12}
+#seoConnCard .conn-ai-btn[disabled]{opacity:.55;cursor:default}
+#seoConnCard .conn-ai-btn .sp{width:10px;height:10px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;animation:connSpin .7s linear infinite}
+@keyframes connSpin{to{transform:rotate(360deg)}}
+#seoConnCard .conn-ai-res{margin-top:8px;font-size:11.4px;line-height:1.45;color:#0f7a58;background:#fff;border-radius:8px;padding:6px 8px;border:1px solid #d7efe3}
+#seoConnCard .conn-ai-res.err{color:#b4322a;border-color:#f3d0cc}
+#seoConnCard .conn-ai-res.busy{color:var(--ink-2);border-color:var(--line)}
 #seoConnCard .conn-sk{position:relative;overflow:hidden;background:#f1f3f6;border-radius:10px}
 #seoConnCard .conn-sk:after{content:"";position:absolute;inset:0;transform:translateX(-100%);background:linear-gradient(90deg,transparent,rgba(255,255,255,.8),transparent);animation:connShine 1.3s ease-in-out infinite}
 @keyframes connShine{to{transform:translateX(100%)}}
@@ -350,23 +362,52 @@ function aiState(domain){
   const st = (on, fresh) => !on ? 'off' : fresh ? 'live' : 'stale';
   const nextRun = 'next pull ' + R.next.toLocaleDateString(undefined, {month: 'short', day: 'numeric'});
   const src = [
-    {name: 'AI assistant visits', via: 'GA4 · monthly', state: st(!!tr.ga4, ranSince(ga4Last)), last: ga4Last, sched: nextRun,
+    {key: 'ga4', name: 'AI assistant visits', via: 'GA4 · monthly', state: st(!!tr.ga4, ranSince(ga4Last)), last: ga4Last, sched: nextRun,
       note: tr.ga4 ? fmt(v30) + ' AI visit' + (v30 === 1 ? '' : 's') + ' in the last 30 days' : 'Needs GA4 connected (tile above)',
       fix: 'The tracker’s monthly run on the ' + RUN_DAY + 'th didn’t bring in GA4 data. Use “Check again”, or run it from the tracker sheet.'},
-    {name: 'Google AI Overviews & AI Mode', via: 'Search Console · monthly export', state: st(!!up.google, exportOk(up.google)), last: up.google, sched: 'next export due ' + (up.google ? new Date(new Date(up.google + 'T12:00:00').getTime() + 34 * 864e5).toLocaleDateString(undefined, {month: 'short', day: 'numeric'}) : 'now'),
+    {key: 'google', name: 'Google AI Overviews & AI Mode', via: 'Search Console · monthly export', state: st(!!up.google, exportOk(up.google)), last: up.google, sched: 'next export due ' + (up.google ? new Date(new Date(up.google + 'T12:00:00').getTime() + 34 * 864e5).toLocaleDateString(undefined, {month: 'short', day: 'numeric'}) : 'now'),
       note: up.google ? fmt(g30) + ' AI impressions in the last 30 days' : 'Not imported yet · needs a Search Console export or browser sync',
       fix: 'This comes from a monthly Search Console export or browser sync, and the last one is over ' + EXPORT_DAYS + ' days old.'},
-    {name: 'AI Overview checks', via: 'Tracked keywords · monthly', state: st(checks.length > 0, ranSince(aioLast)), last: aioLast, sched: nextRun,
+    {key: 'aio', name: 'AI Overview checks', via: 'Tracked keywords · monthly', state: st(checks.length > 0, ranSince(aioLast)), last: aioLast, sched: nextRun,
       note: checks.length ? lastRun.length + ' searches checked · ' + shown + ' showed an Overview · ' + cited + ' cite the site' : 'Runs with the monthly update for keywords that have a location',
       fix: 'The last monthly run didn’t check this client’s keywords.'},
-    {name: 'Copilot citations', via: 'Bing Webmaster Tools · monthly export', state: st(!!up.bing, exportOk(up.bing)), last: up.bing, opt: true, sched: '',
+    {key: 'bing', name: 'Copilot citations', via: 'Bing Webmaster Tools · monthly export', state: st(!!up.bing, exportOk(up.bing)), last: up.bing, opt: true, sched: '',
       note: up.bing ? fmt(b30) + ' citations in the last 30 days' : 'Optional · needs the site in Bing Webmaster Tools and a monthly export',
       fix: 'The last Bing Webmaster Tools export is over ' + EXPORT_DAYS + ' days old.'}
   ];
   const core = src.filter(x => !x.opt), live = core.filter(x => x.state === 'live').length, on = core.filter(x => x.state !== 'off').length;
-  return {src, live, on, total: core.length, ok: live === core.length, any: on > 0, at: a.at, generated: f.generatedAt};
+  return {src, live, on, total: core.length, ok: live === core.length, any: on > 0, at: a.at, generated: f.generatedAt, ga4: !!tr.ga4};
 }
-function aiTile(domain){
+/* Buttons on each AI source card: connect it or pull its data now, for this client only.
+   They run the tracker's per-client jobs (the same as AI Visibility → Run for this client). */
+const AI_JOB_NAMES = {ga4: 'GA4 pull', ga4find: 'GA4 property lookup', imports: 'Import', aio: 'AI Overview checks'};
+function aiActions(x, A, domain, c){
+  const u = U(domain), r = u.airun || {};
+  const busy = !!r.busy;
+  const btn = (job, label, opts) => {
+    opts = opts || {};
+    const running = busy && r.job === job && r.key === x.key;
+    const armed = !busy && r.arm === x.key + ':' + job;
+    return '<button class="conn-ai-btn' + (opts.go ? ' go' : '') + (armed ? ' arm' : '') + '" type="button" data-conn-airun="' + job + '" data-key="' + x.key + '"' + (opts.cost ? ' data-cost' : '') +
+      (opts.title ? ' title="' + esc(opts.title) + '"' : '') + (busy ? ' disabled' : '') + '>' +
+      (running ? '<span class="sp"></span>Running…' : armed ? 'Uses DataforSEO credits · click again' : esc(label)) + '</button>';
+  };
+  const link = (href, label) => '<a class="conn-ai-btn" href="' + esc(href) + '" target="_blank" rel="noopener">' + esc(label) + ' ↗</a>';
+  const imp = 'Imports the Search Console and Bing exports in the tracker’s Drive import folder that have ' + domain + ' in the file name';
+  let h = '';
+  if (x.key === 'ga4') h = A.ga4 ? btn('ga4', 'Pull GA4 now', {go: x.state !== 'live'}) : btn('ga4find', 'Find GA4 property', {go: true, title: 'Match this website to its GA4 property'});
+  else if (x.key === 'google') h = btn('imports', 'Import export', {go: x.state !== 'live', title: imp}) + link('https://search.google.com/search-console?resource_id=' + encodeURIComponent('sc-domain:' + domain), 'Search Console');
+  else if (x.key === 'aio'){
+    const withLoc = (c && c.keywords || []).filter(k => (k.locations || []).length).length;
+    h = withLoc ? btn('aio', 'Run checks now', {go: x.state !== 'live', cost: true, title: withLoc + ' tracked keyword' + (withLoc === 1 ? '' : 's') + ' with a location'})
+      : '<button class="conn-ai-btn go" type="button" data-conn-aikw>Add keyword locations</button>';
+  }
+  else if (x.key === 'bing') h = btn('imports', 'Import export', {title: imp}) + link('https://www.bing.com/webmasters/', 'Bing Webmaster Tools');
+  const res = r.key === x.key && (r.busy || r.text) ? '<div class="conn-ai-res' + (r.busy ? ' busy' : r.cls === 'err' ? ' err' : '') + '">' + esc(r.busy ? 'Running ' + (AI_JOB_NAMES[r.job] || r.job).toLowerCase() + ' for ' + domain + (r.job === 'aio' ? '. This can take a couple of minutes.' : '…') : r.text) + '</div>' : '';
+  return '<div class="conn-ai-acts">' + h + '</div>' + res;
+}
+
+function aiTile(domain, c){
   const A = aiState(domain);
   if (A.loading) return {cls: '', pill: 'Checking', ok: false, inner: '<div class="conn-line">Checking what AI data the tracker has for <b>' + esc(domain) + '</b>…</div><div class="conn-ai-grid">' + [0, 1, 2, 3].map(() => '<div class="conn-ai-src"><div class="conn-sk" style="height:12px;width:70%"></div><div class="conn-sk" style="height:10px;width:50%;margin-top:8px"></div></div>').join('') + '</div>'};
   if (!A.src) return {cls: 'warn', pill: 'Couldn’t check', ok: false, inner: '<div class="conn-line">Couldn’t read the AI data: ' + esc(A.err || 'unknown error') + '</div><div class="conn-act"><button class="btn btn-sm" type="button" data-conn-aicheck>' + ic('redo', 13) + 'Check again</button></div>'};
@@ -380,7 +421,7 @@ function aiTile(domain){
   const inner = '<div class="conn-line">' + line + '</div>' +
     '<div class="conn-ai-grid">' + A.src.map(x => '<div class="conn-ai-src ' + x.state + (x.opt ? ' opt' : '') + '"><div class="conn-ai-h"><i></i><b>' + esc(x.name) + '</b></div>' +
       '<div class="conn-ai-st">' + esc(label[x.state]) + '<span>' + esc(x.via) + '</span></div>' +
-      '<div class="conn-ai-n">' + esc(x.note) + '</div>' + (x.last ? '<div class="conn-ai-d">' + esc(lastTxt(x)) + '</div>' : '') + '</div>').join('') + '</div>' +
+      '<div class="conn-ai-n">' + esc(x.note) + '</div>' + (x.last ? '<div class="conn-ai-d">' + esc(lastTxt(x)) + '</div>' : '') + aiActions(x, A, domain, c) + '</div>').join('') + '</div>' +
     '<div class="conn-act"><button class="btn btn-sm" type="button" data-conn-aicheck>' + ic('redo', 13) + 'Check again</button>' +
       '<button class="btn btn-sm" type="button" data-conn-aiopen>' + ic('eye', 13) + 'Open AI Visibility</button>' +
       (A.at ? '<span class="conn-help" style="margin:0 0 0 auto;align-self:center">Checked ' + esc(ago(new Date(A.at).toISOString())) + '</span>' : '') + '</div>' + msgHtml(domain, 'ai');
@@ -469,7 +510,7 @@ function draw(c, domain, data){
   elInner += msgHtml(domain, 'el');
 
   aiLoad(c, domain, false);
-  const ai = aiTile(domain);
+  const ai = aiTile(domain, c);
   const okCount = (g.property && g.visible !== false ? 1 : 0) + (sc.site ? 1 : 0) + ((sn && sn.found) || f.live ? 1 : 0) + (ai.ok ? 1 : 0);
   setState(okCount === 4 ? 'All set' : okCount + ' of 4', okCount === 4);
   setProg(okCount, 4);
@@ -515,6 +556,30 @@ function wire(c, domain, data){
     const a = aiFeed[domain] = aiFeed[domain] || {}; a.feed = null; a.err = null; a.busy = false;
     redraw(c, domain); aiLoad(c, domain, true);
   });
+
+  on('[data-conn-aikw]', () => { const b = document.querySelector('#seoModes [data-seoview="keywords"]'); if (b) b.click(); });
+  root.querySelectorAll('[data-conn-airun]').forEach(b => b.addEventListener('click', async () => {
+    const job = b.getAttribute('data-conn-airun'), key = b.getAttribute('data-key');
+    const cur = u.airun || {};
+    if (cur.busy) return;
+    /* Jobs that spend DataforSEO credits take a second click. */
+    if (b.hasAttribute('data-cost') && cur.arm !== key + ':' + job){
+      const tag = key + ':' + job; u.airun = {arm: tag}; redraw(c, domain);
+      setTimeout(() => { if (u.airun && u.airun.arm === tag){ u.airun = {}; redraw(c, domain); } }, 5000);
+      return;
+    }
+    u.airun = {job, key, busy: true};
+    redraw(c, domain);
+    try{
+      const res = await post({action: 'run', job, domain});
+      const out = (res.results || {})[job] || 'Done';
+      u.airun = {job, key, text: out, cls: /^Error|^No |^Skipped|isn.t|not /i.test(out) ? 'err' : 'ok'};
+    }catch(err){
+      u.airun = {job, key, cls: 'err', text: /unknown action/.test(err.message) ? 'The tracker needs its latest update for this.' : err.message};
+    }
+    const a = aiFeed[domain] = aiFeed[domain] || {}; a.busy = false;
+    redraw(c, domain); aiLoad(c, domain, true);
+  }));
 
   on('[data-conn-elopen]', () => { u.elOpen = true; u.msg.el = null; redraw(c, domain); });
   on('[data-conn-elcancel]', () => { u.elOpen = false; u.msg.el = null; redraw(c, domain); });
