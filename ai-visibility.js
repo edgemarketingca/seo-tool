@@ -313,6 +313,8 @@ function injectStyles(){
 .aia-table td.num{font-weight:600;color:var(--aa-num);font-variant-numeric:tabular-nums;}
 .aia-table td.pg{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:0;width:55%;}
 .aia-note{font-size:11.5px;color:var(--aa-ink-3);margin-top:12px;line-height:1.5;}
+.aia-sum ul{margin:10px 0 0;padding:0 0 0 18px;display:grid;gap:7px;font-size:14.5px;line-height:1.5;color:var(--aa-ink, #222A30);}
+.aia-sum b{font-weight:700;}
 .aia-types{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;color:var(--aa-ink-2);margin-top:12px;}
 .aia-types b{color:var(--aa-ink);font-weight:600;}
 .aia-table .s{display:none;}
@@ -601,7 +603,15 @@ function model(feed, period){ if (period === 'lastMonth'){ const t0 = new Date()
     ai: {s: sum(cur, 4), e: sum(cur, 5), k: sum(cur, 6), ps: sum(prev, 4), pk: sum(prev, 6), series: aiSeries, keySeries: aiKeySeries,
       hasPrev: rows.some(r => r[0] < since)},
     plats: platList, channels: ch, hasChannels: chDaily.length > 0,
-    google: {imported: !!up.google, n: gImp, prev: gPrev, series: gSeries, latest: up.google, pages: (feed.google && feed.google.pages) || []},
+    google: (() => {
+      /* Compare only fully covered periods: Search Console runs about three days behind, and its AI data starts May 18, 2026.
+         A part-month against a full month read as a big drop. */
+      const gFirst = firstOf(((feed.google && feed.google.daily) || []).map(r => r.d)), lag = addDays(today(), -4);
+      const partial = !!up.google && up.google < (end < lag ? end : lag), prevPartial = !gFirst || gFirst > prevSince;
+      const ex = String((feed.google && feed.google.exported) || '');
+      const pagesMonth = /^\d{4}-\d{2}/.test(ex) ? new Date(Date.UTC(+ex.slice(0, 4), +ex.slice(5, 7) - 2, 1, 12)).toLocaleDateString('en-CA', {month: 'long', year: 'numeric', timeZone: 'UTC'}) : '';
+      return {imported: !!up.google, n: gImp, prev: (partial || prevPartial) ? 0 : gPrev, partial, series: gSeries, latest: up.google, pagesMonth, pages: (feed.google && feed.google.pages) || []};
+    })(),
     bing: {imported: !!up.bing, n: bCit, prev: bPrev, series: bSeries, latest: up.bing, queries: (feed.bing && feed.bing.queries) || []},
     aio, aioAll, aioRun, aioState,
     pages: Object.values(pages).filter(p => p.s || p.g || p.b || p.aio)
@@ -1221,15 +1231,24 @@ function renderReport(root, feed, opts){
   const M = model(feed, period);
   const st = opts.state || (opts.state = {ch: {AI: true, 'Organic Search': false, Direct: false}, plat: ''});
 
-  const kpi = (label, val, d, spark, color) => '<div class="aia-kpi"><div class="aia-kpi-label">' + esc(label) + '</div><div class="aia-kpi-val">' + val + '</div>' +
-    '<div class="aia-kpi-delta ' + (d && d.cls || '') + '">' + (d && d.txt ? esc(d.txt) + ' vs previous period' : '&nbsp;') + '</div>' + (spark ? sparkline(spark, color) : '') + '</div>';
+  const kpi = (label, val, d, spark, color, note) => '<div class="aia-kpi"><div class="aia-kpi-label">' + esc(label) + '</div><div class="aia-kpi-val">' + val + '</div>' +
+    '<div class="aia-kpi-delta ' + (note ? '' : (d && d.cls || '')) + '">' + (note ? esc(note) : d && d.txt ? esc(d.txt) + ' vs previous period' : '&nbsp;') + '</div>' + (spark ? sparkline(spark, color) : '') + '</div>';
   const mentioned = M.aio.filter(c => c.cited || c.named).length;
   const kpis = kpi('AI Visits', fmt(M.ai.s), delta(M.ai.s, M.ai.ps, M.ai.hasPrev), M.ai.series, '#171614') +
     kpi('Conversions from AI', fmt(M.ai.k), delta(M.ai.k, M.ai.pk, M.ai.hasPrev), M.ai.keySeries, '#5CBAE6') +
-    (M.google.imported ? kpi('Google AI Impressions', fmtK(M.google.n), delta(M.google.n, M.google.prev, M.google.prev > 0), M.google.series, '#B6D957') : '') +
+    (M.google.imported ? kpi('Google AI Impressions', fmtK(M.google.n), delta(M.google.n, M.google.prev, M.google.prev > 0), M.google.series, '#B6D957', M.google.partial ? 'Search Console data to ' + prettyDate(M.google.latest) : '') : '') +
     (M.aio.length && opts.showAio ? kpi('AI Overview Mentions', pctTxt(mentioned, M.aio.length) + '<div style="font-size:12px;font-weight:500;color:#8593a0;margin-top:4px">' + fmt(mentioned) + ' of ' + fmt(M.aio.length) + ' tracked searches</div>', null, null) : '');
 
   const keyList = keyEventsOf(M.keyEv.rows), keyTotal = keyList.reduce((t, e) => t + e.n, 0);
+  /* The period in plain words first, so a client can read the page in ten seconds. */
+  const summaryHtml = () => {
+    const L = [], topP = M.plats.filter(p => p.s).sort((a, b) => b.s - a.s)[0];
+    L.push(M.ai.s ? 'AI assistants sent <b>' + fmt(M.ai.s) + ' visit' + (M.ai.s === 1 ? '' : 's') + '</b> to the website' + (topP && M.plats.filter(p => p.s).length > 1 ? ', most of them from ' + esc(topP.name) : topP ? ', from ' + esc(topP.name) : '') + '.' + (M.ai.k ? ' <b>' + fmt(M.ai.k) + '</b> of those visits led to a conversion.' : '')
+      : 'No visits from AI assistants were recorded in this period.');
+    if (M.google.imported) L.push('Google’s AI (AI Overviews and AI Mode) showed the website <b>' + fmt(M.google.n) + ' times</b>' + (M.google.partial ? ' (Search Console data to ' + esc(prettyDate(M.google.latest)) + ')' : '') + '.');
+    if (M.aio.length && opts.showAio) L.push('In Google’s AI Overviews for the searches we track, the business was mentioned in <b>' + fmt(mentioned) + ' of ' + fmt(M.aio.length) + '</b>.');
+    return '<div class="aia-panel aia-row aia-sum"><h2 class="aia-panel-title">In short</h2><ul>' + L.map(l => '<li>' + l + '</li>').join('') + '</ul></div>';
+  };
   const showGoogleFlow = M.google.imported && M.gorg.known && M.gorg.pages.length > 0;
   const googleFlowHtml = () => {
     const G = M.gorg, types = keyEventsOf(G.events);
@@ -1248,7 +1267,7 @@ function renderReport(root, feed, opts){
         top.map(p => '<tr><td class="pg" title="' + esc(p.key) + '">' + esc(p.key) + '</td><td class="num">' + fmt(p.n) + '</td><td class="num">' + fmt(p.s) + '</td><td class="num">' + fmt(p.k) + '</td></tr>').join('') +
       '</tbody></table>' +
       (types.length ? '<div class="aia-types"><span>Conversions in this period:</span>' + types.slice(0, 5).map(e => '<span><b>' + fmt(e.n) + '</b> ' + esc(e.label) + '</span>').join('') + '</div>' : '') +
-      '<div class="aia-note">Page figures cover May 18, 2026 onward, when Google began reporting AI impressions. ' +
+      '<div class="aia-note">' + (M.google.pagesMonth ? 'AI impressions by page are for ' + esc(M.google.pagesMonth) + ', the latest full month in Search Console. ' : 'AI impressions by page come from the latest Search Console report. ') +
         'Google doesn’t say which of its visits came from AI Overviews or AI Mode, so visits and conversions include everyone who reached these pages from Google search.</div></div>';
   };
   const SEGKEY = (opts.period && typeof opts.period === 'object') ? 'custom' : String(opts.period || 30); const chans = ['AI'].concat(M.hasChannels ? ['Organic Search', 'Direct'] : []).concat(M.google.imported ? ['Google AI Impressions'] : []);
@@ -1256,6 +1275,7 @@ function renderReport(root, feed, opts){
     '<div class="aia-panel aia-head"><div><h1 class="aia-title">' + esc(opts.title || ((feed.name || feed.domain) + ' — AI Visibility')) + '</h1>' +
       '<div class="aia-sub">' + esc(prettyDate(M.since)) + ' – ' + esc(prettyDate(M.end)) + '</div></div>' +
       '<div class="aia-periods"><div class="aia-seg" data-period>' + [['lastMonth', 'Last Month'], ['30', '30 Days'], ['90', '90 Days'], ['365', '12 Months'], ['custom', 'Custom']].map(([k, l]) => '<button type="button" data-p="' + k + '"' + (k === SEGKEY ? ' class="on"' : '') + '>' + l + '</button>').join('') + '</div><div data-custom style="display:' + (SEGKEY === 'custom' ? 'flex' : 'none') + ';gap:6px;align-items:center;justify-content:flex-end;margin-top:8px;font-size:12px;color:#5b6670"><input type="date" data-from value="' + M.since + '" style="border:1px solid #d7dde3;border-radius:6px;padding:4px 6px;font:inherit;color:#1f2a33"><span>to</span><input type="date" data-to value="' + M.end + '" style="border:1px solid #d7dde3;border-radius:6px;padding:4px 6px;font:inherit;color:#1f2a33"><button type="button" data-apply style="border:0;background:#171614;color:#fff;border-radius:5px;padding:5px 12px;font:inherit;font-weight:600;cursor:pointer">Apply</button></div></div></div>' +
+    summaryHtml() +
     '<div class="aia-kpis">' + kpis + '</div>' +
     '<div class="aia-panel aia-row"><div class="aia-panel-head"><h2 class="aia-panel-title">Website Visits</h2><div class="aia-toggles" data-tg>' +
       chans.map(c => '<label class="aia-toggle" style="--c:' + ACH[c] + '"><input type="checkbox" data-c="' + c + '"' + (st.ch[c] ? ' checked' : '') + '><i></i>' + (c === 'AI' ? 'AI Assistants' : c) + '</label>').join('') +
@@ -1307,7 +1327,7 @@ function renderReport(root, feed, opts){
 
   const pagesBars = host => {
     if (!host) return;
-    const top = pagesOf(M.cur).sort((a, b) => b.s - a.s).slice(0, 6);
+    const top = pagesOf(M.cur).filter(t => t.key !== 'Landing page not recorded').sort((a, b) => b.s - a.s).slice(0, 6);
     const max = Math.max(1, ...top.map(t => t.s));
     host.innerHTML = top.length ? top.map(t => '<div style="margin:9px 0"><div style="display:flex;justify-content:space-between;gap:10px;font-size:13px;margin-bottom:5px"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(t.key) + '</span><b style="color:#222A30;font-weight:600">' + fmt(t.s) + '</b></div>' +
       '<div class="aiv-bar" style="height:8px"><i style="width:' + (t.s / max * 100).toFixed(1) + '%;background:#171614"></i></div></div>').join('') : '<div class="aia-empty">No AI visits in this period.</div>';
