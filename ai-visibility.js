@@ -1697,7 +1697,7 @@ function reportUrl(c){
   return base + 'ai-report.html?r=' + encodeURIComponent(reportId(c));
 }
 function embedCode(url){
-  return '<iframe src="' + url + '" style="width:100%;height:1500px;border:0" loading="lazy" title="AI visibility"></iframe>';
+  return '<iframe src="' + url + '" style="width:100%;height:2300px;border:0" loading="lazy" title="AI visibility"></iframe>';
 }
 
 /* ---------- Run tracker jobs for one client ----------
