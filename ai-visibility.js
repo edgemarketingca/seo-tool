@@ -1711,6 +1711,8 @@ const RUN_JOBS = [
   {job: 'llm', ic: '💬', t: 'Run AI answer checks', d: 'ChatGPT, Perplexity, Gemini and Claude prompts · uses DataforSEO credits', cost: true, llm: true},
   {job: 'easyleads', ic: '📨', t: 'Pull Easyleads submissions', d: 'New form submissions, if Easyleads is connected'},
   {job: 'gsc', ic: '🩺', t: 'Search Console health check', d: 'Indexing and sitemaps'},
+  {sep: 'All clients'},
+  {job: 'gscai', ic: '🟢', t: 'Sync Google AI impressions', d: 'Opens Search Console in a new tab and reads its Generative AI report for every client'},
   {sep: 'Setup'},
   {job: 'ga4find', ic: '🔗', t: 'Find GA4 property', d: 'Match this website to its GA4 property'}
 ];
@@ -1731,6 +1733,41 @@ async function runJob(domain, job){
   }
 }
 window.AIVis.run = runJob;
+
+/* ---------- Google AI impressions from Search Console ----------
+   Google shows its Generative AI report only on screen in Search Console: there is no API and no
+   BigQuery export for it. So this opens Search Console in a new tab, a browser helper reads the report
+   there (daily impressions for 3 months, pages for last month) and posts it back to this page, and this
+   page hands it to the tracker with the saved connection. The tracker key never leaves this page. */
+const GSC_AI_URL = 'https://search.google.com/search-console/performance/search-analytics/ai';
+const gscSync = {win: null, got: {}, done: null};
+window.addEventListener('message', async e => {
+  if (e.origin !== 'https://search.google.com' || !e.data || typeof e.data !== 'object' || !gscSync.win || e.source !== gscSync.win) return;
+  const m = e.data, s = settings();
+  if (!s.url || !s.key) return;
+  if (m.t === 'gscai-hello'){
+    let domains = [];
+    try{ const cl = await apiGet(s.url, {action: 'clients', key: s.key}); domains = (cl.clients || []).map(x => x.domain).filter(Boolean); }catch(err){}
+    e.source.postMessage({t: 'gscai-list', domains}, e.origin);
+  } else if (m.t === 'gscai' && m.domain && Array.isArray(m.rows) && /^(Daily|Pages)$/.test(m.report)){
+    /* One at a time: the tracker writes under a lock, and two tables at once made the second time out. */
+    const k = m.domain + ' · ' + m.report, src = e.source;
+    gscSync.q = (gscSync.q || Promise.resolve()).then(async () => {
+      for (let n = 1; n <= 5; n++){
+        try{ await apiPost(s.url, {key: s.key, action: 'ingest', domain: m.domain, source: 'gsc', report: m.report, rows: m.rows}); gscSync.got[k] = 'ok ' + (m.rows.length - 1); break; }
+        catch(err){ gscSync.got[k] = 'Error: ' + err.message; if (!/lock/i.test(err.message)) break; await new Promise(r => setTimeout(r, 4000 * n)); }
+      }
+      try{ src.postMessage({t: 'gscai-ack', key: k, res: gscSync.got[k]}, 'https://search.google.com'); }catch(_){}
+    });
+  } else if (m.t === 'gscai-done'){
+    await (gscSync.q || Promise.resolve());
+    gscSync.done = Object.assign({at: Date.now(), failed: Object.keys(gscSync.got).filter(k => !/^ok/.test(gscSync.got[k]))}, m);
+    memFeed && Object.keys(memFeed).forEach(d => { delete memFeed[d]; });
+    try{ if (typeof toast === 'function') toast('Google AI impressions synced for ' + (m.ok || 0) + ' clients'); }catch(_){}
+  }
+});
+window.AIVis.gscSync = () => { gscSync.got = {}; gscSync.done = null; gscSync.win = window.open(GSC_AI_URL, 'gscsync'); return !!gscSync.win; };
+window.AIVis.gscSyncStatus = () => ({open: !!(gscSync.win && !gscSync.win.closed), got: gscSync.got, done: gscSync.done});
 /* The last result stays on screen for this client, even when the report redraws with the new data. */
 let lastRun = null;
 function drawRunBox(v, domain){
@@ -1763,6 +1800,12 @@ function wireRunMenu(v, c, domain){
     }
     const job = it.dataset.aivJob;
     close();
+    if (job === 'gscai'){
+      const opened = window.AIVis.gscSync();
+      lastRun = {domain, title: opened ? 'Search Console opened in a new tab' : 'Allow pop-ups for this site, then try again', rows: opened ? [{k: 'Next', v: 'The browser helper reads the Generative AI report there for every client and sends it to the tracker.'}] : [], isErr: !opened, at: Date.now()};
+      drawRunBox(v, domain);
+      return;
+    }
     busy = true; btn.disabled = true; btn.innerHTML = '<span class="aiv-spin"></span>Running: ' + esc(RUN_NAMES[job]) + '…';
     const box = v.querySelector('[data-aiv-runbox]');
     const show = (title, rows, isErr) => { lastRun = {domain, title, rows, isErr, at: Date.now()}; drawRunBox(v, domain); };
