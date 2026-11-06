@@ -1748,7 +1748,6 @@ function gscFlush(){
   gscSync.flushing = (async () => {
     const s = settings();
     while (gscSync.pending.length){
-      await new Promise(r => setTimeout(r, 2500));   /* let a few tables gather */
       const batch = gscSync.pending.splice(0, 16), mark = (t, v) => { gscSync.got[t.domain + ' · ' + t.report] = v; };
       for (let n = 1; n <= 5; n++){
         try{
