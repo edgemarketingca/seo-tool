@@ -28641,6 +28641,8 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
       t.btn.classList.toggle('has', n > 0);
       t.btn.title = n ? n + (k === 'calls' ? ' new phone call' : ' new form submission') + (n === 1 ? '' : 's') : t.title;
     });
+    /* The unread count also shows in the browser tab's title, so a new lead is visible from any other tab. */
+    try{ const un = on ? unread('forms').length + unread('calls').length : 0, base = document.title.replace(/^\(\d+\+?\) /, ''); document.title = (un ? '(' + (un > 99 ? '99+' : un) + ') ' : '') + base; }catch(e){}
     const s = TRAYS.slow, slow = slowClients(), el = s.btn.querySelector('.tn-bell-n');
     s.btn.hidden = !on || !tracked;
     el.hidden = !slow.length;
@@ -29051,7 +29053,9 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
   }
   function start(){
     clearInterval(timer);
-    timer = setInterval(() => { if (!document.hidden) poll(); }, POLL_MS);
+    /* Keeps asking while the tab is in the background too (browsers slow hidden tabs to about once a minute),
+       so a new lead raises a desktop notification without anyone coming back to the tab first. */
+    timer = setInterval(() => poll(), POLL_MS);
     poll();
   }
   document.addEventListener('visibilitychange', () => { if (!document.hidden) poll(); });
