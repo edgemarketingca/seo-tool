@@ -86,7 +86,7 @@
 
   /* ---------- what's on the page ---------- */
   function currentView(){
-    if (typeof isPublicView !== 'undefined' && isPublicView) return null;
+    try{ if (typeof isPublicView === 'function' ? isPublicView() : (typeof isPublicView !== 'undefined' && isPublicView)) return null; }catch(e){}
     const stage = document.getElementById('seoStage');
     if (!stage || !stage.offsetParent) return null;
     const on = document.querySelector('#seoModes .seo-mode.on');
