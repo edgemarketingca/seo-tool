@@ -31,7 +31,8 @@ html,body{margin:0;background:#fafafa;color:var(--ink);font-family:var(--ui);-we
 
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
-<script src="ai-visibility.js"></script>
+<script src="ai-visibility.js?v=20261106j"></script>
+<script src="ai-report2.js?v=3"></script>
 <script>
 (function(){
   'use strict';
@@ -73,7 +74,8 @@ html,body{margin:0;background:#fafafa;color:var(--ink);font-family:var(--ui);-we
     /* One state object, so the ticked sources and assistant filter survive a period change and a data refresh. */
     const ui = {ch: {AI: true, 'Organic Search': false, Direct: false}, plat: ''};
     const footFor = f => 'Data as of ' + new Date(f.generatedAt || Date.now()).toLocaleString('en-CA', {dateStyle: 'medium', timeStyle: 'short'}) + ' · Updates automatically';
-    const draw = () => AIV.renderReport(root, feed, {period, title: view.title, foot: footFor(feed), state: ui, onPeriod: p => { period = p; draw(); }});
+    /* Always the last full month (AgencyAnalytics monthly report). */
+    const draw = () => window.AIReport2.render(root, feed, {title: view.title, foot: footFor(feed)});
     const show = f => { feed = f; document.title = (view.title || f.name || f.domain) + ' | AI Visibility'; draw(); };
 
     /* The tracker can take 30+ seconds to answer, so draw the newest copy we
@@ -82,7 +84,9 @@ html,body{margin:0;background:#fafafa;color:var(--ink);font-family:var(--ui);-we
     try{ if (view.snap) stored = {at: view.snapAt || 0, feed: JSON.parse(view.snap)}; }catch(e){}
     const local = AIV.cacheGet && AIV.cacheGet(id);
     const first = [stored, local].filter(Boolean).sort((a, b) => b.at - a.at)[0];
-    if (first) show(first.feed);
+    /* A saved copy is drawn right away only if it is less than a day old. Otherwise the page waits for the
+       live numbers, so a monthly PDF made on the 1st never captures last month's partial data. */
+    if (first && Date.now() - first.at < 864e5) show(first.feed);
 
     /* The token opens this one client's data, read-only. */
     try{
@@ -90,7 +94,7 @@ html,body{margin:0;background:#fafafa;color:var(--ink);font-family:var(--ui);-we
       if (AIV.cachePut) AIV.cachePut(id, live);
       if (!feed || AIV.feedSig(live) !== AIV.feedSig(feed)) show(live);
     }catch(err){
-      if (!feed) throw err;   /* a copy is on screen; keep it */
+      if (!feed){ if (first){ show(first.feed); return; } throw err; }   /* tracker unreachable: fall back to the saved copy */
     }
   })().catch(err => {
     AIV.renderMessage(root, 'This report couldn’t load', String(err && err.message || err).replace(/[&<>]/g, ''), true);
