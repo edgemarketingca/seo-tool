@@ -98,6 +98,7 @@ const PATH = {
   search: 'M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM21 21l-4.3-4.3', form: 'M5 3h14v18H5zM9 8h6M9 12h6M9 16h4',
   bolt: 'M13 2 4 14h7l-1 8 9-12h-7z', check: 'M20 6 9 17l-5-5', copy: 'M9 9h11v11H9zM5 15V4h11', redo: 'M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5',
   code: 'm8 7-5 5 5 5M16 7l5 5-5 5', up: 'M12 19V5M5 12l7-7 7 7', x: 'M18 6 6 18M6 6l12 12', wand: 'M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8 19 13M17.8 6.2 19 5M3 21l9-9M12.2 6.2 11 5',
+  ai: 'M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9zM19 14l.9 2.1L22 17l-2.1.9L19 20l-.9-2.1L16 17l2.1-.9zM5 15l.7 1.6L7.3 17.3l-1.6.7L5 19.6l-.7-1.6L2.7 17.3l1.6-.7z', eye: 'M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
   file: 'M14 3H6v18h12V7zM14 3v4h4', ext: 'M14 4h6v6M20 4l-9 9M18 14v6H4V6h6'
 };
 const ic = (k, s) => '<svg viewBox="0 0 24 24" width="' + (s || 15) + '" height="' + (s || 15) + '" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="' + (PATH[k] || PATH.check) + '"/></svg>';
@@ -156,6 +157,26 @@ function injectStyles(){
 #seoConnCard .conn-steps li{margin:0 0 6px;}
 #seoConnCard .conn-bm{display:inline-block;font-weight:600;font-size:12px;color:#fff;background:var(--brand);border-radius:8px;padding:3px 10px;text-decoration:none;cursor:grab;vertical-align:1px;}
 #seoConnCard .conn-file{cursor:pointer;}
+#seoConnCard .conn-tile.conn-wide{grid-column:1/-1}
+#seoConnCard .conn-ai-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:12px}
+@media (max-width:1100px){#seoConnCard .conn-ai-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+#seoConnCard .conn-ai-src{position:relative;border-radius:14px;padding:12px 12px 11px;background:#f7f9fb;border:1px solid transparent;min-width:0;transition:transform .2s cubic-bezier(.2,.8,.2,1),box-shadow .2s}
+#seoConnCard .conn-ai-src:hover{transform:translateY(-1px);box-shadow:0 10px 22px -16px rgba(20,26,33,.35)}
+#seoConnCard .conn-ai-src.live{background:linear-gradient(180deg,#effaf5,#f8fcfa);border-color:#cdeedd}
+#seoConnCard .conn-ai-src.stale{background:linear-gradient(180deg,#fff6ea,#fffbf5);border-color:#f6dcb6}
+#seoConnCard .conn-ai-src.off.opt{background:#fff;border:1px dashed var(--line)}
+#seoConnCard .conn-ai-h{display:flex;align-items:center;gap:8px;font-size:12.6px;color:var(--ink);line-height:1.3}
+#seoConnCard .conn-ai-h b{font-weight:600}
+#seoConnCard .conn-ai-h i{flex:none;width:9px;height:9px;border-radius:50%;background:#c3cbd3}
+#seoConnCard .conn-ai-src.live .conn-ai-h i{background:#22a06b;box-shadow:0 0 0 0 rgba(34,160,107,.5);animation:connPulse 2s ease-in-out infinite}
+#seoConnCard .conn-ai-src.stale .conn-ai-h i{background:#e08a1e}
+@keyframes connPulse{50%{box-shadow:0 0 0 5px rgba(34,160,107,0)}}
+#seoConnCard .conn-ai-st{margin-top:7px;font:700 12px var(--ui,Inter,sans-serif);color:#57646f;display:flex;align-items:baseline;gap:6px;flex-wrap:wrap}
+#seoConnCard .conn-ai-src.live .conn-ai-st{color:#0f7a58}#seoConnCard .conn-ai-src.stale .conn-ai-st{color:#a54c07}
+#seoConnCard .conn-ai-st span{font-weight:500;font-size:11px;color:var(--ink-3)}
+#seoConnCard .conn-ai-n{margin-top:5px;font-size:11.8px;color:var(--ink-2);line-height:1.45}
+#seoConnCard .conn-ai-d{margin-top:4px;font-size:11px;color:var(--ink-3)}
+#seoConnCard .conn-ai-src.stale .conn-ai-d{color:#a54c07;font-weight:600}
 #seoConnCard .conn-sk{position:relative;overflow:hidden;background:#f1f3f6;border-radius:10px}
 #seoConnCard .conn-sk:after{content:"";position:absolute;inset:0;transform:translateX(-100%);background:linear-gradient(90deg,transparent,rgba(255,255,255,.8),transparent);animation:connShine 1.3s ease-in-out infinite}
 @keyframes connShine{to{transform:translateX(100%)}}
@@ -280,6 +301,75 @@ function cmsOf(c, data){
   return cmsKind(data.snippet && data.snippet.cms) || cmsKind(c.cms);
 }
 
+/* ---------- AI visibility: is AI data being collected for this client? ----------
+   Read from the same feed the AI Visibility tab uses (window.AIVis), so it costs
+   nothing extra when that tab was opened already. Four sources:
+     AI assistant visits   GA4 (ChatGPT, Perplexity, Gemini, Copilot...)    weekly
+     Google AI search      Search Console AI Overviews / AI Mode impressions
+     AI Overview checks    the real results page for each tracked keyword    weekly
+     Copilot citations     Bing Webmaster Tools (optional)
+   A source is "collecting" when it is connected and its newest data is recent;
+   connected but old means the weekly update or the import has stopped. */
+const aiFeed = {};
+const AI_FRESH_DAYS = 10;
+const daysOld = d => d ? Math.floor((Date.now() - new Date(String(d).slice(0, 10) + 'T12:00:00').getTime()) / 864e5) : null;
+const dayD = d => { const t = new Date(String(d).slice(0, 10) + 'T12:00:00'); return isNaN(t) ? '' : t.toLocaleDateString(undefined, {month: 'short', day: 'numeric', year: 'numeric'}); };
+const maxDay = list => list.reduce((m, d) => (d && d > m ? d : m), '');
+function aiLoad(c, domain, force){
+  const a = aiFeed[domain] = aiFeed[domain] || {};
+  if (a.busy || !window.AIVis || typeof window.AIVis.getFeed !== 'function') return;
+  if (a.feed && !force && Date.now() - a.at < 10 * 60 * 1000) return;
+  a.busy = true;
+  window.AIVis.getFeed(domain, !!force)
+    .then(f => { a.feed = f; a.at = Date.now(); a.err = null; }, e => { a.err = e.message; })
+    .finally(() => { a.busy = false; redraw(c, domain); });
+}
+function aiState(domain){
+  const a = aiFeed[domain] || {}, f = a.feed;
+  if (!f) return {loading: !a.err && !!window.AIVis, err: a.err || (window.AIVis ? '' : 'The AI Visibility module didn’t load.')};
+  const up = f.updated || {}, tr = f.tracking || {};
+  const ga4Rows = (f.ga4 && f.ga4.daily) || [], chRows = (f.channels && f.channels.daily) || [];
+  const ga4Last = maxDay([up.ga4, chRows.length ? chRows[chRows.length - 1].d : '', ga4Rows.length ? ga4Rows[ga4Rows.length - 1].d : '']);
+  const v30 = ga4Rows.filter(r => daysOld(r.d) <= 30).reduce((n, r) => n + (Number(r.s) || 0), 0);
+  const gRows = (f.google && f.google.daily) || [], g30 = gRows.filter(r => daysOld(r.d) <= 30).reduce((n, r) => n + (Number(r.n) || 0), 0);
+  const checks = (f.aio && f.aio.checks) || [], aioLast = maxDay(checks.map(x => x.d));
+  const lastRun = checks.filter(x => x.d === aioLast), cited = lastRun.filter(x => x.cited).length, shown = lastRun.filter(x => x.shown).length;
+  const bRows = (f.bing && f.bing.daily) || [], b30 = bRows.filter(r => daysOld(r.d) <= 30).reduce((n, r) => n + (Number(r.n || r.c) || 0), 0);
+  const st = (on, last) => !on ? 'off' : daysOld(last) != null && daysOld(last) <= AI_FRESH_DAYS ? 'live' : 'stale';
+  const src = [
+    {name: 'AI assistant visits', via: 'GA4', state: st(!!tr.ga4, ga4Last), last: ga4Last,
+      note: tr.ga4 ? fmt(v30) + ' AI visit' + (v30 === 1 ? '' : 's') + ' in the last 30 days' : 'Needs GA4 connected (tile above)'},
+    {name: 'Google AI Overviews & AI Mode', via: 'Search Console', state: st(!!up.google, up.google), last: up.google,
+      note: up.google ? fmt(g30) + ' AI impressions in the last 30 days' : 'Not imported yet · needs Search Console access'},
+    {name: 'AI Overview checks', via: 'Tracked keywords', state: st(checks.length > 0, aioLast), last: aioLast,
+      note: checks.length ? lastRun.length + ' searches checked · ' + shown + ' showed an Overview · ' + cited + ' cite the site' : 'First check runs on the next weekly update (keywords need a location)'},
+    {name: 'Copilot citations', via: 'Bing Webmaster Tools', state: st(!!up.bing, up.bing), last: up.bing, opt: true,
+      note: up.bing ? fmt(b30) + ' citations in the last 30 days' : 'Optional · not connected'}
+  ];
+  const core = src.filter(x => !x.opt), live = core.filter(x => x.state === 'live').length, on = core.filter(x => x.state !== 'off').length;
+  return {src, live, on, total: core.length, ok: live === core.length, any: on > 0, at: a.at, generated: f.generatedAt};
+}
+function aiTile(domain){
+  const A = aiState(domain);
+  if (A.loading) return {cls: '', pill: 'Checking', ok: false, inner: '<div class="conn-line">Checking what AI data the tracker has for <b>' + esc(domain) + '</b>…</div><div class="conn-ai-grid">' + [0, 1, 2, 3].map(() => '<div class="conn-ai-src"><div class="conn-sk" style="height:12px;width:70%"></div><div class="conn-sk" style="height:10px;width:50%;margin-top:8px"></div></div>').join('') + '</div>'};
+  if (!A.src) return {cls: 'warn', pill: 'Couldn’t check', ok: false, inner: '<div class="conn-line">Couldn’t read the AI data: ' + esc(A.err || 'unknown error') + '</div><div class="conn-act"><button class="btn btn-sm" type="button" data-conn-aicheck>' + ic('redo', 13) + 'Check again</button></div>'};
+  const stale = A.src.filter(x => !x.opt && x.state === 'stale');
+  const label = {live: 'Collecting', stale: 'No new data', off: 'Not connected'};
+  const lastTxt = x => x.last ? (x.state === 'live' ? 'Latest data ' + dayD(x.last) : 'Last data ' + dayD(x.last) + ' · ' + daysOld(x.last) + ' days ago') : '';
+  const line = A.ok ? 'AI data is being collected for <b>' + esc(domain) + '</b> from every source.'
+    : !A.any ? 'No AI data is being collected for <b>' + esc(domain) + '</b> yet.'
+    : stale.length ? '<b>' + stale.length + (stale.length === 1 ? ' source has' : ' sources have') + ' stopped updating</b> (nothing new in over ' + AI_FRESH_DAYS + ' days). The tracker’s weekly update may not be running, or the Search Console import needs redoing.'
+    : 'Some AI sources aren’t connected yet.';
+  const inner = '<div class="conn-line">' + line + '</div>' +
+    '<div class="conn-ai-grid">' + A.src.map(x => '<div class="conn-ai-src ' + x.state + (x.opt ? ' opt' : '') + '"><div class="conn-ai-h"><i></i><b>' + esc(x.name) + '</b></div>' +
+      '<div class="conn-ai-st">' + esc(label[x.state]) + '<span>' + esc(x.via) + '</span></div>' +
+      '<div class="conn-ai-n">' + esc(x.note) + '</div>' + (x.last ? '<div class="conn-ai-d">' + esc(lastTxt(x)) + '</div>' : '') + '</div>').join('') + '</div>' +
+    '<div class="conn-act"><button class="btn btn-sm" type="button" data-conn-aicheck>' + ic('redo', 13) + 'Check again</button>' +
+      '<button class="btn btn-sm" type="button" data-conn-aiopen>' + ic('eye', 13) + 'Open AI Visibility</button>' +
+      (A.at ? '<span class="conn-help" style="margin:0 0 0 auto;align-self:center">Checked ' + esc(ago(new Date(A.at).toISOString())) + '</span>' : '') + '</div>' + msgHtml(domain, 'ai');
+  return {cls: A.ok ? 'ok' : A.any ? 'warn' : '', pill: A.ok ? 'Collecting' : A.any ? (stale.length ? 'Not updating' : A.live + ' of ' + A.total + ' collecting') : 'Not collecting', ok: A.ok, inner};
+}
+
 function draw(c, domain, data){
   const el = card();
   if (!el) return;
@@ -361,9 +451,11 @@ function draw(c, domain, data){
   }
   elInner += msgHtml(domain, 'el');
 
-  const okCount = (g.property && g.visible !== false ? 1 : 0) + (sc.site ? 1 : 0) + ((sn && sn.found) || f.live ? 1 : 0);
-  setState(okCount === 3 ? 'All set' : okCount + ' of 3', okCount === 3);
-  setProg(okCount, 3);
+  aiLoad(c, domain, false);
+  const ai = aiTile(domain);
+  const okCount = (g.property && g.visible !== false ? 1 : 0) + (sc.site ? 1 : 0) + ((sn && sn.found) || f.live ? 1 : 0) + (ai.ok ? 1 : 0);
+  setState(okCount === 4 ? 'All set' : okCount + ' of 4', okCount === 4);
+  setProg(okCount, 4);
 
   body((u.msg.top ? '<div class="conn-msg ' + u.msg.top.cls + '" style="margin:0 0 12px">' + esc(u.msg.top.text) + '</div>' : '') +
     '<div class="conn-grid">' +
@@ -371,6 +463,7 @@ function draw(c, domain, data){
       tile('Search Console', 'search', sc.site ? 'ok' : 'warn', sc.site ? 'Connected' : 'Share it', gscInner) +
       tile('Website forms', 'form', snCls, snPill, formsInner) +
       tile('Easyleads forms', 'bolt', el2.connected ? 'ok' : '', el2.connected ? 'Connected' : 'Optional', elInner, !el2.connected) +
+      tile('AI visibility', 'ai', 'conn-wide ' + ai.cls, ai.pill, ai.inner) +
     '</div>');
   u.msg.top = null;
   wire(c, domain, data);
@@ -396,6 +489,15 @@ function wire(c, domain, data){
   on('[data-conn-check]', () => checkSite(c, domain).catch(() => {}));
 
   wireImport(c, domain, root);
+
+  on('[data-conn-aiopen]', () => { const b = [...document.querySelectorAll('#seoModes button, #seoModes [role=tab]')].find(x => /ai visibility/i.test(x.textContent || '')); if (b) b.click(); });
+  on('[data-conn-aicheck]', async e => {
+    const b = e.currentTarget; b.disabled = true; b.innerHTML = ic('redo', 13) + 'Checking…';
+    try{ await post({action: 'refresh', domain}); u.msg.ai = {text: 'Asked the tracker to pull the latest GA4 data, then re-read every AI source.', cls: 'ok'}; }
+    catch(err){ u.msg.ai = {text: 'The GA4 refresh didn’t go through (' + err.message + '). Re-reading what the tracker already has.', cls: 'err'}; }
+    const a = aiFeed[domain] = aiFeed[domain] || {}; a.feed = null; a.err = null; a.busy = false;
+    redraw(c, domain); aiLoad(c, domain, true);
+  });
 
   on('[data-conn-elopen]', () => { u.elOpen = true; u.msg.el = null; redraw(c, domain); });
   on('[data-conn-elcancel]', () => { u.elOpen = false; u.msg.el = null; redraw(c, domain); });
