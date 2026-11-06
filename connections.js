@@ -66,6 +66,13 @@ function ago(iso){
   if (d < 45) return d + ' days ago';
   return new Date(t).toLocaleDateString(undefined, {year: 'numeric', month: 'short', day: 'numeric'});
 }
+/* The tracker pulls Easyleads every hour, so the next pull is about an hour after the last one. */
+function nextPull(last, every){
+  const t = last ? new Date(last).getTime() : 0;
+  if (!t) return 'within the hour';
+  const m = Math.round((t + (every || 60) * 60000 - Date.now()) / 60000);
+  return m <= 1 ? 'any minute' : 'in ' + m + ' min';
+}
 function day(iso){
   if (!iso) return '';
   const t = new Date(iso.length === 16 ? iso + ':00' : iso);
@@ -494,8 +501,13 @@ function draw(c, domain, data){
   const el2 = data.easyleads || {};
   let elInner;
   if (el2.connected){
-    elInner = '<div class="conn-line">Connected · <b>' + fmt(el2.count) + '</b> submissions' + (el2.lastSync ? ' · synced ' + esc(ago(el2.lastSync)) : '') + '</div>' +
-      '<div class="conn-help">Every past submission was pulled in when it was connected; new ones are pulled every hour.</div>';
+    const er = u.elrun || {};
+    elInner = '<div class="conn-line">Connected · <b>' + fmt(el2.count) + '</b> submissions</div>' +
+      '<div class="conn-stats"><div><b>' + esc(el2.lastSync ? ago(el2.lastSync) : 'not yet') + '</b><span>last pull</span></div><div><b>' + esc(nextPull(el2.lastSync)) + '</b><span>next pull</span></div></div>' +
+      '<div class="conn-act"><button class="btn btn-sm btn-go" type="button" data-conn-elpull' + (er.busy ? ' disabled' : '') + '>' + ic('redo', 13) + (er.busy ? 'Pulling…' : 'Pull now') + '</button>' +
+      '<button class="btn btn-sm" type="button" data-conn-formsync>' + ic('form', 13) + 'All clients</button></div>' +
+      (er.text ? '<div class="conn-help" style="color:' + (er.err ? '#b4322a' : '#0f7a58') + '">' + esc(er.text) + '</div>' : '') +
+      '<div class="conn-help">New Easyleads submissions are pulled every hour. Website forms (WordPress, Concrete) arrive instantly through the snippet.</div>';
   } else if (u.elOpen){
     elInner = '<div class="conn-el">' +
       '<label>Location ID</label><input type="text" data-conn-elloc autocomplete="off" placeholder="GoHighLevel → Settings → Business Profile"/>' +
@@ -583,6 +595,16 @@ function wire(c, domain, data){
 
   on('[data-conn-elopen]', () => { u.elOpen = true; u.msg.el = null; redraw(c, domain); });
   on('[data-conn-elcancel]', () => { u.elOpen = false; u.msg.el = null; redraw(c, domain); });
+  on('[data-conn-formsync]', () => formsSyncPanel());
+  on('[data-conn-elpull]', async () => {
+    if ((u.elrun || {}).busy) return;
+    u.elrun = {busy: true}; redraw(c, domain);
+    try{
+      const res = await post({action: 'run', job: 'easyleads', domain});
+      u.elrun = {text: 'Pulled just now: ' + ((res.results || {}).easyleads || 'done'), err: false};
+    }catch(err){ u.elrun = {text: /unknown action/.test(err.message) ? 'The tracker needs its latest update for this.' : err.message, err: true}; }
+    await refreshData(domain); redraw(c, domain);
+  });
   on('[data-conn-elsave]', async () => {
     const loc = ((root.querySelector('[data-conn-elloc]') || {}).value || '').trim(), tok = ((root.querySelector('[data-conn-eltok]') || {}).value || '').trim();
     if (!loc || !tok){ u.msg.el = {text: 'Both the Location ID and the token are needed.', cls: 'err'}; redraw(c, domain); return; }
@@ -830,7 +852,134 @@ function tick(){
 setInterval(tick, 1500);
 setTimeout(tick, 300);
 
+/* ---------- Forms sync: every client at a glance ----------
+   Website forms (WordPress, Concrete) arrive instantly through the snippet, so
+   they show when the last one came in. Easyleads (GoHighLevel) forms are pulled
+   every hour by the tracker: last pull, next pull, and a Pull now button. */
+const FS_CSS = `
+.eui-modal.wide:has(.fsy){width:min(1060px,94vw);max-width:min(1060px,94vw)}
+.fsy{font-family:var(--ui,Inter,sans-serif);color:var(--ink,#171614);min-width:0}
+.fsy-h{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:12px}
+.fsy-h h2{margin:0;font:600 19px var(--display,Poppins,Inter,sans-serif);letter-spacing:-.01em}
+.fsy-h p{margin:4px 0 0;font-size:12.5px;color:var(--ink-3,#8a9097);max-width:620px;line-height:1.5}
+.fsy-x{border:0;background:none;font-size:22px;line-height:1;cursor:pointer;color:var(--ink-3,#8a9097)}
+.fsy-top{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:4px 0 14px}
+.fsy-k{background:#f7f9fb;border-radius:14px;padding:12px 14px}
+.fsy-k b{display:block;font:700 20px var(--display,Poppins,Inter,sans-serif)}
+.fsy-k span{font-size:11.5px;color:var(--ink-3,#8a9097)}
+.fsy-k.go{background:linear-gradient(180deg,#effaf5,#f8fcfa)}
+.fsy-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.fsy-bar input{flex:1;min-width:200px;padding:8px 12px;border:1px solid var(--line,#e6e8eb);border-radius:10px;font:inherit;font-size:13px}
+.fsy-seg{display:inline-flex;background:#f1f2f5;border-radius:10px;padding:3px}
+.fsy-seg button{border:0;background:none;padding:6px 11px;border-radius:8px;font:600 12px var(--ui,Inter,sans-serif);color:#677083;cursor:pointer}
+.fsy-seg button.on{background:#fff;color:var(--ink,#171614);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.fsy-wrap{max-height:56vh;overflow:auto;border:1px solid var(--line,#e6e8eb);border-radius:14px}
+.fsy table{width:100%;border-collapse:collapse;font-size:12.8px}
+.fsy th{position:sticky;top:0;background:#fff;text-align:left;font:600 10.5px var(--ui,Inter,sans-serif);letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3,#8a9097);padding:10px 12px;border-bottom:1px solid var(--line,#e6e8eb);z-index:1}
+.fsy td{padding:10px 12px;border-bottom:1px solid #f1f3f6;vertical-align:middle}
+.fsy tr:last-child td{border-bottom:0}
+.fsy td small{display:block;color:var(--ink-3,#8a9097);font-size:11.5px;margin-top:2px}
+.fsy-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;background:#c3cbd3;vertical-align:middle}
+.fsy-dot.ok{background:#22a06b}.fsy-dot.warn{background:#e08a1e}.fsy-dot.bad{background:#d64545}
+.fsy-btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line,#e6e8eb);background:#fff;border-radius:9px;padding:6px 10px;font:600 12px var(--ui,Inter,sans-serif);cursor:pointer;color:var(--ink,#171614)}
+.fsy-btn:hover{border-color:#e87722;color:#b85a12}
+.fsy-btn.go{background:#171614;border-color:#171614;color:#fff}
+.fsy-btn[disabled]{opacity:.55;cursor:default}
+.fsy-msg{font-size:12px;margin-top:8px;color:#0f7a58}.fsy-msg.err{color:#b4322a}
+.fsy-foot{display:flex;justify-content:space-between;align-items:center;margin-top:10px;font-size:11.5px;color:var(--ink-3,#8a9097)}
+@media (max-width:760px){.fsy-top{grid-template-columns:repeat(2,minmax(0,1fr))}}
+`;
+let fsyOpen = null;
+async function formsSyncPanel(){
+  if (fsyOpen) return;
+  if (!document.getElementById('fsyCss')){ const st = document.createElement('style'); st.id = 'fsyCss'; st.textContent = FS_CSS; document.head.appendChild(st); }
+  const m = modal('<div class="fsy"><div class="fsy-h"><div><h2>Forms sync</h2><p>Website forms from WordPress and Concrete sites arrive the moment someone submits. Easyleads (GoHighLevel) forms are pulled by the tracker every hour; pull any client now if you’re waiting on a lead.</p></div><button class="fsy-x" type="button" data-close aria-label="Close">×</button></div><div data-fsy-body><div class="conn-line">Reading the tracker…</div></div></div>', {wide: true});
+  fsyOpen = m;
+  const root = m.el || document;
+  const body = root.querySelector('[data-fsy-body]');
+  let data = null, filter = 'all', q = '', busy = {}, msg = null, timer = null;
+  const names = {}; (state.seoClients || []).forEach(c => { const d = normDomain(c.website); if (d) names[d] = {name: c.name, cms: c.cms || ''}; });
+  const iso = ms => ms ? new Date(ms).toISOString() : '';
+  const load = async () => {
+    try{ data = await post({action: 'formsStatus'}); }
+    catch(err){ body.innerHTML = '<div class="conn-line" style="color:#b4322a">Couldn’t read the tracker: ' + esc(/unknown action/.test(err.message) ? 'it needs its latest update.' : err.message) + '</div>'; return; }
+    draw();
+  };
+  const draw = () => {
+    if (!data || !body.isConnected) return;
+    const every = data.every || 60;
+    const rows = data.clients.filter(c => c.el || c.web || names[c.domain]).map(c => {
+      const n = names[c.domain] || {};
+      const webAge = c.web && c.web.last ? (Date.now() - c.web.last) / 864e5 : null;
+      const elAge = c.el && c.el.last ? (Date.now() - c.el.last) / 60000 : null;
+      return Object.assign({}, c, {label: n.name || c.name || c.domain, cms: n.cms, webAge, elAge,
+        elState: !c.el ? '' : elAge == null ? 'warn' : elAge > every * 3 ? 'bad' : elAge > every * 1.5 ? 'warn' : 'ok'});
+    }).filter(r => filter === 'all' || (filter === 'el' ? r.el : filter === 'web' ? r.web : !r.el && !r.web))
+      .filter(r => !q || (r.label + ' ' + r.domain).toLowerCase().indexOf(q) > -1)
+      .sort((a, b) => (b.el ? 1 : 0) - (a.el ? 1 : 0) || a.label.localeCompare(b.label));
+    const all = data.clients, els = all.filter(c => c.el), lastAny = Math.max(0, ...els.map(c => c.el.last || 0));
+    const stale = els.filter(c => !c.el.last || (Date.now() - c.el.last) / 60000 > every * 1.5).length;
+    const web7 = all.filter(c => c.web && c.web.last && Date.now() - c.web.last < 7 * 864e5).length;
+    body.innerHTML =
+      '<div class="fsy-top">' +
+        '<div class="fsy-k go"><b>' + esc(lastAny ? ago(iso(lastAny)) : '—') + '</b><span>Last Easyleads pull</span></div>' +
+        '<div class="fsy-k"><b>' + esc(data.trigger ? nextPull(iso(lastAny), every) : 'Off') + '</b><span>' + (data.trigger ? 'Next pull (every ' + every + ' min)' : 'Hourly pull isn’t switched on') + '</span></div>' +
+        '<div class="fsy-k"><b>' + els.length + (stale ? ' <span style="font-size:12px;color:#a54c07">· ' + stale + ' behind</span>' : '') + '</b><span>Easyleads clients</span></div>' +
+        '<div class="fsy-k"><b>' + web7 + '</b><span>Sites with a form this week</span></div>' +
+      '</div>' +
+      '<div class="fsy-bar"><input type="search" placeholder="Find a client" value="' + esc(q) + '" data-fsy-q>' +
+        '<div class="fsy-seg">' + [['all', 'All'], ['el', 'Easyleads'], ['web', 'Website forms'], ['none', 'Nothing yet']].map(x => '<button type="button" data-fsy-f="' + x[0] + '"' + (filter === x[0] ? ' class="on"' : '') + '>' + x[1] + '</button>').join('') + '</div>' +
+        '<button class="fsy-btn go" type="button" data-fsy-all' + (busy.all ? ' disabled' : '') + '>' + (busy.all ? 'Pulling every client…' : 'Pull all Easyleads now') + '</button></div>' +
+      (msg ? '<div class="fsy-msg' + (msg.err ? ' err' : '') + '">' + esc(msg.text) + '</div>' : '') +
+      '<div class="fsy-wrap" style="margin-top:8px"><table><thead><tr><th>Client</th><th>Website forms</th><th>Easyleads last pull</th><th>Next pull</th><th>Last Easyleads lead</th><th></th></tr></thead><tbody>' +
+      (rows.length ? rows.map(r => '<tr>' +
+        '<td><b>' + esc(r.label) + '</b><small>' + esc(r.domain) + (r.cms ? ' · ' + esc(r.cms) : '') + '</small></td>' +
+        '<td>' + (r.web ? '<span class="fsy-dot ' + (r.webAge < 30 ? 'ok' : 'warn') + '"></span>' + esc(ago(iso(r.web.last))) + '<small>' + fmt(r.web.n30) + ' in 30 days · instant</small>' : '<span style="color:var(--ink-3,#8a9097)">None received</span>') + '</td>' +
+        '<td>' + (r.el ? '<span class="fsy-dot ' + r.elState + '"></span>' + esc(r.el.last ? ago(iso(r.el.last)) : 'not yet') : '<span style="color:var(--ink-3,#8a9097)">Not connected</span>') + '</td>' +
+        '<td>' + (r.el ? esc(data.trigger ? nextPull(iso(r.el.last), every) : 'Off') : '') + '</td>' +
+        '<td>' + (r.el && r.el.lead ? esc(ago(iso(r.el.lead.last))) + '<small>' + fmt(r.el.lead.n30) + ' in 30 days</small>' : r.el ? '<span style="color:var(--ink-3,#8a9097)">None yet</span>' : '') + '</td>' +
+        '<td style="text-align:right">' + (r.el ? '<button class="fsy-btn" type="button" data-fsy-pull="' + esc(r.domain) + '"' + (busy[r.domain] || busy.all ? ' disabled' : '') + '>' + (busy[r.domain] ? 'Pulling…' : 'Pull now') + '</button>' : '') + '</td>' +
+      '</tr>').join('') : '<tr><td colspan="6" style="color:var(--ink-3,#8a9097)">No clients match.</td></tr>') +
+      '</tbody></table></div>' +
+      '<div class="fsy-foot"><span>Read ' + esc(ago(iso(data.now))) + ' · refreshes every 30 seconds while open</span><span>Green: pulled within the hour · amber: late · red: missed several pulls</span></div>';
+    const qi = body.querySelector('[data-fsy-q]');
+    qi.addEventListener('input', () => { q = qi.value.trim().toLowerCase(); const pos = qi.selectionStart; draw(); const n = body.querySelector('[data-fsy-q]'); n.focus(); try{ n.setSelectionRange(pos, pos); }catch(e){} });
+    body.querySelectorAll('[data-fsy-f]').forEach(b => b.addEventListener('click', () => { filter = b.dataset.fsyF; draw(); }));
+    body.querySelector('[data-fsy-all]').addEventListener('click', async () => {
+      if (busy.all) return;
+      busy.all = true; msg = null; draw();
+      try{ const r = await post({action: 'formsPullAll'}); data = r.status || data; msg = {text: 'Pulled every Easyleads client just now.'}; }
+      catch(err){ msg = {text: err.message, err: true}; }
+      busy.all = false; draw();
+    });
+    body.querySelectorAll('[data-fsy-pull]').forEach(b => b.addEventListener('click', async () => {
+      const d = b.dataset.fsyPull; if (busy[d] || busy.all) return;
+      busy[d] = true; msg = null; draw();
+      try{ const r = await post({action: 'run', job: 'easyleads', domain: d}); msg = {text: (names[d] && names[d].name || d) + ': ' + ((r.results || {}).easyleads || 'pulled')}; }
+      catch(err){ msg = {text: err.message, err: true}; }
+      busy[d] = false;
+      try{ data = await post({action: 'formsStatus'}); }catch(e){}
+      draw();
+    }));
+  };
+  await load();
+  timer = setInterval(() => { if (!body.isConnected){ clearInterval(timer); fsyOpen = null; return; } if (!Object.keys(busy).some(k => busy[k])) load(); }, 30000);
+  const closeWatch = setInterval(() => { if (!body.isConnected){ clearInterval(closeWatch); clearInterval(timer); fsyOpen = null; } }, 1000);
+}
+/* A "Forms sync" button in the SEO Clients rail, next to Share all clients. */
+function addRailButton(){
+  const share = document.getElementById('seoPublishAllBtn');
+  if (!share || document.getElementById('seoFormsSyncBtn')) return;
+  const b = document.createElement('button');
+  b.className = 'mini-btn'; b.id = 'seoFormsSyncBtn'; b.type = 'button'; b.textContent = 'Forms sync';
+  b.title = 'When each client’s forms last came in, when Easyleads is pulled next, and Pull now';
+  b.addEventListener('click', () => formsSyncPanel());
+  share.insertAdjacentElement('afterend', b);
+}
+setInterval(addRailButton, 2000); setTimeout(addRailButton, 500);
+
 window.EDGE_CONN = {
+  formsSync: () => formsSyncPanel(),
   snippetModal,
   checkSite: c => checkSite(c, normDomain(c.website)),
   forget: domain => { delete cache[normDomain(domain)]; shownKey = null; }
