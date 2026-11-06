@@ -2095,6 +2095,156 @@ W.aio = {g: 'gai', t: 'AI Overview citations', d: 'For each tracked keyword and 
       {key: 'st', label: 'Result', fmt: r => '<span class="aiv-pill ' + lbl[r.st][1] + '">' + lbl[r.st][0] + '</span>'}], {sort: 'st', maxH: 300});
   }};
 
+/* ---------- More AI widgets ----------
+   All read the tracker feed only (GA4 AI visits, Search Console AI impressions,
+   the AI Overview checks, Bing), so they fill in wherever the AI tile is green. */
+/* AI Overview checks grouped by run date, one row per search and location per run. */
+function aioRuns(M){
+  const by = {};
+  (M.aioAll || []).forEach(c => { const r = by[c.d] = by[c.d] || {}; const k = c.k + '|' + c.loc; if (!r[k]) r[k] = c; });
+  return Object.keys(by).sort().map(d => ({d, checks: Object.values(by[d])}));
+}
+const aioPill = st => '<span class="aiv-pill ' + AIO_PILL[st][1] + '">' + AIO_PILL[st][0] + '</span>';
+const AIO_PILL = {cited: ['Cited', 'aiv-yes'], named: ['Named', 'aiv-yes'], miss: ['Not mentioned', 'aiv-mid'], none: ['No Overview', 'aiv-no']};
+const dPill = d => d && d.txt ? '<span class="aiv-delta ' + d.cls + '">' + esc(d.txt) + '</span>' : '<span style="color:var(--a-ink3)">—</span>';
+const hostOf = u => String(u || '').replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0].toLowerCase();
+
+W.ai_kpis = {g: 'ai', t: 'AI at a glance', d: 'AI visits, key events, conversion rate, Google AI impressions and AI Overview citations side by side.', size: 'xl', needs: ['feed'],
+  render(h, ctx, w, D){
+    const M = aiModel(ctx, D.feed);
+    const rate = M.ai.s ? M.ai.k / M.ai.s * 100 : 0, prate = M.ai.ps ? M.ai.pk / M.ai.ps * 100 : 0;
+    const cited = M.aio.filter(c => c.cited).length, shown = M.aio.filter(c => c.shown).length;
+    const t = [
+      kpiTile('AI visits', fmt(M.ai.s), 'Sent by AI assistants', {d: delta(M.ai.s, M.ai.ps, M.ai.hasPrev), spark: M.ai.series, color: '#eb6834', icon: logoStack(AI_STACK.slice(0, 3), 16)}),
+      kpiTile('Key events from AI', fmt(M.ai.k), 'Forms, calls, bookings…', {d: delta(M.ai.k, M.ai.pk, M.ai.hasPrev), spark: M.ai.keySeries, color: '#2a78d6'}),
+      kpiTile('AI conversion rate', M.ai.s ? rate.toFixed(rate < 10 ? 1 : 0) + '%' : '—', 'Key events per AI visit', {d: M.ai.ps && M.ai.s ? delta(rate, prate, true) : null})
+    ];
+    if (M.google.imported) t.push(kpiTile('Google AI impressions', fmt(M.google.n), 'AI Overviews & AI Mode', {d: delta(M.google.n, M.google.prev, M.google.prev > 0), spark: M.google.series, color: '#1baf7a', icon: logo('google', 16)}));
+    if (M.aio.length) t.push(kpiTile('AI Overview citations', cited + '<span style="font-size:.55em;color:var(--a-ink3)"> / ' + M.aio.length + '</span>', shown + ' searches showed an Overview · ' + esc(shortDate(M.aioRun)), {icon: logo('google', 16)}));
+    if (M.bing.imported) t.push(kpiTile('Copilot citations', fmt(M.bing.n), 'Bing Webmaster Tools', {d: delta(M.bing.n, M.bing.prev, M.bing.prev > 0), icon: logo('Copilot', 16)}));
+    h.innerHTML = '<div class="rp-kpis">' + t.join('') + '</div>';
+  }};
+
+W.ai_summary = {g: 'ai', t: 'AI visibility in plain words', d: 'A short written summary of how AI assistants and Google’s AI treated the business this period.', size: 'l', needs: ['feed'],
+  render(h, ctx, w, D){
+    const M = aiModel(ctx, D.feed), L = [];
+    const ch = (a, b) => { if (!b) return ''; const p = Math.round((a - b) / b * 100); return p === 0 ? ', the same as the period before' : ', ' + (p > 0 ? 'up ' : 'down ') + Math.abs(p) + '% on the period before'; };
+    if (M.ai.s){
+      const top = M.plats.slice().sort((a, b) => b.s - a.s)[0];
+      L.push('AI assistants sent <b>' + fmt(M.ai.s) + ' visit' + (M.ai.s === 1 ? '' : 's') + '</b>' + (M.ai.hasPrev ? ch(M.ai.s, M.ai.ps) : '') + '. ' + (top ? esc(top.name) + ' sent the most (' + fmt(top.s) + ').' : ''));
+      if (M.ai.k) L.push('Those visitors triggered <b>' + fmt(M.ai.k) + ' key event' + (M.ai.k === 1 ? '' : 's') + '</b>, ' + (M.ai.k / M.ai.s * 100).toFixed(1) + '% of AI visits.');
+      const pg = M.pages.filter(p => p.s).sort((a, b) => b.s - a.s)[0];
+      if (pg) L.push('The page AI sent people to most was <b>' + esc(pg.key) + '</b> (' + fmt(pg.s) + ' visits).');
+    } else L.push('No visits from AI assistants were recorded in this period.');
+    if (M.google.imported) L.push('Google showed the site <b>' + fmt(M.google.n) + ' times</b> in AI Overviews and AI Mode' + (M.google.prev ? ch(M.google.n, M.google.prev) : '') + ' (Search Console data to ' + esc(shortDate(M.google.latest)) + ').');
+    if (M.aio.length){
+      const shown = M.aio.filter(c => c.shown).length, cited = M.aio.filter(c => c.cited).length;
+      const comp = {}; M.aio.forEach(c => (c.comp || []).forEach(x => { const k = hostOf(x); if (k) comp[k] = (comp[k] || 0) + 1; }));
+      const rival = Object.keys(comp).sort((a, b) => comp[b] - comp[a])[0];
+      L.push('In the latest check (' + esc(shortDate(M.aioRun)) + '), <b>' + shown + ' of ' + M.aio.length + '</b> tracked searches showed an AI Overview and <b>' + cited + '</b> cited the site.' + (rival ? ' The site Google’s AI cited most often instead was ' + esc(rival) + '.' : ''));
+    }
+    if (M.bing.imported && M.bing.n) L.push('Copilot cited the site <b>' + fmt(M.bing.n) + ' times</b>.');
+    h.innerHTML = '<div class="rp-text" style="font-size:14px;line-height:1.65">' + L.map(x => '<p style="margin:0 0 8px">' + x + '</p>').join('') + '</div>';
+  }};
+
+W.ai_growth = {g: 'ai', t: 'Assistants: this period vs last', d: 'Visits from each AI assistant compared with the period before, so you can see which ones are growing.', size: 'm', needs: ['feed'],
+  render(h, ctx, w, D){
+    const M = aiModel(ctx, D.feed), rows = M.plats.map(p => ({name: p.name, s: p.s, ps: p.ps, k: p.k, ch: p.ps ? (p.s - p.ps) / p.ps : (p.s ? 9e9 : 0)})), max = Math.max(1, ...rows.map(r => r.s));
+    table(h, rows, [
+      {key: 'name', label: 'Assistant', fmt: r => '<span style="display:inline-flex;align-items:center;gap:7px">' + logo(r.name, 16) + esc(r.name) + '</span>'},
+      {key: 's', label: 'Visits', num: true, fmt: r => barCell(r.s, max, pcol(r.name))},
+      {key: 'ps', label: 'Before', num: true, fmt: r => fmt(r.ps)},
+      {key: 'ch', label: 'Change', num: true, fmt: r => dPill(delta(r.s, r.ps, M.ai.hasPrev))}
+    ], {sort: 's', empty: 'No AI visits in this period or the one before.', onRow: ctx.drill ? r => U.openPlatform(M, ctx.domain, r.name) : null});
+  }};
+
+W.ai_quality = {g: 'ai', t: 'AI visitor quality', d: 'How engaged AI visitors were and how often they converted.', size: 's', needs: ['feed'],
+  render(h, ctx, w, D){
+    const M = aiModel(ctx, D.feed);
+    if (!M.ai.s){ h.innerHTML = '<div class="rp-err">No AI visits in this period.</div>'; return; }
+    const er = M.ai.e / M.ai.s * 100, kr = M.ai.k / M.ai.s * 100, pkr = M.ai.ps ? M.ai.pk / M.ai.ps * 100 : 0;
+    h.innerHTML = bigNum(er.toFixed(0) + '%', null, 'of AI visits were engaged') +
+      '<div class="rp-kpis" style="margin-top:12px">' + kpiTile('Converted', kr.toFixed(kr < 10 ? 1 : 0) + '%', fmt(M.ai.k) + ' key events', {d: M.ai.ps ? delta(kr, pkr, true) : null}) + '</div>';
+  }};
+
+W.ai_monthly = {g: 'ai', t: 'AI visibility by month', d: 'AI visits, Google AI impressions and Copilot citations for each of the last 12 months. Not tied to the report’s date range.', size: 'l', needs: ['feed'],
+  render(h, ctx, w, D){
+    const mo = ((D.feed && D.feed.monthly) || []).slice(-12);
+    if (!mo.length){ h.innerHTML = '<div class="rp-err">No monthly history yet.</div>'; return; }
+    const mx = k => Math.max(1, ...mo.map(r => Number(r[k]) || 0)), hasB = mo.some(r => r.bing), hasG = mo.some(r => r.google);
+    const name = m => { const t = new Date(m + '-15T12:00:00'); return isNaN(t) ? m : t.toLocaleDateString('en-CA', {month: 'short', year: 'numeric'}); };
+    const cols = [{key: 'm', label: 'Month', fmt: r => esc(name(r.m))}, {key: 'ga4', label: 'AI visits', num: true, fmt: r => barCell(Number(r.ga4) || 0, mx('ga4'), '#eb6834')}];
+    if (hasG) cols.push({key: 'google', label: 'Google AI impr.', num: true, fmt: r => barCell(Number(r.google) || 0, mx('google'), '#1baf7a')});
+    if (hasB) cols.push({key: 'bing', label: 'Copilot', num: true, fmt: r => barCell(Number(r.bing) || 0, mx('bing'), '#eda100')});
+    table(h, mo, cols, {sort: 'm', maxH: 420});
+    h.insertAdjacentHTML('beforeend', '<p class="aiv-foot">The current month is still filling in. Google AI impressions arrive with each monthly Search Console export.</p>');
+  }};
+
+W.aio_trend = {g: 'gai', t: 'AI Overview results over time', d: 'Each AI Overview check: how many tracked searches showed an Overview and how many cited the site.', size: 'l', needs: ['feed'],
+  render(h, ctx, w, D){
+    const M = aiModel(ctx, D.feed), runs = aioRuns(M).reverse();
+    if (!runs.length){ h.innerHTML = '<div class="rp-err">No AI Overview checks yet.</div>'; return; }
+    const rows = runs.map(r => ({d: r.d, n: r.checks.length, shown: r.checks.filter(c => c.shown).length, cited: r.checks.filter(c => c.cited).length, named: r.checks.filter(c => c.named && !c.cited).length}));
+    const mx = Math.max(1, ...rows.map(r => r.n));
+    table(h, rows, [
+      {key: 'd', label: 'Checked', fmt: r => esc(prettyDate(r.d))},
+      {key: 'n', label: 'Searches', num: true, fmt: r => fmt(r.n)},
+      {key: 'shown', label: 'Showed an Overview', num: true, fmt: r => barCell(r.shown, mx, '#2a78d6')},
+      {key: 'cited', label: 'Cited the site', num: true, fmt: r => barCell(r.cited, mx, '#1baf7a')},
+      {key: 'named', label: 'Named only', num: true, fmt: r => fmt(r.named)}
+    ], {sort: 'd', maxH: 360});
+  }};
+
+W.aio_gaps = {g: 'gai', t: 'AI Overview opportunities', d: 'Searches where Google showed an AI Overview but didn’t cite the site, and who it cited instead.', size: 'l', needs: ['feed'],
+  render(h, ctx, w, D){
+    const M = aiModel(ctx, D.feed);
+    if (!M.aio.length){ h.innerHTML = '<div class="rp-err">No AI Overview checks yet.</div>'; return; }
+    const rows = M.aio.filter(c => c.shown && !c.cited).map(c => ({k: c.k, loc: c.loc, named: !!c.named, comp: (c.comp || []).map(hostOf).filter(Boolean)}));
+    table(h, rows, [
+      {key: 'k', label: 'Search', fmt: r => esc(r.k)},
+      {key: 'loc', label: 'Location', fmt: r => esc(r.loc)},
+      {key: 'named', label: 'Business named', fmt: r => r.named ? '<span class="aiv-pill aiv-yes">Named</span>' : '<span class="aiv-pill aiv-no">No</span>', sort: r => r.named ? 1 : 0},
+      {key: 'comp', label: 'Cited instead', fmt: r => esc(r.comp.slice(0, 3).join(', ') + (r.comp.length > 3 ? ' +' + (r.comp.length - 3) : '')), sort: r => r.comp.length}
+    ], {sort: 'k', asc: true, maxH: 380, empty: 'No gaps: every AI Overview in the latest check cited the site.'});
+    h.insertAdjacentHTML('beforeend', '<p class="aiv-foot">Latest check ' + esc(prettyDate(M.aioRun)) + ' · ' + rows.length + ' of ' + M.aio.filter(c => c.shown).length + ' AI Overviews didn’t cite the site.</p>');
+  }};
+
+W.aio_competitors = {g: 'gai', t: 'Who Google’s AI cites instead', d: 'The other websites Google’s AI Overviews cited for the tracked searches, most often first.', size: 'm', needs: ['feed'],
+  render(h, ctx, w, D){
+    const M = aiModel(ctx, D.feed), shown = M.aio.filter(c => c.shown).length, m = {};
+    M.aio.forEach(c => { const seen = {}; (c.comp || []).forEach(x => { const k = hostOf(x); if (k && !seen[k]){ seen[k] = 1; m[k] = (m[k] || 0) + 1; } }); });
+    const rows = Object.keys(m).map(k => ({k, n: m[k]})), max = Math.max(1, ...rows.map(r => r.n));
+    table(h, rows, [
+      {key: 'k', label: 'Website', fmt: r => '<a href="https://' + esc(r.k) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">' + esc(r.k) + ' ↗</a>'},
+      {key: 'n', label: 'AI Overviews', num: true, fmt: r => barCell(r.n, max, '#6250d6')},
+      {key: 'p', label: 'Share', num: true, fmt: r => pctS(r.n, shown), sort: r => r.n}
+    ], {sort: 'n', maxH: 360, empty: M.aio.length ? 'No other websites were cited in the latest check.' : 'No AI Overview checks yet.'});
+  }};
+
+W.aio_pages = {g: 'gai', t: 'Pages Google’s AI Overviews cite', d: 'Which of the site’s pages the AI Overviews linked to, and for how many tracked searches.', size: 'm', needs: ['feed'],
+  render(h, ctx, w, D){
+    const M = aiModel(ctx, D.feed), m = {};
+    M.aio.forEach(c => (c.urls || []).forEach(u => { const k = pageKey(u); (m[k] = m[k] || {k, n: 0, q: []}).n++; m[k].q.push(c.k); }));
+    const rows = Object.values(m), max = Math.max(1, ...rows.map(r => r.n));
+    table(h, rows, [
+      {key: 'k', label: 'Page', fmt: r => '<span class="aiv-page" title="' + esc(r.q.join(', ')) + '">' + esc(r.k) + '</span>'},
+      {key: 'n', label: 'Searches', num: true, fmt: r => barCell(r.n, max, '#1baf7a')}
+    ], {sort: 'n', maxH: 340, empty: M.aio.length ? 'No AI Overview cited the site in the latest check.' : 'No AI Overview checks yet.'});
+  }};
+
+W.aio_history = {g: 'gai', t: 'AI Overview history by search', d: 'Every tracked search and location, with its result in each of the last four checks.', size: 'xl', needs: ['feed'],
+  render(h, ctx, w, D){
+    const M = aiModel(ctx, D.feed), runs = aioRuns(M).slice(-4);
+    if (!runs.length){ h.innerHTML = '<div class="rp-err">No AI Overview checks yet.</div>'; return; }
+    const keys = {};
+    runs.forEach(r => r.checks.forEach(c => { const k = c.k + '|' + c.loc; keys[k] = keys[k] || {k: c.k, loc: c.loc, st: {}}; keys[k].st[r.d] = M.aioState(c); }));
+    const rank = {cited: 3, named: 2, miss: 1, none: 0};
+    const last = runs[runs.length - 1].d;
+    const cols = [{key: 'k', label: 'Search', fmt: r => esc(r.k)}, {key: 'loc', label: 'Location', fmt: r => esc(r.loc)}].concat(runs.map(r => ({
+      key: 'd' + r.d, label: shortDate(r.d), fmt: x => x.st[r.d] ? aioPill(x.st[r.d]) : '<span style="color:var(--a-ink3)">—</span>', sort: x => x.st[r.d] ? rank[x.st[r.d]] : -1})));
+    table(h, Object.values(keys), cols, {sort: 'd' + last, maxH: 460});
+  }};
+
 /* ---------- Copilot ---------- */
 W.bing_cites = {g: 'bing', t: 'Copilot citations', d: 'Times Copilot cited the site (Bing Webmaster Tools).', size: 'm', needs: ['feed'],
   render(h, ctx, w, D){
@@ -3634,7 +3784,8 @@ const DEF_H = {headline: 250, conv_kpi: 230, traffic_kpis: 240, gsc_kpis: 240, k
   ga4_mix_shift: 380, ga4_conv_rate: 330, ga4_lead_sources: 380, ga4_opportunity_pages: 440, ga4_rising_pages: 400, ga4_engaging_pages: 400, ga4_unvisited: 420,
   gsc_ctr_curve: 330, gsc_brand: 330, gsc_questions: 440, gsc_query_length: 330, gsc_zero_click: 440, gsc_page_two: 440, forms_kpi: 240, forms_latest: 600, forms_rate: 420,
   forms_heatmap: 400, gsc_health: 780, kw_wins: 330, kw_close: 380, kw_pages: 420, gbp_glance: 380, ai_share: 210, forms_inbox: 1180, easyleads_forms: 1150, people: 1100,
-  el_kpi: 240, el_channels: 460, el_trend: 380, el_forms: 340, el_location: 340, el_inbox: 1180, forms_catalog: 640};
+  el_kpi: 240, el_channels: 460, el_trend: 380, el_forms: 340, el_location: 340, el_inbox: 1180, forms_catalog: 640,
+  ai_kpis: 250, ai_summary: 300, ai_growth: 330, ai_quality: 260, ai_monthly: 440, aio_trend: 360, aio_gaps: 440, aio_competitors: 400, aio_pages: 380, aio_history: 520};
 const defH = it => it.type === 'embed' ? Math.max(200, Math.min(2400, Number((it.cfg || {}).height) || 600)) + 70 : (DEF_H[it.type] || 360);
 
 /* ---------- what each widget looks like: source marks, icon, accent ---------- */
@@ -3660,8 +3811,9 @@ const WIC = {gsc_health: 'flag', insight_summary: 'text', insight_wins: 'up', go
   ai_visits: 'line', ai_assistants: 'donut', ai_vs_channels: 'line', ai_keyevents: 'flag', ai_pages: 'page', ai_journeys: 'path', gai_impr: 'line', gai_pages: 'page', gai_organic: 'users',
   aio: 'quote', llm_share: 'donut', llm_checks: 'table', gsc_trend: 'line', gsc_pages: 'page', gsc_almost: 'up', gsc_lowctr: 'target', gsc_devices: 'device', gsc_countries: 'globe',
   kw_cards: 'grid', kw_table: 'table', kw_movers: 'up', kw_dist: 'donut', gbp_grids: 'grid', embed: 'globe',
+  ai_kpis: 'bolt', ai_summary: 'text', ai_growth: 'up', ai_quality: 'target', ai_monthly: 'bars', aio_trend: 'line', aio_gaps: 'target', aio_competitors: 'users', aio_pages: 'page', aio_history: 'table',
   easyleads_forms: 'table', el_kpi: 'table', el_channels: 'donut', el_trend: 'line', el_forms: 'bars', el_location: 'pin', el_inbox: 'table', forms_catalog: 'page'};
-const WSRC = {forms: [], people: [], easyleads_forms: [], el_kpi: [], el_channels: [], el_trend: [], el_forms: [], el_location: [], el_inbox: [], forms_catalog: [], forms_kpi: [], forms_latest: [], forms_heatmap: [], forms_rate: ['ga4'], ai_share: ['ChatGPT', 'ga4'], insight_summary: ['ga4', 'gsc', 'google'], insight_wins: ['ga4', 'gsc'], insight_scorecard: ['ga4', 'gsc', 'ChatGPT'], insight_compare: ['ga4', 'gsc'], insight_forecast: ['ga4'], insight_weekday: ['ga4'], goal_tracker: ['ga4', 'gsc'], conv_ai: ['ga4', 'ChatGPT', 'Perplexity'], ai_vs_channels: ['ChatGPT', 'google'], gai_organic: ['google', 'ga4'], aio: ['google'], kw_kpis: ['google'], embed: []};
+const WSRC = {forms: [], people: [], easyleads_forms: [], el_kpi: [], el_channels: [], el_trend: [], el_forms: [], el_location: [], el_inbox: [], forms_catalog: [], forms_kpi: [], forms_latest: [], forms_heatmap: [], forms_rate: ['ga4'], ai_share: ['ChatGPT', 'ga4'], insight_summary: ['ga4', 'gsc', 'google'], insight_wins: ['ga4', 'gsc'], insight_scorecard: ['ga4', 'gsc', 'ChatGPT'], insight_compare: ['ga4', 'gsc'], insight_forecast: ['ga4'], insight_weekday: ['ga4'], goal_tracker: ['ga4', 'gsc'], conv_ai: ['ga4', 'ChatGPT', 'Perplexity'], ai_vs_channels: ['ChatGPT', 'google'], gai_organic: ['google', 'ga4'], aio: ['google'], kw_kpis: ['google'], embed: [], ai_kpis: ['ChatGPT', 'google'], ai_summary: ['ChatGPT', 'google'], ai_monthly: ['ChatGPT', 'google'], aio_trend: ['google'], aio_gaps: ['google'], aio_competitors: ['google'], aio_pages: ['google'], aio_history: ['google']};
 const metaOf = type => {
   const def = W[type] || {}, g = GMETA[def.g] || GMETA.content;
   return {src: WSRC[type] || g.src, lbl: type === 'embed' ? '' : type === 'forms_catalog' ? 'Website + Easyleads' : /^(el_|easyleads)/.test(type) ? 'Easyleads' : /^(forms|people)/.test(type) ? 'Website forms' : g.lbl, ic: WIC[type] || g.ic, tint: g.tint};
@@ -3688,9 +3840,12 @@ const TEAM_DEFAULT = [
   SEC('Google Maps', 'Map pack rank grids for the Google Business Profile, keyword by keyword.'),
   ['gbp_grids', 'xl'],
   SEC('AI assistants', 'Visitors sent by ChatGPT, Perplexity, Gemini, Copilot and others, and what they did on the site.'),
+  ['ai_kpis', 'xl'], ['ai_summary', 'l'], ['ai_growth', 'l'],
   ['ai_vs_channels', 'l'], ['ai_visits', 'l'], ['ai_assistants', 'l'], ['ai_keyevents', 'l'], ['ai_pages', 'xl'], ['ai_journeys', 'xl'],
+  ['ai_quality', 's'], ['ai_monthly', 'l', null, 9],
   SEC('Google AI Overviews & AI Mode', 'How often Google’s AI shows the site, whether it cites it, and which pages it picks.'),
   ['gai_impr', 'l'], ['aio', 'l'], ['gai_pages', 'l'], ['gai_organic', 'l'],
+  ['aio_trend', 'l'], ['aio_gaps', 'l'], ['aio_competitors', 'l'], ['aio_pages', 'l'], ['aio_history', 'xl'],
   SEC('AI answers & citations', 'Whether ChatGPT, Perplexity, Gemini and Copilot mention or cite the business when asked.'),
   ['llm_share', 'l'], ['bing_cites', 'l'], ['llm_checks', 'xl'], ['bing_queries', 'xl']
 ];
