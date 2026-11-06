@@ -87,6 +87,28 @@ function injectStyles(){
 .aiv-btn.go{background:var(--a-brand);border-color:var(--a-brand);color:#fff;}
 .aiv-btn.go:hover{background:var(--a-deep);color:#fff;}
 .aiv-btn[disabled]{opacity:.55;cursor:default;}
+.aiv-run{position:relative;display:inline-flex;}
+.aiv-run-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:60;width:330px;background:var(--a-card);border:1px solid var(--a-line);border-radius:14px;
+  box-shadow:0 22px 44px -22px rgba(20,26,33,.45),0 2px 6px -3px rgba(20,26,33,.1);padding:6px;}
+.aiv-run-menu[hidden]{display:none;}
+.aiv-run-h{font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--a-ink3);padding:8px 10px 4px;}
+.aiv-run-i{display:flex;gap:10px;align-items:flex-start;width:100%;text-align:left;border:0;background:none;border-radius:10px;padding:8px 10px;cursor:pointer;font:inherit;color:var(--a-ink);}
+.aiv-run-i:hover{background:var(--a-line2,#f3f5f7);}
+.aiv-run-i b{display:block;font-size:12.5px;font-weight:600;}
+.aiv-run-i small{display:block;font-size:11.5px;color:var(--a-ink3);line-height:1.35;margin-top:1px;}
+.aiv-run-i .ic{flex:none;width:26px;height:26px;border-radius:8px;display:grid;place-items:center;background:var(--a-line2,#f3f5f7);font-size:13px;}
+.aiv-run-i.arm{background:rgba(232,119,34,.1);}
+.aiv-run-i.arm small{color:var(--a-deep,#b85a12);font-weight:600;}
+.aiv-run-sep{height:1px;background:var(--a-line);margin:4px 6px;}
+.aiv-runbox{border:1px solid var(--a-line);background:var(--a-card);border-radius:14px;padding:12px 14px;margin:0 0 14px;font-size:12.5px;}
+.aiv-runbox-h{display:flex;align-items:center;justify-content:space-between;gap:10px;font-weight:600;margin-bottom:6px;}
+.aiv-runbox-h .aiv-x{border:0;background:none;font-size:18px;cursor:pointer;color:var(--a-ink3);line-height:1;}
+.aiv-runbox ul{margin:0;padding:0;list-style:none;}
+.aiv-runbox li{display:flex;gap:8px;padding:4px 0;border-top:1px solid var(--a-line2,#f0f2f4);}
+.aiv-runbox li:first-child{border-top:0;}
+.aiv-runbox li b{flex:none;width:150px;font-weight:600;color:var(--a-ink2);}
+.aiv-runbox li span{color:var(--a-ink);word-break:break-word;}
+.aiv-runbox li.err span{color:var(--a-bad);}
 .aiv-seg{display:inline-flex;background:var(--a-line2);border-radius:9px;padding:3px;}
 .aiv-seg button{border:0;background:none;font:600 12px var(--ui,Inter,sans-serif);color:var(--a-ink2);padding:5px 10px;border-radius:7px;cursor:pointer;}
 .aiv-seg button.on{background:var(--a-card);color:var(--a-deep);box-shadow:0 1px 2px rgba(20,28,36,.08);}
@@ -1658,16 +1680,100 @@ function embedCode(url){
   return '<iframe src="' + url + '" style="width:100%;height:1500px;border:0" loading="lazy" title="AI visibility"></iframe>';
 }
 
+/* ---------- Run tracker jobs for one client ----------
+   The same jobs as the tracker sheet's AI Tracker menu, limited to this client. */
+const RUN_JOBS = [
+  {job: 'all', ic: '▶', t: 'Run everything for this client', d: 'GA4, imports, AI Overview checks, AI answers, Easyleads and Search Console health', cost: true},
+  {sep: 'One job'},
+  {job: 'ga4', ic: '📈', t: 'Pull GA4 AI visits', d: 'Latest AI assistant visits, key events and journeys'},
+  {job: 'imports', ic: '📥', t: 'Import this client’s files', d: 'Search Console or Bing exports in the Drive import folder with this domain in the file name'},
+  {job: 'aio', ic: '🔎', t: 'Run Google AI Overview checks', d: 'Every tracked keyword with a location · uses DataforSEO credits', cost: true},
+  {job: 'llm', ic: '💬', t: 'Run AI answer checks', d: 'ChatGPT, Perplexity, Gemini and Claude prompts · uses DataforSEO credits', cost: true, llm: true},
+  {job: 'easyleads', ic: '📨', t: 'Pull Easyleads submissions', d: 'New form submissions, if Easyleads is connected'},
+  {job: 'gsc', ic: '🩺', t: 'Search Console health check', d: 'Indexing and sitemaps'},
+  {sep: 'Setup'},
+  {job: 'ga4find', ic: '🔗', t: 'Find GA4 property', d: 'Match this website to its GA4 property'}
+];
+const RUN_NAMES = {all: 'Everything', ga4: 'GA4 AI visits', ga4find: 'GA4 property', imports: 'Imports', aio: 'AI Overview checks', llm: 'AI answer checks', easyleads: 'Easyleads', gsc: 'Search Console health'};
+function runMenuHtml(tracking){
+  const items = RUN_JOBS.filter(x => !x.llm || tracking.llm).map(x => x.sep
+    ? '<div class="aiv-run-sep"></div><div class="aiv-run-h">' + esc(x.sep) + '</div>'
+    : '<button class="aiv-run-i" type="button" role="menuitem" data-aiv-job="' + x.job + '"' + (x.cost ? ' data-cost' : '') + '><span class="ic" aria-hidden="true">' + x.ic + '</span><span><b>' + esc(x.t) + '</b><small data-d="' + esc(x.d) + '">' + esc(x.d) + '</small></span></button>').join('');
+  return '<div class="aiv-run" data-aiv-run><button class="aiv-btn" type="button" data-aiv-runbtn aria-haspopup="menu" aria-expanded="false" title="Run the tracker for this client now">Run for this client ▾</button>' +
+    '<div class="aiv-run-menu" role="menu" hidden><div class="aiv-run-h">Run now for this client</div>' + items + '</div></div>';
+}
+async function runJob(domain, job){
+  const s = settings();
+  try{ return await apiPost(s.url, {key: s.key, action: 'run', job, domain}); }
+  catch(err){
+    if (/unknown action/.test(err.message)) throw new Error('The tracker needs its latest update for this. Deploy the new tracker version, then try again.');
+    throw err;
+  }
+}
+window.AIVis.run = runJob;
+/* The last result stays on screen for this client, even when the report redraws with the new data. */
+let lastRun = null;
+function drawRunBox(v, domain){
+  const box = v.querySelector('[data-aiv-runbox]'); if (!box) return;
+  const r = lastRun;
+  if (!r || r.domain !== domain || Date.now() - r.at > 15 * 60 * 1000){ box.innerHTML = ''; return; }
+  box.innerHTML = '<div class="aiv-runbox"' + (r.isErr ? ' style="border-color:var(--a-bad)"' : '') + '><div class="aiv-runbox-h"><span>' + esc(r.title) + '</span><button class="aiv-x" type="button" aria-label="Close">×</button></div>' +
+    (r.rows.length ? '<ul>' + r.rows.map(x => '<li' + (x.err ? ' class="err"' : '') + '><b>' + esc(x.k) + '</b><span>' + esc(x.v) + '</span></li>').join('') + '</ul>' : '') + '</div>';
+  box.querySelector('.aiv-x').addEventListener('click', () => { lastRun = null; box.innerHTML = ''; });
+}
+function wireRunMenu(v, c, domain){
+  const wrap = v.querySelector('[data-aiv-run]'); if (!wrap) return;
+  const btn = wrap.querySelector('[data-aiv-runbtn]'), menu = wrap.querySelector('.aiv-run-menu');
+  const disarm = () => menu.querySelectorAll('.arm').forEach(b => { b.classList.remove('arm'); const sm = b.querySelector('small'); sm.textContent = sm.dataset.d; });
+  const close = () => { menu.hidden = true; btn.setAttribute('aria-expanded', 'false'); disarm(); document.removeEventListener('click', outside, true); };
+  const outside = e => { if (!wrap.contains(e.target)) close(); };
+  btn.addEventListener('click', () => {
+    if (busy) return;
+    if (!menu.hidden){ close(); return; }
+    menu.hidden = false; btn.setAttribute('aria-expanded', 'true');
+    document.addEventListener('click', outside, true);
+  });
+  menu.addEventListener('keydown', e => { if (e.key === 'Escape'){ close(); btn.focus(); } });
+  menu.addEventListener('click', async e => {
+    const it = e.target.closest('[data-aiv-job]'); if (!it || busy) return;
+    /* Jobs that spend DataforSEO credits take a second click. */
+    if (it.hasAttribute('data-cost') && !it.classList.contains('arm')){
+      disarm(); it.classList.add('arm'); it.querySelector('small').textContent = 'Uses DataforSEO credits · click again to run';
+      return;
+    }
+    const job = it.dataset.aivJob;
+    close();
+    busy = true; btn.disabled = true; btn.innerHTML = '<span class="aiv-spin"></span>Running: ' + esc(RUN_NAMES[job]) + '…';
+    const box = v.querySelector('[data-aiv-runbox]');
+    const show = (title, rows, isErr) => { lastRun = {domain, title, rows, isErr, at: Date.now()}; drawRunBox(v, domain); };
+    lastRun = null;
+    if (box) box.innerHTML = '<div class="aiv-runbox"><span class="aiv-spin"></span>Running ' + esc(RUN_NAMES[job].toLowerCase()) + ' for ' + esc(domain) + '. ' + (job === 'all' || job === 'aio' ? 'This can take a few minutes.' : 'This takes a moment.') + '</div>';
+    try{
+      const res = await runJob(domain, job);
+      const rows = Object.keys(res.results || {}).map(k => ({k: RUN_NAMES[k] || k, v: res.results[k], err: /^Error/.test(res.results[k])}));
+      busy = false;
+      if (loadedFor === c.id && active){ await load(true); }
+      btn.disabled = false; btn.textContent = 'Run for this client ▾';
+      show(rows.some(r => r.err) ? 'Finished for ' + domain + ' (with errors)' : 'Finished for ' + domain, rows);
+      try{ if (typeof toast === 'function') toast(RUN_NAMES[job] + ' finished for ' + domain); }catch(e){}
+    }catch(err){
+      busy = false;
+      show('Couldn’t run ' + RUN_NAMES[job].toLowerCase(), [{k: 'Error', v: err.message, err: true}], true);
+      btn.disabled = false; btn.textContent = 'Run for this client ▾';
+    }
+  });
+}
+
 function draw(v, c, feed, info){
   info = info || {};
   const domain = feed.domain;
   const tracking = feed.tracking || {};
   const actions =
     '<span class="aiv-status" data-aiv-fresh></span>' +
-    (tracking.ga4 ? '<button class="aiv-btn" type="button" data-aiv-refresh title="Pull the latest GA4 data for this client now">Refresh GA4</button>' : '') +
+    runMenuHtml(tracking) +
     '<button class="aiv-btn go" type="button" data-aiv-share>Share report</button>' +
     '<button class="aiv-btn" type="button" data-aiv-conn title="Tracker connection" aria-label="Tracker connection">⚙</button>';
-  const top = '<div data-aiv-sharebox></div>' + (!tracking.ga4
+  const top = '<div data-aiv-runbox></div><div data-aiv-sharebox></div>' + (!tracking.ga4
     ? '<div class="aiv-note">GA4 isn’t matched for ' + esc(domain) + ' yet. The tracker looks for a GA4 web stream with this website each week; you can also type the property number into the Clients tab of the tracker sheet.</div>'
     : '');
 
@@ -1679,13 +1785,8 @@ function draw(v, c, feed, info){
   setFreshness(v, info);
 
   const s = settings();
-  const ref = v.querySelector('[data-aiv-refresh]');
-  if (ref) ref.addEventListener('click', async () => {
-    if (busy) return;
-    busy = true; ref.disabled = true; ref.innerHTML = '<span class="aiv-spin"></span>Refreshing';
-    try{ await apiPost(s.url, {key: s.key, action: 'refresh', domain}); busy = false; load(true); }
-    catch(err){ busy = false; ref.disabled = false; ref.textContent = 'Refresh GA4'; alert('GA4 refresh failed: ' + err.message); }
-  });
+  wireRunMenu(v, c, domain);
+  drawRunBox(v, domain);
 
   v.querySelector('[data-aiv-conn]').addEventListener('click', () => renderConnect(v));
   v.querySelector('[data-aiv-share]').addEventListener('click', () => share(v, c, domain));
