@@ -1740,7 +1740,32 @@ window.AIVis.run = runJob;
    there (daily impressions for 3 months, pages for last month) and posts it back to this page, and this
    page hands it to the tracker with the saved connection. The tracker key never leaves this page. */
 const GSC_AI_URL = 'https://search.google.com/search-console/performance/search-analytics/ai';
-const gscSync = {win: null, got: {}, done: null};
+const gscSync = {win: null, got: {}, done: null, pending: [], flushing: null};
+/* Tables go to the tracker in batches: it writes each sheet once per call, under a lock, so a few
+   calls with many tables are much faster and safer than one call per table. */
+function gscFlush(){
+  if (gscSync.flushing) return gscSync.flushing;
+  gscSync.flushing = (async () => {
+    const s = settings();
+    while (gscSync.pending.length){
+      await new Promise(r => setTimeout(r, 2500));   /* let a few tables gather */
+      const batch = gscSync.pending.splice(0, 16), mark = (t, v) => { gscSync.got[t.domain + ' · ' + t.report] = v; };
+      for (let n = 1; n <= 5; n++){
+        try{
+          const res = await apiPost(s.url, {key: s.key, action: 'ingestBatch', tables: batch});
+          (res.results || []).forEach(x => mark(x, x.ok ? 'ok ' + x.rows : 'Error: ' + x.error));
+          break;
+        }catch(err){
+          batch.forEach(t => mark(t, 'Error: ' + err.message));
+          if (!/lock|timed out|HTTP 5/i.test(err.message) || n === 5) break;
+          await new Promise(r => setTimeout(r, 5000 * n));
+        }
+      }
+    }
+    gscSync.flushing = null;
+  })();
+  return gscSync.flushing;
+}
 window.addEventListener('message', async e => {
   if (e.origin !== 'https://search.google.com' || !e.data || typeof e.data !== 'object' || !gscSync.win || e.source !== gscSync.win) return;
   const m = e.data, s = settings();
@@ -1750,24 +1775,17 @@ window.addEventListener('message', async e => {
     try{ const cl = await apiGet(s.url, {action: 'clients', key: s.key}); domains = (cl.clients || []).map(x => x.domain).filter(Boolean); }catch(err){}
     e.source.postMessage({t: 'gscai-list', domains}, e.origin);
   } else if (m.t === 'gscai' && m.domain && Array.isArray(m.rows) && /^(Daily|Pages)$/.test(m.report)){
-    /* One at a time: the tracker writes under a lock, and two tables at once made the second time out. */
-    const k = m.domain + ' · ' + m.report, src = e.source;
-    gscSync.q = (gscSync.q || Promise.resolve()).then(async () => {
-      for (let n = 1; n <= 5; n++){
-        try{ await apiPost(s.url, {key: s.key, action: 'ingest', domain: m.domain, source: 'gsc', report: m.report, rows: m.rows}); gscSync.got[k] = 'ok ' + (m.rows.length - 1); break; }
-        catch(err){ gscSync.got[k] = 'Error: ' + err.message; if (!/lock/i.test(err.message)) break; await new Promise(r => setTimeout(r, 4000 * n)); }
-      }
-      try{ src.postMessage({t: 'gscai-ack', key: k, res: gscSync.got[k]}, 'https://search.google.com'); }catch(_){}
-    });
+    gscSync.pending.push({domain: m.domain, report: m.report, source: 'gsc', rows: m.rows});
+    gscFlush();
   } else if (m.t === 'gscai-done'){
-    await (gscSync.q || Promise.resolve());
+    while (gscSync.pending.length || gscSync.flushing) await (gscSync.flushing || gscFlush());
     gscSync.done = Object.assign({at: Date.now(), failed: Object.keys(gscSync.got).filter(k => !/^ok/.test(gscSync.got[k]))}, m);
     memFeed && Object.keys(memFeed).forEach(d => { delete memFeed[d]; });
     try{ if (typeof toast === 'function') toast('Google AI impressions synced for ' + (m.ok || 0) + ' clients'); }catch(_){}
   }
 });
-window.AIVis.gscSync = () => { gscSync.got = {}; gscSync.done = null; gscSync.win = window.open(GSC_AI_URL, 'gscsync'); return !!gscSync.win; };
-window.AIVis.gscSyncStatus = () => ({open: !!(gscSync.win && !gscSync.win.closed), got: gscSync.got, done: gscSync.done});
+window.AIVis.gscSync = () => { gscSync.got = {}; gscSync.done = null; gscSync.pending = []; gscSync.win = window.open(GSC_AI_URL, 'gscsync'); return !!gscSync.win; };
+window.AIVis.gscSyncStatus = () => ({open: !!(gscSync.win && !gscSync.win.closed), waiting: gscSync.pending.length, got: gscSync.got, done: gscSync.done});
 /* The last result stays on screen for this client, even when the report redraws with the new data. */
 let lastRun = null;
 function drawRunBox(v, domain){
