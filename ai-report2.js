@@ -8,12 +8,23 @@
   'use strict';
   const U = window.AIVis && window.AIVis.ui;
   if (!U) return;
-  const {esc, fmt, fmtK, pageKey, model, keyEventsOf} = U;
+  const {esc, fmt, fmtK, pageKey, model, keyEventsOf, keLabel} = U;
 
   const C = {ink: '#222A30', ink2: '#5b6670', ink3: '#8593a0', line: '#e6eaee', bg: '#f4f6f8',
     blue: '#5CBAE6', green: '#B6D957', yellow: '#FAC364', dark: '#171614', up: '#1f9d55', down: '#d64545'};
   const PCOL = {ChatGPT: '#5CBAE6', Gemini: '#B6D957', Copilot: '#FAC364', Perplexity: '#8CD3FF', Claude: '#D97757', 'Meta AI': '#7FC8A9', Grok: '#C3A6E6', DeepSeek: '#E39FC6'};
   const pc = n => PCOL[n] || '#9DA8B3';
+  /* Each assistant's own site icon (as analytics tools show traffic sources), with a coloured letter badge if it can't load. */
+  const PDOM = {ChatGPT: 'chatgpt.com', Gemini: 'gemini.google.com', Copilot: 'copilot.microsoft.com', Perplexity: 'perplexity.ai', Claude: 'claude.ai', 'Meta AI': 'meta.ai', Grok: 'grok.com', DeepSeek: 'deepseek.com'};
+  const icon = (name, size) => {
+    size = size || 22;
+    const badge = '<span class="ar-ico-b" style="width:' + size + 'px;height:' + size + 'px;background:' + pc(name) + ';font-size:' + Math.round(size * .5) + 'px">' + esc(String(name || '?').charAt(0)) + '</span>';
+    const d = PDOM[name];
+    if (!d) return '<span class="ar-ico" style="width:' + size + 'px;height:' + size + 'px">' + badge + '</span>';
+    return '<span class="ar-ico" style="width:' + size + 'px;height:' + size + 'px"><img src="https://www.google.com/s2/favicons?domain=' + d + '&sz=64" alt="" width="' + size + '" height="' + size + '" loading="eager" referrerpolicy="no-referrer" style="opacity:0" onload="this.style.opacity=1" onerror="this.remove()">' + badge + '</span>';
+  };
+  const who = (name, size) => '<span class="ar-who">' + icon(name, size) + '<span>' + esc(name) + '</span></span>';
+  const pct = (a, b) => b ? (Math.round(a / b * 1000) / 10) + '%' : '—';
 
   const iso = d => d.toISOString().slice(0, 10);
   const monthRange = (y, m) => ({since: iso(new Date(Date.UTC(y, m, 1, 12))), end: iso(new Date(Date.UTC(y, m + 1, 0, 12)))});
@@ -69,6 +80,33 @@
 .ar-tag{font-size:11.5px;font-weight:600;border-radius:4px;padding:2px 7px;white-space:nowrap}
 .ar-tag.y{color:#1f7a45;background:#e8f6ee}.ar-tag.m{color:#8a5a00;background:#fdf3dc}.ar-tag.n{color:${C.ink2};background:${C.bg}}
 .ar-note{font-size:11.5px;color:${C.ink3};line-height:1.5}
+.ar-ico{position:relative;display:inline-block;flex:none;border-radius:6px;overflow:hidden;vertical-align:middle}
+.ar-ico img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#fff;z-index:1;transition:opacity .15s}
+.ar-ico-b{position:absolute;inset:0;display:grid;place-items:center;color:#fff;font-weight:700;border-radius:6px}
+.ar-who{display:inline-flex;align-items:center;gap:9px;font-weight:500}
+.ar-asst{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}
+.ar-a{border:1px solid ${C.line};border-radius:8px;padding:14px 16px;display:grid;gap:10px;background:#fff;position:relative;overflow:hidden}
+.ar-a:before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--c)}
+.ar-a-h{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.ar-a-n{font-size:14px;font-weight:600}
+.ar-a-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.ar-a-row div{font-size:11.5px;color:${C.ink3}}
+.ar-a-row b{display:block;font-size:20px;font-weight:600;color:${C.ink};margin-top:2px}
+.ar-share{height:6px;border-radius:3px;background:${C.bg};overflow:hidden}
+.ar-share i{display:block;height:100%;background:var(--c);border-radius:3px}
+.ar-a-f{font-size:12px;color:${C.ink2}}
+.ar-mx th.c,.ar-mx td.c{text-align:center}
+.ar-mx th.c .ar-ico{margin:0 auto}
+.ar-pill{display:inline-block;min-width:28px;padding:3px 8px;border-radius:999px;font-weight:600;font-size:12.5px;background:${C.bg};color:${C.ink3}}
+.ar-pill.on{background:#e8f6ee;color:#1f7a45}
+.ar-icons{display:inline-flex;gap:4px;align-items:center}
+.ar-convs{display:grid;grid-template-columns:minmax(260px,1fr) 2fr;gap:20px;align-items:start}
+.ar-conv-big{display:flex;flex-direction:column;gap:12px}
+.ar-conv-big .ar-kpi-v{font-size:40px}
+.ar-bar{display:grid;gap:8px}
+.ar-bar div{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;font-size:13px}
+.ar-bar .t{height:8px;border-radius:4px;background:${C.bg};overflow:hidden}.ar-bar .t i{display:block;height:100%;border-radius:4px}
+@media (max-width:820px){.ar-convs{grid-template-columns:1fr}}
 .ar-foot{font-size:11.5px;color:${C.ink3};text-align:right}
 @media (max-width:720px){.ar-g2{grid-template-columns:1fr}.ar-trio{grid-template-columns:1fr}.ar-trio>div{border-right:0;border-bottom:1px solid ${C.line}}}`;
     document.head.appendChild(s);
@@ -145,16 +183,34 @@
       (gHas ? kpi('Google AI Impressions', fmt(M.google.n), M.google.n, gComplete ? prevG : null, gComplete ? '' : 'data to ' + esc(U.shortDate(gLast))) : '') +
       (aio.length ? kpi('AI Overview Mentions', fmt(mentioned) + '<span style="font-size:18px;color:' + C.ink3 + ';font-weight:500"> / ' + fmt(aio.length) + '</span>', null, null, 'tracked searches that name or cite the business') : '');
 
-    /* ---------- Assistants table ---------- */
-    const platRows = plats.slice().sort((a, b) => b.s - a.s).map(p => '<tr><td><span class="ar-dot" style="background:' + pc(p.name) + '"></span>' + esc(p.name) + '</td><td class="n">' + fmt(p.s) + '</td><td class="n">' + fmt(p.k) + '</td><td class="n">' + change(p.s, p.ps) + '</td></tr>').join('');
+    /* ---------- AI assistants: one card each ---------- */
+    const platsNow = plats.slice().sort((a, b) => b.s - a.s || b.ps - a.ps);
+    const evKnown = !!(M.keyEv && M.keyEv.known);
+    const types = keyEventsOf((M.keyEv && M.keyEv.rows) || []);
+    const topTypeOf = name => { const t = types.filter(x => x.plats[name]).sort((a, b) => b.plats[name] - a.plats[name])[0]; return t ? t.label : ''; };
+    const asstCards = platsNow.map(p => '<div class="ar-a" style="--c:' + pc(p.name) + '"><div class="ar-a-h"><span class="ar-who">' + icon(p.name, 26) + '<span class="ar-a-n">' + esc(p.name) + '</span></span>' + change(p.s, p.ps) + '</div>' +
+      '<div class="ar-a-row"><div>Visits<b>' + fmt(p.s) + '</b></div><div>Conversions<b>' + fmt(p.k) + '</b></div><div>Conv. rate<b>' + pct(p.k, p.s) + '</b></div></div>' +
+      '<div class="ar-share" title="Share of all AI visits"><i style="width:' + (M.ai.s ? Math.round(p.s / M.ai.s * 100) : 0) + '%"></i></div>' +
+      '<div class="ar-a-f">' + (M.ai.s ? Math.round(p.s / M.ai.s * 100) + '% of AI visits' : 'No visits this month') + (topTypeOf(p.name) ? ' · mostly <b>' + esc(topTypeOf(p.name)) + '</b>' : '') + '</div></div>').join('');
 
-    /* ---------- Top pages from AI ---------- */
+    /* ---------- Conversions from AI: which assistant, which kind ---------- */
+    const convPlats = platsNow.filter(p => p.k || types.some(t => t.plats[p.name]));
+    const convMax = Math.max(1, ...convPlats.map(p => p.k));
+    const convBars = convPlats.length ? '<div class="ar-bar">' + convPlats.map(p => '<div>' + who(p.name, 20) + '<span class="t"><i style="width:' + (p.k / convMax * 100) + '%;background:' + pc(p.name) + '"></i></span><b>' + fmt(p.k) + '</b></div>').join('') + '</div>' : '';
+    const matrix = types.length ? '<table class="ar-t ar-mx"><thead><tr><th>Conversion</th>' + convPlats.map(p => '<th class="c" title="' + esc(p.name) + '">' + icon(p.name, 22) + '<div style="margin-top:4px;text-transform:none;letter-spacing:0">' + esc(p.name) + '</div></th>').join('') + '<th class="n">Total</th></tr></thead><tbody>' +
+      types.slice(0, 8).map(t => '<tr><td>' + esc(t.label) + '</td>' + convPlats.map(p => '<td class="c"><span class="ar-pill' + (t.plats[p.name] ? ' on' : '') + '">' + fmt(t.plats[p.name] || 0) + '</span></td>').join('') + '<td class="n"><b>' + fmt(t.n) + '</b></td></tr>').join('') + '</tbody></table>'
+      : '<div class="ar-empty">' + (M.ai.k ? 'Conversion types aren’t available for this site yet.' : 'No conversions from AI visitors in ' + esc(cur.name) + (P.ai.k ? ' (' + fmt(P.ai.k) + ' in ' + esc(prev.name.split(' ')[0]) + ').' : '.')) + '</div>';
+    const convCard = '<div class="ar-card"><h2 class="ar-h">Conversions from AI Assistants</h2><p class="ar-cap">Forms, calls, emails and other goals completed by visitors who came from an AI assistant in ' + esc(cur.name) + '.</p>' +
+      '<div class="ar-convs"><div class="ar-conv-big"><div><div class="ar-kpi-l">Total conversions</div><div class="ar-kpi-v">' + fmt(M.ai.k) + '</div><div class="ar-kpi-f">' + change(M.ai.k, P.ai.k) + '<span>vs ' + esc(prev.label) + ' (' + fmt(P.ai.k) + ')</span></div></div>' + convBars + '</div>' +
+      '<div>' + matrix + '</div></div></div>';
+
+    /* ---------- Top pages from AI, with the assistants that sent people there ---------- */
     const pm = {};
-    M.cur.forEach(r => { const k = pageKey(r[3]); if (k === 'Landing page not recorded') return; const o = pm[k] = pm[k] || {k, s: 0, c: 0}; o.s += Number(r[4]) || 0; o.c += Number(r[6]) || 0; });
+    M.cur.forEach(r => { const k = pageKey(r[3]); if (k === 'Landing page not recorded') return; const o = pm[k] = pm[k] || {k, s: 0, c: 0, by: {}}; o.s += Number(r[4]) || 0; o.c += Number(r[6]) || 0; o.by[r[1]] = (o.by[r[1]] || 0) + (Number(r[4]) || 0); });
     const pages = Object.values(pm).sort((a, b) => b.s - a.s).slice(0, 6);
 
     /* ---------- Google AI → website ---------- */
-    const G = M.gorg, types = keyEventsOf(G.events || []);
+    const G = M.gorg, gTypes = keyEventsOf(G.events || []);
     /* Visits and conversions for the report month only (the shared model sums every month here). */
     const goRows = ((feed.gorg && feed.gorg.rows) || []).filter(r => r[0] >= cur.since && r[0] <= cur.end);
     const gPages = (G.pages || []).map(p => { const rs = goRows.filter(r => pageKey(r[1]) === p.key);
@@ -166,7 +222,7 @@
       '<div><small>→ Conversions</small><b>' + fmt(G.k) + '</b><span>' + (G.s ? Math.round(G.k / G.s * 1000) / 10 + '% of those visits' : '&nbsp;') + '</span></div></div>' +
       '<table class="ar-t"><thead><tr><th>Page Google’s AI showed</th><th class="n">AI impressions' + (pagesMonth ? ' (' + esc(pagesMonth.split(' ')[0].slice(0, 3)) + ')' : '') + '</th><th class="n">Visits from Google</th><th class="n">Conversions</th></tr></thead><tbody>' +
       gPages.map(p => '<tr><td class="pg" title="' + esc(p.key) + '">' + esc(p.key) + '</td><td class="n">' + fmt(p.n) + '</td><td class="n">' + fmt(p.s) + '</td><td class="n">' + fmt(p.k) + '</td></tr>').join('') + '</tbody></table>' +
-      (types.length ? '<p class="ar-note" style="margin:10px 0 0"><b style="color:' + C.ink2 + '">Conversions:</b> ' + types.slice(0, 4).map(e => fmt(e.n) + ' ' + esc(e.label)).join(' · ') + '</p>' : '') +
+      (gTypes.length ? '<p class="ar-note" style="margin:10px 0 0"><b style="color:' + C.ink2 + '">Conversions:</b> ' + gTypes.slice(0, 4).map(e => fmt(e.n) + ' ' + esc(e.label)).join(' · ') + '</p>' : '') +
       '<p class="ar-note" style="margin:6px 0 0">Google doesn’t say which visits came from AI Overviews or AI Mode, so visits and conversions include everyone who reached these pages from Google search.</p></div>' : '';
 
     /* ---------- AI Overview checks ---------- */
@@ -183,10 +239,11 @@
       '<div class="ar-kpis">' + kpis + '</div>' +
       '<div class="ar-g2"><div class="ar-card"><h2 class="ar-h">AI Assistant Visits by Month</h2><p class="ar-cap">Full months only. ChatGPT, Gemini, Copilot, Perplexity and others.</p>' + bars(monthly.map(x => ({label: x.label, name: x.name, v: x.ai})), C.dark, {label: 'AI assistant visits by month'}) + '</div>' +
         (gHas ? '<div class="ar-card"><h2 class="ar-h">Google AI Impressions by Month</h2><p class="ar-cap">Times the site appeared in AI Overviews and AI Mode (Search Console).' + (monthly.some(x => x.gPart) ? ' Part months are shown striped.' : '') + '</p>' + bars(monthly.map(x => ({label: x.label, name: x.name, v: x.g, part: x.gPart, note: x.gNote})), '#8fbf2f', {label: 'Google AI impressions by month'}) + '</div>' : '<div></div>') + '</div>' +
-      '<div class="ar-g2"><div class="ar-card"><h2 class="ar-h">AI Visits by Assistant</h2><p class="ar-cap">' + esc(cur.name) + ', compared with ' + esc(prev.name.split(' ')[0]) + '.</p>' +
-        (platRows ? '<table class="ar-t"><thead><tr><th>Assistant</th><th class="n">Visits</th><th class="n">Conversions</th><th class="n">vs ' + esc(prev.label) + '</th></tr></thead><tbody>' + platRows + '</tbody></table>' : '<div class="ar-empty">No AI assistant visits this month.</div>') + '</div>' +
-        '<div class="ar-card"><h2 class="ar-h">Top Pages from AI Assistants</h2><p class="ar-cap">Where AI visitors landed in ' + esc(cur.name) + '.</p>' +
-        (pages.length ? '<table class="ar-t"><thead><tr><th>Page</th><th class="n">Visits</th><th class="n">Conversions</th></tr></thead><tbody>' + pages.map(p => '<tr><td class="pg" title="' + esc(p.k) + '">' + esc(p.k) + '</td><td class="n">' + fmt(p.s) + '</td><td class="n">' + fmt(p.c) + '</td></tr>').join('') + '</tbody></table>' : '<div class="ar-empty">No AI assistant visits this month.</div>') + '</div></div>' +
+      '<div class="ar-card"><h2 class="ar-h">AI Assistants</h2><p class="ar-cap">Which AI assistants sent visitors in ' + esc(cur.name) + ', and what those visitors did. Change is compared with ' + esc(prev.name.split(' ')[0]) + '.</p>' +
+        (asstCards ? '<div class="ar-asst">' + asstCards + '</div>' : '<div class="ar-empty">No AI assistant visits this month.</div>') + '</div>' +
+      convCard +
+      '<div class="ar-card"><h2 class="ar-h">Top Pages from AI Assistants</h2><p class="ar-cap">Where AI visitors landed in ' + esc(cur.name) + ', and which assistants sent them.</p>' +
+        (pages.length ? '<table class="ar-t"><thead><tr><th>Page</th><th>Sent by</th><th class="n">Visits</th><th class="n">Conversions</th></tr></thead><tbody>' + pages.map(p => '<tr><td class="pg" title="' + esc(p.k) + '">' + esc(p.k) + '</td><td><span class="ar-icons">' + Object.keys(p.by).sort((a, b) => p.by[b] - p.by[a]).map(n => '<span title="' + esc(n + ': ' + p.by[n] + ' visit' + (p.by[n] === 1 ? '' : 's')) + '">' + icon(n, 20) + '</span>').join('') + '</span></td><td class="n">' + fmt(p.s) + '</td><td class="n">' + fmt(p.c) + '</td></tr>').join('') + '</tbody></table>' : '<div class="ar-empty">No AI assistant visits this month.</div>') + '</div>' +
       googleCard + aioCard +
       '<div class="ar-foot">' + esc(opts.foot || '') + '</div></div>';
   }
