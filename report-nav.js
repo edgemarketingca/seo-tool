@@ -119,7 +119,8 @@
     pos.forEach(({w}) => {
       const type = w.dataset.type || '';
       if (w.classList.contains('sec')){
-        group = clean(w.innerText).split('\n')[0].slice(0, 60) || 'Section';
+        const t = w.querySelector('.rp-sec-t');
+        group = (clean(t && t.textContent) || clean(String(w.innerText || '').split('\n').find(x => clean(x)) || '')).slice(0, 60) || 'Section';
         out.push({el: w, label: group, group, header: true});
         return;
       }
