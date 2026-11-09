@@ -272,7 +272,7 @@
       '<div class="ar-card"><h2 class="ar-h">Visits from AI \u2014 Last 3 Months</h2><p class="ar-cap">Each bar is one full month, split by the AI source that sent the visitors.</p>' + (srcNames.length ? stacked() + monthTable : '<div class="ar-empty">No visits from AI in the last three months.</div>') + gLine + '</div>' +
       '<div class="ar-card"><h2 class="ar-h">Pages AI Brought Visitors To</h2><p class="ar-cap">The pages visitors from AI landed on in ' + esc(cur.name) + ', and which AI source sent them.</p>' +
         (pages.length ? '<table class="ar-t"><thead><tr><th>Page</th><th>Source</th><th class="n">Visits</th><th class="n">Conversions</th></tr></thead><tbody>' + pages.map(p => '<tr><td class="pg" title="' + esc(p.k) + '">' + esc(p.k) + '</td><td>' + who(p.src, 20) + '</td><td class="n">' + fmt(p.s) + '</td><td class="n">' + fmt(p.c) + '</td></tr>').join('') + '</tbody></table>' : '<div class="ar-empty">No visits from AI this month.</div>') + '</div>' +
-      aioCard +
+      /* 'Is the business in Google's AI answers?' table hidden from the client report */
       '<div class="ar-foot">' + esc(opts.foot || '') + '</div></div>';
   }
 
