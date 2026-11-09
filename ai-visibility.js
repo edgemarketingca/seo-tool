@@ -109,6 +109,8 @@ function injectStyles(){
 .aiv-runbox li b{flex:none;width:150px;font-weight:600;color:var(--a-ink2);}
 .aiv-runbox li span{color:var(--a-ink);word-break:break-word;}
 .aiv-runbox li.err span{color:var(--a-bad);}
+.aiv-pub{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--a-card);border:1px solid var(--a-line);border-radius:10px;padding:10px 14px;margin:0 0 12px;font-size:13px}
+.aiv-pub .aiv-btn[disabled]{opacity:.45;cursor:default}
 .aiv-seg{display:inline-flex;background:var(--a-line2);border-radius:9px;padding:3px;}
 .aiv-seg button{border:0;background:none;font:600 12px var(--ui,Inter,sans-serif);color:var(--a-ink2);padding:5px 10px;border-radius:7px;cursor:pointer;}
 .aiv-seg button.on{background:var(--a-card);color:var(--a-deep);box-shadow:0 1px 2px rgba(20,28,36,.08);}
@@ -1848,8 +1850,10 @@ function draw(v, c, feed, info){
   info = info || {};
   const domain = feed.domain;
   const tracking = feed.tracking || {};
+  const useWidgets = aivMode === 'report' && window.AIReport2 && window.AIReport2.render;
   const actions =
     '<span class="aiv-status" data-aiv-fresh></span>' +
+    (window.AIReport2 ? '<div class="aiv-seg" data-aiv-mode><button type="button" data-m="report"' + (useWidgets ? ' class="on"' : '') + '>Report widgets</button><button type="button" data-m="details"' + (useWidgets ? '' : ' class="on"') + '>Details</button></div>' : '') +
     runMenuHtml(tracking) +
     '<button class="aiv-btn go" type="button" data-aiv-share>Share report</button>' +
     '<button class="aiv-btn" type="button" data-aiv-conn title="Tracker connection" aria-label="Tracker connection">⚙</button>';
@@ -1857,7 +1861,8 @@ function draw(v, c, feed, info){
     ? '<div class="aiv-note">GA4 isn’t matched for ' + esc(domain) + ' yet. The tracker looks for a GA4 web stream with this website each week; you can also type the property number into the Clients tab of the tracker sheet.</div>'
     : '');
 
-  render(v, feed, {
+  if (useWidgets) drawWidgets(v, c, feed, actions, top);
+  else render(v, feed, {
     period, actionsHtml: actions, topHtml: top,
     loadJourneys: tracking.ga4 ? (since, end) => apiGet(settings().url, {action: 'journeys', domain, key: settings().key, start: since, end}) : null,
     onPeriod: p => { period = p; closeDrawer(); draw(v, c, feed, info); }
@@ -1870,12 +1875,81 @@ function draw(v, c, feed, info){
 
   v.querySelector('[data-aiv-conn]').addEventListener('click', () => renderConnect(v));
   v.querySelector('[data-aiv-share]').addEventListener('click', () => share(v, c, domain));
+  v.querySelectorAll('[data-aiv-mode] [data-m]').forEach(b => b.addEventListener('click', () => {
+    if (b.dataset.m === aivMode) return;
+    aivMode = b.dataset.m; try{ localStorage.setItem('aivMode', aivMode); }catch(e){}
+    closeDrawer(); draw(v, c, feed, info);
+  }));
+}
+
+/* ---------- Report widgets: the client's AgencyAnalytics report, editable ----------
+   The same widgets the shared report (ai-report.html) shows, always for the last full month.
+   Hide, move or add widgets here; Publish saves the layout on this client's report link,
+   so the AgencyAnalytics embed changes for this client only. */
+var aivMode = (() => { try{ return localStorage.getItem('aivMode') || 'report'; }catch(e){ return 'report'; } })();
+const pubLayout = {};    /* client id -> {layout, exists} from the shared report link */
+const draftKey = c => 'aivLayoutDraft:' + c.id;
+const memDraft = {};
+const getDraft = c => { if (c.id in memDraft) return memDraft[c.id]; try{ const d = JSON.parse(localStorage.getItem(draftKey(c)) || 'null'); return Array.isArray(d) ? d : null; }catch(e){ return null; } };
+const setDraft = (c, l) => { memDraft[c.id] = l || null; try{ if (l) localStorage.setItem(draftKey(c), JSON.stringify(l)); else localStorage.removeItem(draftKey(c)); }catch(e){} };
+const defLayout = () => (window.AIReport2.DEFAULT_LAYOUT || []).slice();
+const publishedOf = c => (pubLayout[c.id] && Array.isArray(pubLayout[c.id].layout) && pubLayout[c.id].layout.length) ? pubLayout[c.id].layout : defLayout();
+const layoutOf = c => getDraft(c) || publishedOf(c);
+function loadPub(c){
+  if (typeof fbDb === 'undefined' || !fbDb) return Promise.resolve();
+  return fbDb.collection('publicViews').doc(reportId(c)).get().then(d => {
+    pubLayout[c.id] = {exists: d.exists, layout: d.exists ? (d.data() || {}).layout || null : null};
+  }).catch(() => {});
+}
+function drawWidgets(v, c, feed, actions, top){
+  injectStyles();
+  const domain = feed.domain;
+  v.innerHTML = '<div class="aiv"><div class="aiv-head"><div><h2 class="aiv-title">' + esc((c.name || domain) + ' — AI visibility') + '</h2>' +
+    '<div class="aiv-sub">' + esc(domain) + ' · last full month · the widgets this client sees in AgencyAnalytics</div></div>' +
+    '<div class="aiv-actions">' + actions + '</div></div>' + top +
+    '<div class="aiv-pubbar" data-aiv-pub></div><div data-aiv-canvas style="background:#fafafa;border-radius:10px;padding:14px"></div></div>';
+  const canvas = v.querySelector('[data-aiv-canvas]'), bar = v.querySelector('[data-aiv-pub]');
+  let note = '';
+  const paint = () => window.AIReport2.render(canvas, feed, {edit: true, layout: layoutOf(c), onLayout: l => { setDraft(c, l); note = ''; paint(); pub(); }});
+  const pub = () => {
+    const known = c.id in pubLayout, shared = known && pubLayout[c.id].exists;
+    const dirty = JSON.stringify(layoutOf(c)) !== JSON.stringify(publishedOf(c));
+    const grid = canvas.querySelector('.ar-grid'), h = grid ? Math.ceil(grid.getBoundingClientRect().height / 50) * 50 + 100 : 0;
+    const st = !known ? '<span class="aiv-status"><span class="aiv-spin"></span>Checking the published layout…</span>'
+      : note ? '<span class="aiv-status">' + note + '</span>'
+      : !shared ? '<span class="aiv-status">Not shared yet. Publish creates this client’s report link.</span>'
+      : dirty ? '<span class="aiv-status" style="color:#b54708;font-weight:600">Unpublished changes</span>'
+      : '<span class="aiv-status" style="color:#0f7a58;font-weight:600">✓ Published · this is what the client sees</span>';
+    bar.innerHTML = '<div class="aiv-pub">' + '<b>Client report</b>' + st +
+      '<span class="aiv-status" title="Set this as the embed height in AgencyAnalytics">Embed height ≈ ' + h + ' px</span><span style="flex:1"></span>' +
+      (dirty ? '<button class="aiv-btn" type="button" data-pub="discard">Discard changes</button>' : '') +
+      '<button class="aiv-btn" type="button" data-pub="reset" title="Back to the standard widgets">Reset to default</button>' +
+      '<button class="aiv-btn go" type="button" data-pub="publish"' + (known && shared && !dirty ? ' disabled' : '') + '>Publish</button></div>';
+    bar.querySelectorAll('[data-pub]').forEach(b => b.addEventListener('click', async () => {
+      const a = b.dataset.pub;
+      if (a === 'discard'){ setDraft(c, null); note = ''; paint(); pub(); return; }
+      if (a === 'reset'){ setDraft(c, defLayout()); note = ''; paint(); pub(); return; }
+      b.disabled = true; b.innerHTML = '<span class="aiv-spin"></span>Publishing…';
+      try{
+        if (typeof fbDb === 'undefined' || !fbDb) throw new Error('Not connected to the cloud.');
+        if (!(pubLayout[c.id] && pubLayout[c.id].exists) && !(await share(v, c, domain))) throw new Error('the report link couldn\u2019t be created (see above).');
+        const lay = layoutOf(c);
+        await fbDb.collection('publicViews').doc(reportId(c)).set({layout: lay, layoutAt: Date.now()}, {merge: true});
+        pubLayout[c.id] = {exists: true, layout: lay}; setDraft(c, null);
+        note = '<span style="color:#0f7a58;font-weight:600">✓ Published.</span> The AgencyAnalytics report shows it on its next load.';
+      }catch(err){ note = '<span style="color:#b5352a">Couldn’t publish: ' + esc(err.message) + '</span>'; }
+      pub();
+    }));
+  };
+  paint(); pub();
+  if (!(c.id in pubLayout)) loadPub(c).then(() => { if (loadedFor === c.id && active && aivMode === 'report' && document.body.contains(canvas)){ if (!getDraft(c)) paint(); pub(); } });
 }
 
 /* Publishes a pointer, not data: the public page fetches live numbers with
    a read-only token that only opens this one client. The admin key never
    leaves this account, and the link never needs re-publishing. */
 async function share(v, c, domain){
+  let shareOk = false;
   const box = v.querySelector('[data-aiv-sharebox]');
   const s = settings();
   box.innerHTML = '<div class="aiv-share"><span class="aiv-spin"></span>Publishing…</div>';
@@ -1894,13 +1968,14 @@ async function share(v, c, domain){
     /* Ship the current numbers with the link so the report opens instantly. */
     const have = memFeed[domain] || cacheGet(domain);
     if (have){ const snap = JSON.stringify(have.feed); if (snap.length <= 900000){ doc.snap = snap; doc.snapAt = have.at; snapSig[c.id] = feedSig(have.feed); } }
-    await fbDb.collection('publicViews').doc(reportId(c)).set(doc);
+    await fbDb.collection('publicViews').doc(reportId(c)).set(doc, {merge: true});   /* merge keeps the published widget layout */
     const url = reportUrl(c);
     box.innerHTML = '<div class="aiv-share"><label>Report link</label><input readonly value="' + esc(url) + '">' +
       '<label>Embed code</label><textarea readonly rows="2">' + esc(embedCode(url)) + '</textarea>' +
       '<div class="aiv-actions"><button class="aiv-btn" type="button" data-copy="link">Copy link</button><button class="aiv-btn" type="button" data-copy="embed">Copy embed code</button>' +
       '<a class="aiv-btn" href="' + esc(url) + '" target="_blank" rel="noopener">Open</a>' +
       '<span class="aiv-status">Shows live data, so it never needs publishing again.</span></div></div>';
+    shareOk = true;
     box.querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', () => {
       const text = b.dataset.copy === 'link' ? url : embedCode(url);
       (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject()).then(
@@ -1910,6 +1985,7 @@ async function share(v, c, domain){
   }catch(err){
     box.innerHTML = '<div class="aiv-share"><span class="aiv-status err">Couldn’t publish: ' + esc(err.message) + '</span></div>';
   }
+  return shareOk;
 }
 
 })();
