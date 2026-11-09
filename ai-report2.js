@@ -139,7 +139,7 @@
   function render(root, feed, opts){
     opts = opts || {};
     styles();
-    const ms = months(6), cur = ms[5], prev = ms[4];
+    const ms = months(3), cur = ms[2], prev = ms[1];   /* the last three full months, ending last month */
     const M = model(feed, {since: cur.since, end: cur.end});
     const P = model(feed, {since: prev.since, end: prev.end});
     const up = feed.updated || {};
@@ -174,7 +174,7 @@
     const gOn = !!(G.known && (G.s || GP.s || gHas));
     const goEv = r => [r[0], GN, r[2], r[3], r[4]];   /* model gives [date, 'Google', page, event, count] */
     const sources = (gOn ? [{name: GN, s: G.s || 0, k: G.k || 0, ps: GP.s || 0, pk: GP.k || 0}] : [])
-      .concat(plats.map(p => ({name: p.name, s: p.s, k: p.k, ps: p.ps, pk: p.pk})));
+      .concat(plats.map(p => { const q = P.plats.find(x => x.name === p.name) || {}; return {name: p.name, s: p.s, k: p.k, ps: q.s || 0, pk: q.k || 0}; }));
     const tot = {s: sources.reduce((t, x) => t + x.s, 0), k: sources.reduce((t, x) => t + x.k, 0),
       ps: sources.reduce((t, x) => t + x.ps, 0), pk: sources.reduce((t, x) => t + x.pk, 0)};
     const evRows = ((M.keyEv && M.keyEv.rows) || []).concat(gOn ? (G.events || []).map(goEv) : []);
@@ -219,10 +219,10 @@
 
     /* ---------- Pages AI brought visitors to ---------- */
     const pm = {};
-    const addPg = (u, src, s0, k0) => { const k = pageKey(u); if (k === 'Landing page not recorded') return; const o = pm[k] = pm[k] || {k, s: 0, c: 0, by: {}}; o.s += s0; o.c += k0; o.by[src] = (o.by[src] || 0) + s0; };
+    const addPg = (u, src, s0, k0) => { const k = pageKey(u); if (k === 'Landing page not recorded') return; const o = pm[k] = pm[k] || {k, s: 0, c: 0, by: {}}; o.s += s0; o.c += k0; o.by[src] = (o.by[src] || 0) + s0; o.cb = o.cb || {}; o.cb[src] = (o.cb[src] || 0) + k0; };
     M.cur.forEach(r => addPg(r[3], r[1], Number(r[4]) || 0, Number(r[6]) || 0));
     if (gOn) ((feed.gorg && feed.gorg.rows) || []).filter(r => r[0] >= cur.since && r[0] <= cur.end).forEach(r => addPg(r[1], GN, Number(r[2]) || 0, Number(r[4]) || 0));
-    const pages = Object.values(pm).sort((a, b) => b.s - a.s).slice(0, 8);
+    const pages = [].concat(...Object.values(pm).map(o => Object.keys(o.by).map(n => ({k: o.k, src: n, s: o.by[n], c: (o.cb || {})[n] || 0})))).filter(p => p.s).sort((a, b) => b.s - a.s).slice(0, 8);
 
     /* ---------- Google AI Overviews ---------- */
     const lbl = c => c.cited ? '<span class="ar-tag y">Linked to the site</span>' : c.named ? '<span class="ar-tag y">Business named</span>' : c.shown ? '<span class="ar-tag m">Not mentioned</span>' : '<span class="ar-tag n">No AI answer</span>';
@@ -232,22 +232,46 @@
       aioSorted.slice(0, 8).map(c => '<tr><td>' + esc(c.k) + '</td><td>' + esc(c.loc || '') + '</td><td>' + lbl(c) + '</td></tr>').join('') + '</tbody></table>' +
       (aio.length > 8 ? '<p class="ar-note" style="margin:8px 0 0">and ' + (aio.length - 8) + ' more tracked searches.</p>' : '') + '</div>' : '';
 
-    /* Monthly visits from AI (Google AI Search + assistants) */
-    const monthlyV = ms.map(x => { const Mx = model(feed, {since: x.since, end: x.end}); const has = (ga4Start && ga4Start <= x.end) || (gStart && gStart <= x.end);
-      return {label: x.label, name: x.name, v: has ? (Mx.ai.s || 0) + (gOn && Mx.gorg ? Mx.gorg.s || 0 : 0) : null}; });
+    /* Visits from AI for each of the three months, split by source (same counting as the totals above) */
+    const srcMonth = ms.map(x => { const Mx = model(feed, {since: x.since, end: x.end});
+      const has = (ga4Start && ga4Start <= x.end) || (gStart && gStart <= x.end), by = {};
+      if (has){ if (gOn && Mx.gorg) by[GN] = Mx.gorg.s || 0; Mx.plats.forEach(p => { if (p.s) by[p.name] = (by[p.name] || 0) + p.s; }); }
+      return {label: x.label, name: x.name, has, by, total: Object.values(by).reduce((t, v) => t + v, 0)}; });
+    const srcNames = [...new Set([].concat(...srcMonth.map(m => Object.keys(m.by))))]
+      .sort((a, b) => srcMonth.reduce((t, m) => t + (m.by[b] || 0), 0) - srcMonth.reduce((t, m) => t + (m.by[a] || 0), 0));
+    const stacked = () => {
+      const W = 1200, H = 230, pt = 26, pb = 30, n = srcMonth.length, bw = W / n, w = Math.min(150, bw * .4);
+      const max = Math.max(1, ...srcMonth.map(m => m.total));
+      let o = '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" role="img" aria-label="Visits from AI by month and source" style="display:block">' +
+        '<line x1="0" x2="' + W + '" y1="' + (H - pb) + '" y2="' + (H - pb) + '" stroke="' + C.line + '"/>';
+      srcMonth.forEach((m, i) => {
+        const cx = bw * i + bw / 2, last = i === n - 1;
+        if (!m.has){ o += '<text x="' + cx + '" y="' + (H - pb - 8) + '" text-anchor="middle" font-size="11" fill="' + C.ink3 + '">no data</text>'; }
+        else {
+          let y = H - pb;
+          srcNames.forEach(nm => { const v = m.by[nm] || 0; if (!v) return; const h = Math.max(2, (H - pt - pb) * v / max); y -= h;
+            o += '<rect x="' + (cx - w / 2) + '" y="' + y + '" width="' + w + '" height="' + h + '" fill="' + pc(nm) + '" opacity="' + (last ? 1 : .55) + '"><title>' + esc(m.name + ' \u00b7 ' + nm + ': ' + fmt(v) + ' visit' + (v === 1 ? '' : 's')) + '</title></rect>'; });
+          o += '<text x="' + cx + '" y="' + (y - 7) + '" text-anchor="middle" font-size="13" font-weight="' + (last ? 700 : 600) + '" fill="' + C.ink + '">' + esc(fmt(m.total)) + '</text>';
+        }
+        o += '<text x="' + cx + '" y="' + (H - 8) + '" text-anchor="middle" font-size="12" font-weight="' + (last ? 700 : 400) + '" fill="' + (last ? C.ink : C.ink3) + '">' + esc(m.name) + '</text>';
+      });
+      return o + '</svg>';
+    };
+    const monthTable = srcNames.length ? '<table class="ar-t" style="margin-top:14px"><thead><tr><th>Source</th>' + srcMonth.map((m, i) => '<th class="n"' + (i === srcMonth.length - 1 ? ' style="color:' + C.ink + '"' : '') + '>' + esc(m.label) + '</th>').join('') + '</tr></thead><tbody>' +
+      srcNames.map(nm => '<tr><td>' + who(nm, 20) + '</td>' + srcMonth.map((m, i) => '<td class="n">' + (i === srcMonth.length - 1 ? '<b>' : '') + (m.has ? fmt(m.by[nm] || 0) : '\u2014') + (i === srcMonth.length - 1 ? '</b>' : '') + '</td>').join('') + '</tr>').join('') +
+      '<tr><td><b>Total visits from AI</b></td>' + srcMonth.map(m => '<td class="n"><b>' + (m.has ? fmt(m.total) : '\u2014') + '</b></td>').join('') + '</tr></tbody></table>' : '';
+    const gLine = gHas ? '<p class="ar-note" style="margin:12px 0 0">' + icon(GN, 14) + ' Times Google\u2019s AI showed the site: ' + monthly.map(x => esc(x.label) + ' <b style="color:' + C.ink2 + '">' + (x.g == null ? '\u2014' : fmt(x.g)) + '</b>' + (x.gNote ? ' (' + esc(x.gNote) + ')' : '')).join(' \u00b7 ') + '</p>' : '';
 
     root.innerHTML = '<div class="ar">' +
-      '<div class="ar-card ar-head"><div><h1 class="ar-title">' + esc(opts.title || ((feed.name || feed.domain) + ' — AI Visibility')) + '</h1><div class="ar-sub">How people found the website through AI</div></div><span class="ar-badge">' + esc(cur.name) + '</span></div>' +
       '<div class="ar-card ar-sum"><h2 class="ar-h">' + esc(cur.name) + ' at a glance</h2><ul>' + L.map(l => '<li>' + l + '</li>').join('') + '</ul></div>' +
       '<div class="ar-kpis">' + kpis + '</div>' +
       '<div class="ar-card"><h2 class="ar-h">Where AI Visitors Came From</h2><p class="ar-cap">Visits and conversions from each AI source in ' + esc(cur.name) + ', compared with ' + esc(prev.name.split(' ')[0]) + '.</p>' +
         (srcCards ? '<div class="ar-asst">' + srcCards + '</div>' : '<div class="ar-empty">No visits from AI this month.</div>') +
         (gOn ? '<p class="ar-note" style="margin:12px 0 0">' + icon(GN, 14) + ' <b style="color:' + C.ink2 + '">Google AI Search</b> counts Google visitors to the pages Google’s AI featured. Google doesn’t report AI clicks separately, so it also includes regular Google search clicks on those pages.</p>' : '') + '</div>' +
       convCard +
-      '<div class="ar-g2"><div class="ar-card"><h2 class="ar-h">Visits from AI by Month</h2><p class="ar-cap">Full months only.</p>' + bars(monthlyV, '#4285F4', {label: 'Visits from AI by month'}) + '</div>' +
-        (gHas ? '<div class="ar-card"><h2 class="ar-h">Times Google’s AI Showed the Site by Month</h2><p class="ar-cap">AI Overviews and AI Mode, from Google Search Console.' + (monthly.some(x => x.gPart) ? ' Part months are striped.' : '') + '</p>' + bars(monthly.map(x => ({label: x.label, name: x.name, v: x.g, part: x.gPart, note: x.gNote})), '#8fbf2f', {label: 'Google AI impressions by month'}) + '</div>' : '<div></div>') + '</div>' +
-      '<div class="ar-card"><h2 class="ar-h">Pages AI Brought Visitors To</h2><p class="ar-cap">The pages visitors from AI landed on in ' + esc(cur.name) + ', and where they came from.</p>' +
-        (pages.length ? '<table class="ar-t"><thead><tr><th>Page</th><th>From</th><th class="n">Visits</th><th class="n">Conversions</th></tr></thead><tbody>' + pages.map(p => '<tr><td class="pg" title="' + esc(p.k) + '">' + esc(p.k) + '</td><td><span class="ar-icons">' + Object.keys(p.by).sort((a, b) => p.by[b] - p.by[a]).map(n => '<span title="' + esc(n + ': ' + p.by[n] + ' visit' + (p.by[n] === 1 ? '' : 's')) + '">' + icon(n, 20) + '</span>').join('') + '</span></td><td class="n">' + fmt(p.s) + '</td><td class="n">' + fmt(p.c) + '</td></tr>').join('') + '</tbody></table>' : '<div class="ar-empty">No visits from AI this month.</div>') + '</div>' +
+      '<div class="ar-card"><h2 class="ar-h">Visits from AI \u2014 Last 3 Months</h2><p class="ar-cap">Each bar is one full month, split by the AI source that sent the visitors.</p>' + (srcNames.length ? stacked() + monthTable : '<div class="ar-empty">No visits from AI in the last three months.</div>') + gLine + '</div>' +
+      '<div class="ar-card"><h2 class="ar-h">Pages AI Brought Visitors To</h2><p class="ar-cap">The pages visitors from AI landed on in ' + esc(cur.name) + ', and which AI source sent them.</p>' +
+        (pages.length ? '<table class="ar-t"><thead><tr><th>Page</th><th>Source</th><th class="n">Visits</th><th class="n">Conversions</th></tr></thead><tbody>' + pages.map(p => '<tr><td class="pg" title="' + esc(p.k) + '">' + esc(p.k) + '</td><td>' + who(p.src, 20) + '</td><td class="n">' + fmt(p.s) + '</td><td class="n">' + fmt(p.c) + '</td></tr>').join('') + '</tbody></table>' : '<div class="ar-empty">No visits from AI this month.</div>') + '</div>' +
       aioCard +
       '<div class="ar-foot">' + esc(opts.foot || '') + '</div></div>';
   }
