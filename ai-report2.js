@@ -122,6 +122,19 @@
 .ar-t td b{color:#555}.ar-who{font-weight:400}
 .ar-pill{font-size:14px;min-width:34px;padding:4px 10px}
 .ar-empty{font-size:14px}
+.ar-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:12px}
+.ar-cell{grid-column:span var(--span,6);display:flex;flex-direction:column;min-width:0}.ar-cell>.ar-card{flex:1}
+.ar-ed{position:relative;outline:1px dashed transparent;outline-offset:3px;border-radius:8px}.ar-ed:hover{outline-color:#c4c9d0}
+.ar-tools{position:absolute;top:8px;right:8px;z-index:2;display:none;gap:4px}.ar-ed:hover .ar-tools{display:flex}
+.ar-tools button{font:500 12px Geist,Arial,sans-serif;color:#555;background:#fff;border:1px solid #ebedf0;border-radius:5px;padding:4px 8px;cursor:pointer}
+.ar-tools button:hover:not(:disabled){background:#f4f4f5}.ar-tools button:disabled{opacity:.35;cursor:default}
+.ar-tools [data-act=hide]{color:#b42318}
+.ar-lib{background:#fff;border:1px dashed #c4c9d0;border-radius:6px;padding:16px 18px}
+.ar-lib-h{font-size:14px;color:#555;margin-bottom:12px}
+.ar-lib-g{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+.ar-lib-i{display:grid;grid-template-columns:22px 1fr;gap:2px 8px;text-align:left;font:400 13px Geist,Arial,sans-serif;color:#555;background:#fafafa;border:1px solid #ebedf0;border-radius:6px;padding:10px 12px;cursor:pointer}
+.ar-lib-i:hover{background:#f4f4f5;border-color:#c4c9d0}.ar-lib-i b{grid-row:span 2;font-size:18px;color:#4285F4;line-height:1}.ar-lib-i small{color:#a1a1aa;font-size:11.5px}
+@media (max-width:720px){.ar-cell{grid-column:span 6}}
 @media (max-width:720px){.ar-g2{grid-template-columns:1fr}.ar-trio{grid-template-columns:1fr}.ar-trio>div{border-right:0;border-bottom:1px solid ${C.line}}}`;
     document.head.appendChild(s);
   }
@@ -274,16 +287,52 @@
       '</tbody></table>' : '';
     const gLine = gHas ? '<p class="ar-note" style="margin:12px 0 0">' + icon(GN, 14) + ' Times Google\u2019s AI showed the site: ' + monthly.map(x => esc(x.label) + ' <b style="color:' + C.ink2 + '">' + (x.g == null ? '\u2014' : fmt(x.g)) + '</b>' + (x.gNote ? ' (' + esc(x.gNote) + ')' : '')).join(' \u00b7 ') + '</p>' : '';
 
-    root.innerHTML = '<div class="ar">' +
-      '<div class="ar-card ar-sum"><h2 class="ar-h">' + esc(cur.name) + ' at a glance</h2><ul>' + L.map(l => '<li>' + l + '</li>').join('') + '</ul></div>' +
-      '<div class="ar-kpis">' + kpis + '</div>' +
-      convCard +
-      '<div class="ar-card"><h2 class="ar-h">Visits from AI \u2014 Last 3 Months</h2><p class="ar-cap">Each bar is one full month, split by the AI source that sent the visitors.</p>' + (srcNames.length ? stacked() + monthTable : '<div class="ar-empty">No visits from AI in the last three months.</div>') + gLine + '</div>' +
-      '<div class="ar-card"><h2 class="ar-h">Pages AI Brought Visitors To</h2><p class="ar-cap">The pages visitors from AI landed on in ' + esc(cur.name) + ', and which AI source sent them.</p>' +
-        (pages.length ? '<table class="ar-t"><thead><tr><th>Page</th><th>Source</th><th class="n">Visits</th><th class="n">Conversions</th></tr></thead><tbody>' + pages.map(p => '<tr><td class="pg" title="' + esc(p.k) + '">' + esc(p.k) + '</td><td>' + who(p.src, 20) + '</td><td class="n">' + fmt(p.s) + '</td><td class="n">' + fmt(p.c) + '</td></tr>').join('') + '</tbody></table>' : '<div class="ar-empty">No visits from AI this month.</div>') + '</div>' +
-      /* 'Is the business in Google's AI answers?' table hidden from the client report */
+    /* ---------- Widgets (AgencyAnalytics style): each one is a card with a size on a 6-column grid ---------- */
+    const card = (title, body, cls) => '<div class="ar-card' + (cls ? ' ' + cls : '') + '"><h2 class="ar-h">' + esc(title) + '</h2>' + body + '</div>';
+    const gMonths = monthly.map(x => ({label: x.label, name: x.name, v: x.g, part: x.gPart, note: x.gNote}));
+    const W = {
+      summary: {t: 'At a glance', size: 6, html: () => '<div class="ar-card ar-sum"><h2 class="ar-h">' + esc(cur.name) + ' at a glance</h2><ul>' + L.map(l => '<li>' + l + '</li>').join('') + '</ul></div>'},
+      'kpi-visits': {t: 'Visits from AI', size: 2, html: () => kpi('Visits from AI', fmt(tot.s), tot.s, tot.ps)},
+      'kpi-conv': {t: 'Conversions from AI', size: 2, html: () => kpi('Conversions from AI', fmt(tot.k), tot.k, tot.pk)},
+      'kpi-gimpr': {t: 'Times Google’s AI Showed the Site', size: 2, ok: gHas, html: () => kpi('Times Google’s AI Showed the Site', fmt(M.google.n), M.google.n, gComplete ? prevG : null, gComplete ? '' : 'data to ' + esc(U.shortDate(gLast)))},
+      'conv-types': {t: 'Conversions from AI', size: 6, html: () => convCard},
+      'visits-3m': {t: 'Visits from AI — Last 3 Months', size: 6, html: () => card('Visits from AI — Last 3 Months', srcNames.length ? stacked() + monthTable : '<div class="ar-empty">No visits from AI in the last three months.</div>')},
+      pages: {t: 'Pages AI Brought Visitors To', size: 6, html: () => card('Pages AI Brought Visitors To',
+        pages.length ? '<table class="ar-t"><thead><tr><th>Page</th><th>Source</th><th class="n">Visits</th><th class="n">Conversions</th></tr></thead><tbody>' + pages.map(p => '<tr><td class="pg" title="' + esc(p.k) + '">' + esc(p.k) + '</td><td>' + who(p.src, 20) + '</td><td class="n">' + fmt(p.s) + '</td><td class="n">' + fmt(p.c) + '</td></tr>').join('') + '</tbody></table>' : '<div class="ar-empty">No visits from AI this month.</div>')},
+      /* Extra widgets you can add from the tool */
+      sources: {t: 'Where AI Visitors Came From', size: 6, html: () => card('Where AI Visitors Came From', srcCards ? '<div class="ar-asst">' + srcCards + '</div>' : '<div class="ar-empty">No visits from AI this month.</div>')},
+      'conv-sources': {t: 'Conversions by AI Source', size: 3, html: () => card('Conversions by AI Source', convBars || '<div class="ar-empty">No conversions from AI this month.</div>')},
+      'gimpr-3m': {t: 'Times Google’s AI Showed the Site — Last 3 Months', size: 3, ok: gHas, html: () => card('Times Google’s AI Showed the Site — Last 3 Months', bars(gMonths, '#8fbf2f', {label: 'Google AI impressions by month'}))},
+      'kpi-mentioned': {t: 'Mentioned in Google’s AI', size: 2, ok: aio.length > 0, html: () => kpi('Mentioned in Google’s AI', fmt(mentioned) + '<span style="font-size:24px;color:#a1a1aa;font-weight:500"> / ' + fmt(aio.length) + '</span>', null, null, 'tracked searches')},
+      aio: {t: 'Is the Business in Google’s AI Answers?', size: 6, ok: aio.length > 0, html: () => aioCard}
+    };
+    const DEFAULT = ['summary', 'kpi-visits', 'kpi-conv', 'kpi-gimpr', 'conv-types', 'visits-3m', 'pages'];
+    const layout = (Array.isArray(opts.layout) && opts.layout.length ? opts.layout : DEFAULT).filter((id, k, a) => W[id] && a.indexOf(id) === k);
+    const avail = id => W[id].ok !== false;
+    const edit = !!opts.edit;
+    const cell = (id, k) => {
+      const w = W[id];
+      const inner = avail(id) ? w.html() : card(w.t, '<div class="ar-empty">No data for this client yet.</div>');
+      if (!edit) return avail(id) ? '<div class="ar-cell" style="--span:' + w.size + '">' + inner + '</div>' : '';
+      return '<div class="ar-cell ar-ed" style="--span:' + w.size + '" data-w="' + id + '"><div class="ar-tools">' +
+        '<button type="button" data-act="left" title="Move earlier"' + (k === 0 ? ' disabled' : '') + '>←</button>' +
+        '<button type="button" data-act="right" title="Move later"' + (k === layout.length - 1 ? ' disabled' : '') + '>→</button>' +
+        '<button type="button" data-act="hide" title="Hide from the report">Hide</button></div>' + inner + '</div>';
+    };
+    const lib = edit ? Object.keys(W).filter(id => layout.indexOf(id) < 0) : [];
+    root.innerHTML = '<div class="ar' + (edit ? ' ar-editing' : '') + '"><div class="ar-grid">' + layout.map(cell).join('') + '</div>' +
+      (edit ? '<div class="ar-lib"><div class="ar-lib-h">Add a widget</div>' + (lib.length ? '<div class="ar-lib-g">' + lib.map(id => '<button type="button" class="ar-lib-i" data-add="' + id + '"' + (avail(id) ? '' : ' title="No data for this client yet"') + '><b>+</b><span>' + esc(W[id].t) + '</span><small>' + ({2: 'Small', 3: 'Half width', 6: 'Full width'})[W[id].size] + (avail(id) ? '' : ' · no data yet') + '</small></button>').join('') + '</div>' : '<div class="ar-empty">Every widget is already on the report.</div>') + '</div>' : '') +
       '<div class="ar-foot">' + esc(opts.foot || '') + '</div></div>';
+    if (edit && typeof opts.onLayout === 'function'){
+      root.querySelectorAll('[data-w] [data-act]').forEach(b => b.addEventListener('click', () => {
+        const id = b.closest('[data-w]').dataset.w, k = layout.indexOf(id), next = layout.slice();
+        if (b.dataset.act === 'hide') next.splice(k, 1);
+        else { const to = b.dataset.act === 'left' ? k - 1 : k + 1; if (to < 0 || to >= next.length) return; next.splice(k, 1); next.splice(to, 0, id); }
+        opts.onLayout(next);
+      }));
+      root.querySelectorAll('[data-add]').forEach(b => b.addEventListener('click', () => opts.onLayout(layout.concat(b.dataset.add))));
+    }
   }
 
-  window.AIReport2 = {render};
+  window.AIReport2 = {render, DEFAULT_LAYOUT: ['summary', 'kpi-visits', 'kpi-conv', 'kpi-gimpr', 'conv-types', 'visits-3m', 'pages']};
 })();
