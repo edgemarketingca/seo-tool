@@ -190,7 +190,7 @@
     else L.push('No visits from AI were recorded in ' + esc(cur.name) + '.');
     L.push(tot.k ? 'Those visitors completed <b>' + fmt(tot.k) + ' conversion' + (tot.k === 1 ? '' : 's') + '</b>' + (types[0] ? ', mostly <b>' + esc(types[0].label.toLowerCase()) + '</b>' : '') + '.' : 'No conversions came from AI visitors this month.');
     if (gHas) L.push('Google’s AI showed the website <b>' + fmt(M.google.n) + ' times</b>' + (gComplete ? '' : ' (data to ' + esc(U.prettyDate(gLast)) + ')') + (prevG != null && gComplete && prevG ? ', ' + (M.google.n >= prevG ? 'up' : 'down') + ' from ' + fmt(prevG) + ' in ' + esc(prev.name.split(' ')[0]) : '') + '.');
-    if (aio.length) L.push('When people search for the topics we track, Google’s AI mentions the business in <b>' + fmt(mentioned) + ' of ' + fmt(aio.length) + '</b> searches.');
+    /* tracked-search mention line hidden from the client report */
 
     /* ---------- KPIs ---------- */
     const kpi = (label, val, cur0, prev0, foot) => '<div class="ar-card ar-kpi"><div class="ar-kpi-l">' + esc(label) + '</div><div class="ar-kpi-v">' + val + '</div>' +
@@ -198,7 +198,7 @@
     const kpis = kpi('Visits from AI', fmt(tot.s), tot.s, tot.ps) +
       kpi('Conversions from AI', fmt(tot.k), tot.k, tot.pk) +
       (gHas ? kpi('Times Google’s AI Showed the Site', fmt(M.google.n), M.google.n, gComplete ? prevG : null, gComplete ? '' : 'data to ' + esc(U.shortDate(gLast))) : '') +
-      (aio.length ? kpi('Mentioned in Google’s AI', fmt(mentioned) + '<span style="font-size:18px;color:' + C.ink3 + ';font-weight:500"> / ' + fmt(aio.length) + '</span>', null, null, 'tracked searches') : '');
+      '';   /* tracked-search mention box hidden from the client report */
 
     /* ---------- Where AI visitors came from ---------- */
     const srcCards = srcSorted.map(p => '<div class="ar-a" style="--c:' + pc(p.name) + '"><div class="ar-a-h"><span class="ar-who">' + icon(p.name, 26) + '<span class="ar-a-n">' + esc(p.name) + '</span></span>' + change(p.s, p.ps) + '</div>' +
