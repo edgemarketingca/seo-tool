@@ -61,9 +61,12 @@ html:has(body.report-mode), html:has(body.embed-mode){background:#fafafa !import
 body.embed-mode, body.embed-mode button, body.embed-mode input{font-family:Geist,"Helvetica Neue",Helvetica,Arial,sans-serif}
 
 /* Blend into the AgencyAnalytics page: no outer padding, no background, no edge shadows, no scrollbars */
-html:has(body.report-mode), html:has(body.embed-mode), body.report-mode, body.embed-mode, body.report-mode .kwr-root{background:transparent !important}
+html:has(body.report-mode), html:has(body.embed-mode), body.report-mode, body.embed-mode, body.report-mode .kwr-root{background:#fafafa !important}
 html:has(body.report-mode), html:has(body.embed-mode){scrollbar-width:none}
 html:has(body.report-mode)::-webkit-scrollbar, html:has(body.embed-mode)::-webkit-scrollbar{display:none}
 body.report-mode .kwr-root .kwr-shell{max-width:none !important;padding:0 !important}
 body.report-mode #claudeActs, body.embed-mode #claudeActs{display:none !important}
 body.report-mode .rnav, body.embed-mode .rnav{box-shadow:none !important}
+/* AgencyAnalytics page colour between widgets, 16px apart like its native widgets */
+body.report-mode .kwr-root .kwr-stats{gap:16px !important;margin-bottom:16px !important}
+body.report-mode .kwr-root .kwr-panel, body.report-mode .kwr-root .kwr-locbar, body.report-mode .kwr-root .seo-lg-card{margin-bottom:16px !important}
