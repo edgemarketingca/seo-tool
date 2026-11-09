@@ -322,7 +322,7 @@ background:linear-gradient(135deg,transparent 0 50%,#a1a1aa 50% 58%,transparent 
       'kpi-mentioned': {t: 'Mentioned in Google’s AI', size: 2, h: 360, ok: aio.length > 0, html: () => kpi('Mentioned in Google’s AI', fmt(mentioned) + '<span style="font-size:24px;color:#a1a1aa;font-weight:500"> / ' + fmt(aio.length) + '</span>', null, null, 'tracked searches', 'gsc')},
       aio: {t: 'Is the Business in Google’s AI Answers?', size: 6, ok: aio.length > 0, html: () => aioCard}
     };
-    const DEFAULT = ['summary', 'kpi-visits', 'kpi-conv', 'kpi-gimpr', 'conv-types', 'visits-3m', 'pages'];
+    const DEFAULT = ['kpi-visits', 'kpi-conv', 'kpi-gimpr', 'conv-types', 'visits-3m', 'pages'];
     /* A layout item is a widget id, or {id, w: columns 1-6, h: height in report pixels (1280 px wide grid)} */
     const norm = x => { const id = typeof x === 'string' ? x : x && x.id; if (!W[id]) return null;
       const w = Math.max(1, Math.min(6, Math.round(Number(x && x.w) || W[id].size))); const h = Number(x && x.h) || W[id].h || 0;
@@ -387,5 +387,5 @@ background:linear-gradient(135deg,transparent 0 50%,#a1a1aa 50% 58%,transparent 
     }
   }
 
-  window.AIReport2 = {render, DEFAULT_LAYOUT: ['summary', 'kpi-visits', 'kpi-conv', 'kpi-gimpr', 'conv-types', 'visits-3m', 'pages']};
+  window.AIReport2 = {render, DEFAULT_LAYOUT: ['kpi-visits', 'kpi-conv', 'kpi-gimpr', 'conv-types', 'visits-3m', 'pages']};
 })();
