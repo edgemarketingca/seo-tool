@@ -109,6 +109,8 @@
 .ar-bar .t{height:8px;border-radius:4px;background:${C.bg};overflow:hidden}.ar-bar .t i{display:block;height:100%;border-radius:4px}
 @media (max-width:820px){.ar-convs{grid-template-columns:1fr}}
 .ar-foot{font-size:11.5px;color:${C.ink3};text-align:right}
+/* Client report: no small grey notes (captions, explanations, data-as-of line) */
+.ar-cap,.ar-note,.ar-foot{display:none}
 @media (max-width:720px){.ar-g2{grid-template-columns:1fr}.ar-trio{grid-template-columns:1fr}.ar-trio>div{border-right:0;border-bottom:1px solid ${C.line}}}`;
     document.head.appendChild(s);
   }
