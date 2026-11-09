@@ -134,6 +134,19 @@
 .ar-lib-g{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
 .ar-lib-i{display:grid;grid-template-columns:22px 1fr;gap:2px 8px;text-align:left;font:400 13px Geist,Arial,sans-serif;color:#555;background:#fafafa;border:1px solid #ebedf0;border-radius:6px;padding:10px 12px;cursor:pointer}
 .ar-lib-i:hover{background:#f4f4f5;border-color:#c4c9d0}.ar-lib-i b{grid-row:span 2;font-size:18px;color:#4285F4;line-height:1}.ar-lib-i small{color:#a1a1aa;font-size:11.5px}
+.ar-fix{height:calc(var(--h) * var(--u, 1) * 1px);container-type:size}
+.ar-min>.ar-card{min-height:calc(var(--h) * var(--u, 1) * 1px)}
+.ar-kpi{display:flex;flex-direction:column;gap:0;overflow:hidden}
+.ar-kpi-l{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:400;color:#555}
+.ar-kpi-ic{width:16px;height:16px;flex:none}
+.ar-kpi-b{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;min-height:0}
+.ar-kpi-v{font-size:56px;font-weight:700;color:#555;letter-spacing:-.02em;line-height:1;white-space:nowrap}
+.ar-fix .ar-kpi-v{font-size:clamp(28px, min(22cqw, 32cqh), 280px)}
+.ar-fix .ar-kpi-f .ar-chg{font-size:clamp(12px, min(3.6cqw, 5cqh), 26px)}
+.ar-kpi-f{justify-content:center}
+.ar-rs{position:absolute;right:2px;bottom:2px;width:16px;height:16px;cursor:nwse-resize;z-index:3;opacity:0;
+background:linear-gradient(135deg,transparent 0 50%,#a1a1aa 50% 58%,transparent 58% 70%,#a1a1aa 70% 78%,transparent 78%)}
+.ar-ed:hover .ar-rs,.ar-resizing .ar-rs{opacity:1}.ar-resizing{outline-color:#4285F4 !important}
 @media (max-width:720px){.ar-cell{grid-column:span 6}}
 @media (max-width:720px){.ar-g2{grid-template-columns:1fr}.ar-trio{grid-template-columns:1fr}.ar-trio>div{border-right:0;border-bottom:1px solid ${C.line}}}`;
     document.head.appendChild(s);
@@ -219,8 +232,11 @@
     /* tracked-search mention line hidden from the client report */
 
     /* ---------- KPIs ---------- */
-    const kpi = (label, val, cur0, prev0, foot) => '<div class="ar-card ar-kpi"><div class="ar-kpi-l">' + esc(label) + '</div><div class="ar-kpi-v">' + val + '</div>' +
-      '<div class="ar-kpi-f">' + (prev0 != null ? change(cur0, prev0) : '') + (foot ? '<span>' + foot + '</span>' : '') + '</div></div>';
+    const SRCIC = {ga4: 'analytics.google.com', gsc: 'search.google.com/search-console'};
+    const kpi = (label, val, cur0, prev0, foot, src) => '<div class="ar-card ar-kpi"><div class="ar-kpi-l">' +
+      (src ? '<img class="ar-kpi-ic" src="https://www.google.com/s2/favicons?domain=' + SRCIC[src] + '&sz=32" alt="" width="16" height="16" referrerpolicy="no-referrer" onerror="this.remove()">' : '') + '<span>' + esc(label) + '</span></div>' +
+      '<div class="ar-kpi-b"><div class="ar-kpi-v">' + val + '</div>' +
+      '<div class="ar-kpi-f">' + (prev0 != null ? change(cur0, prev0) : '') + (foot ? '<span>' + foot + '</span>' : '') + '</div></div></div>';
     const kpis = kpi('Visits from AI', fmt(tot.s), tot.s, tot.ps) +
       kpi('Conversions from AI', fmt(tot.k), tot.k, tot.pk) +
       (gHas ? kpi('Times Google’s AI Showed the Site', fmt(M.google.n), M.google.n, gComplete ? prevG : null, gComplete ? '' : 'data to ' + esc(U.shortDate(gLast))) : '') +
@@ -292,9 +308,9 @@
     const gMonths = monthly.map(x => ({label: x.label, name: x.name, v: x.g, part: x.gPart, note: x.gNote}));
     const W = {
       summary: {t: 'At a glance', size: 6, html: () => '<div class="ar-card ar-sum"><h2 class="ar-h">' + esc(cur.name) + ' at a glance</h2><ul>' + L.map(l => '<li>' + l + '</li>').join('') + '</ul></div>'},
-      'kpi-visits': {t: 'Visits from AI', size: 2, html: () => kpi('Visits from AI', fmt(tot.s), tot.s, tot.ps)},
-      'kpi-conv': {t: 'Conversions from AI', size: 2, html: () => kpi('Conversions from AI', fmt(tot.k), tot.k, tot.pk)},
-      'kpi-gimpr': {t: 'Times Google’s AI Showed the Site', size: 2, ok: gHas, html: () => kpi('Times Google’s AI Showed the Site', fmt(M.google.n), M.google.n, gComplete ? prevG : null, gComplete ? '' : 'data to ' + esc(U.shortDate(gLast)))},
+      'kpi-visits': {t: 'Visits from AI', size: 2, h: 360, html: () => kpi('Visits from AI', fmt(tot.s), tot.s, tot.ps, '', 'ga4')},
+      'kpi-conv': {t: 'Conversions from AI', size: 2, h: 360, html: () => kpi('Conversions from AI', fmt(tot.k), tot.k, tot.pk, '', 'ga4')},
+      'kpi-gimpr': {t: 'Times Google’s AI Showed the Site', size: 2, h: 360, ok: gHas, html: () => kpi('Times Google’s AI Showed the Site', fmt(M.google.n), M.google.n, gComplete ? prevG : null, gComplete ? '' : 'data to ' + esc(U.shortDate(gLast)), 'gsc')},
       'conv-types': {t: 'Conversions from AI', size: 6, html: () => convCard},
       'visits-3m': {t: 'Visits from AI — Last 3 Months', size: 6, html: () => card('Visits from AI — Last 3 Months', srcNames.length ? stacked() + monthTable : '<div class="ar-empty">No visits from AI in the last three months.</div>')},
       pages: {t: 'Pages AI Brought Visitors To', size: 6, html: () => card('Pages AI Brought Visitors To',
@@ -303,34 +319,71 @@
       sources: {t: 'Where AI Visitors Came From', size: 6, html: () => card('Where AI Visitors Came From', srcCards ? '<div class="ar-asst">' + srcCards + '</div>' : '<div class="ar-empty">No visits from AI this month.</div>')},
       'conv-sources': {t: 'Conversions by AI Source', size: 3, html: () => card('Conversions by AI Source', convBars || '<div class="ar-empty">No conversions from AI this month.</div>')},
       'gimpr-3m': {t: 'Times Google’s AI Showed the Site — Last 3 Months', size: 3, ok: gHas, html: () => card('Times Google’s AI Showed the Site — Last 3 Months', bars(gMonths, '#8fbf2f', {label: 'Google AI impressions by month'}))},
-      'kpi-mentioned': {t: 'Mentioned in Google’s AI', size: 2, ok: aio.length > 0, html: () => kpi('Mentioned in Google’s AI', fmt(mentioned) + '<span style="font-size:24px;color:#a1a1aa;font-weight:500"> / ' + fmt(aio.length) + '</span>', null, null, 'tracked searches')},
+      'kpi-mentioned': {t: 'Mentioned in Google’s AI', size: 2, h: 360, ok: aio.length > 0, html: () => kpi('Mentioned in Google’s AI', fmt(mentioned) + '<span style="font-size:24px;color:#a1a1aa;font-weight:500"> / ' + fmt(aio.length) + '</span>', null, null, 'tracked searches', 'gsc')},
       aio: {t: 'Is the Business in Google’s AI Answers?', size: 6, ok: aio.length > 0, html: () => aioCard}
     };
     const DEFAULT = ['summary', 'kpi-visits', 'kpi-conv', 'kpi-gimpr', 'conv-types', 'visits-3m', 'pages'];
-    const layout = (Array.isArray(opts.layout) && opts.layout.length ? opts.layout : DEFAULT).filter((id, k, a) => W[id] && a.indexOf(id) === k);
+    /* A layout item is a widget id, or {id, w: columns 1-6, h: height in report pixels (1280 px wide grid)} */
+    const norm = x => { const id = typeof x === 'string' ? x : x && x.id; if (!W[id]) return null;
+      const w = Math.max(1, Math.min(6, Math.round(Number(x && x.w) || W[id].size))); const h = Number(x && x.h) || W[id].h || 0;
+      return {id, w, h: h ? Math.max(100, Math.round(h)) : 0}; };
+    const layout = (Array.isArray(opts.layout) && opts.layout.length ? opts.layout : DEFAULT).map(norm).filter((it, k, a) => it && a.findIndex(o => o && o.id === it.id) === k);
+    const ids = layout.map(o => o.id);
     const avail = id => W[id].ok !== false;
     const edit = !!opts.edit;
-    const cell = (id, k) => {
-      const w = W[id];
+    const isKpi = id => /^kpi-/.test(id);
+    const cell = (it, k) => {
+      const id = it.id, w = W[id];
       const inner = avail(id) ? w.html() : card(w.t, '<div class="ar-empty">No data for this client yet.</div>');
-      if (!edit) return avail(id) ? '<div class="ar-cell" style="--span:' + w.size + '">' + inner + '</div>' : '';
-      return '<div class="ar-cell ar-ed" style="--span:' + w.size + '" data-w="' + id + '"><div class="ar-tools">' +
+      const cls = 'ar-cell' + (it.h ? (isKpi(id) ? ' ar-fix' : ' ar-min') : '') + (edit ? ' ar-ed' : '');
+      const st = '--span:' + it.w + (it.h ? ';--h:' + it.h : '');
+      if (!edit) return avail(id) ? '<div class="' + cls + '" style="' + st + '">' + inner + '</div>' : '';
+      return '<div class="' + cls + '" style="' + st + '" data-w="' + id + '"><div class="ar-tools">' +
         '<button type="button" data-act="left" title="Move earlier"' + (k === 0 ? ' disabled' : '') + '>←</button>' +
         '<button type="button" data-act="right" title="Move later"' + (k === layout.length - 1 ? ' disabled' : '') + '>→</button>' +
-        '<button type="button" data-act="hide" title="Hide from the report">Hide</button></div>' + inner + '</div>';
+        '<button type="button" data-act="hide" title="Hide from the report">Hide</button></div>' + inner +
+        '<span class="ar-rs" title="Drag to resize" aria-hidden="true"></span></div>';
     };
-    const lib = edit ? Object.keys(W).filter(id => layout.indexOf(id) < 0) : [];
+    const lib = edit ? Object.keys(W).filter(id => ids.indexOf(id) < 0) : [];
     root.innerHTML = '<div class="ar' + (edit ? ' ar-editing' : '') + '"><div class="ar-grid">' + layout.map(cell).join('') + '</div>' +
       (edit ? '<div class="ar-lib"><div class="ar-lib-h">Add a widget</div>' + (lib.length ? '<div class="ar-lib-g">' + lib.map(id => '<button type="button" class="ar-lib-i" data-add="' + id + '"' + (avail(id) ? '' : ' title="No data for this client yet"') + '><b>+</b><span>' + esc(W[id].t) + '</span><small>' + ({2: 'Small', 3: 'Half width', 6: 'Full width'})[W[id].size] + (avail(id) ? '' : ' · no data yet') + '</small></button>').join('') + '</div>' : '<div class="ar-empty">Every widget is already on the report.</div>') + '</div>' : '') +
       '<div class="ar-foot">' + esc(opts.foot || '') + '</div></div>';
+    /* Heights are stored for a 1280 px wide report and scale with the width, like the AgencyAnalytics canvas */
+    const grid = root.querySelector('.ar-grid');
+    const setU = () => { if (grid.clientWidth) grid.style.setProperty('--u', (grid.clientWidth / 1280).toFixed(4)); };
+    setU();
+    if (root.__arRO) root.__arRO.disconnect();
+    if (window.ResizeObserver){ root.__arRO = new ResizeObserver(setU); root.__arRO.observe(grid); }
     if (edit && typeof opts.onLayout === 'function'){
       root.querySelectorAll('[data-w] [data-act]').forEach(b => b.addEventListener('click', () => {
-        const id = b.closest('[data-w]').dataset.w, k = layout.indexOf(id), next = layout.slice();
+        const id = b.closest('[data-w]').dataset.w, k = ids.indexOf(id), next = layout.slice();
         if (b.dataset.act === 'hide') next.splice(k, 1);
-        else { const to = b.dataset.act === 'left' ? k - 1 : k + 1; if (to < 0 || to >= next.length) return; next.splice(k, 1); next.splice(to, 0, id); }
+        else { const to = b.dataset.act === 'left' ? k - 1 : k + 1; if (to < 0 || to >= next.length) return; next.splice(k, 1); next.splice(to, 0, layout[k]); }
         opts.onLayout(next);
       }));
-      root.querySelectorAll('[data-add]').forEach(b => b.addEventListener('click', () => opts.onLayout(layout.concat(b.dataset.add))));
+      root.querySelectorAll('[data-add]').forEach(b => b.addEventListener('click', () => opts.onLayout(layout.concat(norm(b.dataset.add)))));
+      /* Drag the corner: width snaps to the 6 columns, height in 10 px steps; KPI numbers scale with the box */
+      root.querySelectorAll('[data-w] .ar-rs').forEach(hd => hd.addEventListener('pointerdown', e => {
+        e.preventDefault();
+        const el = hd.closest('[data-w]'), id = el.dataset.w, k = ids.indexOf(id), it = layout[k];
+        const gap = parseFloat(getComputedStyle(grid).columnGap) || 12, cw = (grid.clientWidth - gap * 5) / 6;
+        const u = grid.clientWidth / 1280, r0 = el.getBoundingClientRect(), x0 = e.clientX, y0 = e.clientY;
+        let w = it.w, h = it.h || Math.round(r0.height / u);
+        el.classList.add('ar-resizing'); hd.setPointerCapture(e.pointerId);
+        const move = ev => {
+          w = Math.max(1, Math.min(6, Math.round((r0.width + (ev.clientX - x0) + gap) / (cw + gap))));
+          h = Math.max(100, Math.round((r0.height + (ev.clientY - y0)) / u / 10) * 10);
+          el.style.setProperty('--span', w); el.style.setProperty('--h', h);
+          el.classList.add(isKpi(id) ? 'ar-fix' : 'ar-min');
+        };
+        const up = () => {
+          hd.removeEventListener('pointermove', move); hd.removeEventListener('pointerup', up); hd.removeEventListener('pointercancel', up);
+          el.classList.remove('ar-resizing');
+          if (w === it.w && h === it.h) return;
+          const next = layout.slice(); next[k] = {id, w, h}; opts.onLayout(next);
+        };
+        hd.addEventListener('pointermove', move); hd.addEventListener('pointerup', up); hd.addEventListener('pointercancel', up);
+      }));
     }
   }
 
