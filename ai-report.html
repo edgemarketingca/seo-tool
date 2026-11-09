@@ -32,7 +32,7 @@ html,body{margin:0;background:#fafafa;color:var(--ink);font-family:var(--ui);-we
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="ai-visibility.js?v=20261106j"></script>
-<script src="ai-report2.js?v=11"></script>
+<script src="ai-report2.js?v=12"></script>
 <script>
 (function(){
   'use strict';
@@ -75,7 +75,7 @@ html,body{margin:0;background:#fafafa;color:var(--ink);font-family:var(--ui);-we
     const ui = {ch: {AI: true, 'Organic Search': false, Direct: false}, plat: ''};
     const footFor = f => 'Data as of ' + new Date(f.generatedAt || Date.now()).toLocaleString('en-CA', {dateStyle: 'medium', timeStyle: 'short'}) + ' · Updates automatically';
     /* Always the last full month (AgencyAnalytics monthly report). */
-    const draw = () => window.AIReport2.render(root, feed, {title: view.title, foot: footFor(feed)});
+    const draw = () => window.AIReport2.render(root, feed, {title: view.title, foot: footFor(feed), layout: view.layout});
     const show = f => { feed = f; document.title = (view.title || f.name || f.domain) + ' | AI Visibility'; draw(); };
 
     /* The tracker can take 30+ seconds to answer, so draw the newest copy we
