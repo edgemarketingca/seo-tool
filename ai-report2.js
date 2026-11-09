@@ -172,7 +172,7 @@
     const GN = 'Google AI Search';
     const G = M.gorg || {}, GP = P.gorg || {};
     const gOn = !!(G.known && (G.s || GP.s || gHas));
-    const goEv = r => [r[0], GN, r[1], r[2], r[3]];
+    const goEv = r => [r[0], GN, r[2], r[3], r[4]];   /* model gives [date, 'Google', page, event, count] */
     const sources = (gOn ? [{name: GN, s: G.s || 0, k: G.k || 0, ps: GP.s || 0, pk: GP.k || 0}] : [])
       .concat(plats.map(p => ({name: p.name, s: p.s, k: p.k, ps: p.ps, pk: p.pk})));
     const tot = {s: sources.reduce((t, x) => t + x.s, 0), k: sources.reduce((t, x) => t + x.k, 0),
