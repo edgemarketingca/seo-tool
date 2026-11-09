@@ -111,6 +111,17 @@
 .ar-foot{font-size:11.5px;color:${C.ink3};text-align:right}
 /* Client report: no small grey notes (captions, explanations, data-as-of line) */
 .ar-cap,.ar-note,.ar-foot{display:none}
+.ar{font-family:Geist,"Helvetica Neue",Helvetica,Arial,sans-serif;color:#555;gap:12px}
+.ar-card{border:1px solid #ebedf0;border-radius:6px;padding:20px 22px}
+.ar-h{font-size:14px;font-weight:400;color:#555;margin:0 0 16px}
+.ar-sum ul{font-size:14px;color:#555;gap:8px}.ar-sum b{color:#333}
+.ar-kpi{gap:10px}.ar-kpi-l{font-size:14px;font-weight:400;color:#555}
+.ar-kpi-v{font-size:56px;font-weight:700;color:#555;letter-spacing:-1px;line-height:1}
+.ar-chg{font-size:13px}
+.ar-t{font-size:14px;color:#555}.ar-t th{font-size:12px;color:#a1a1aa;font-weight:500}.ar-t td{padding:11px 6px}
+.ar-t td b{color:#555}.ar-who{font-weight:400}
+.ar-pill{font-size:14px;min-width:34px;padding:4px 10px}
+.ar-empty{font-size:14px}
 @media (max-width:720px){.ar-g2{grid-template-columns:1fr}.ar-trio{grid-template-columns:1fr}.ar-trio>div{border-right:0;border-bottom:1px solid ${C.line}}}`;
     document.head.appendChild(s);
   }
@@ -196,7 +207,7 @@
 
     /* ---------- KPIs ---------- */
     const kpi = (label, val, cur0, prev0, foot) => '<div class="ar-card ar-kpi"><div class="ar-kpi-l">' + esc(label) + '</div><div class="ar-kpi-v">' + val + '</div>' +
-      '<div class="ar-kpi-f">' + (prev0 != null ? change(cur0, prev0) + '<span>vs ' + esc(prev.label) + ' (' + fmt(prev0) + ')</span>' : '') + (foot ? '<span>' + foot + '</span>' : '') + '</div></div>';
+      '<div class="ar-kpi-f">' + (prev0 != null ? change(cur0, prev0) : '') + (foot ? '<span>' + foot + '</span>' : '') + '</div></div>';
     const kpis = kpi('Visits from AI', fmt(tot.s), tot.s, tot.ps) +
       kpi('Conversions from AI', fmt(tot.k), tot.k, tot.pk) +
       (gHas ? kpi('Times Google’s AI Showed the Site', fmt(M.google.n), M.google.n, gComplete ? prevG : null, gComplete ? '' : 'data to ' + esc(U.shortDate(gLast))) : '') +
@@ -216,15 +227,14 @@
       types.slice(0, 8).map(t => '<tr><td>' + esc(t.label) + '</td>' + convSrc.map(p => '<td class="c"><span class="ar-pill' + (t.plats[p.name] ? ' on' : '') + '">' + fmt(t.plats[p.name] || 0) + '</span></td>').join('') + '<td class="n"><b>' + fmt(t.n) + '</b></td></tr>').join('') + '</tbody></table>'
       : '<div class="ar-empty">' + (tot.k ? 'Conversion types aren’t available for this site yet.' : 'No conversions from AI visitors in ' + esc(cur.name) + (tot.pk ? ' (' + fmt(tot.pk) + ' in ' + esc(prev.name.split(' ')[0]) + ').' : '.')) + '</div>';
     const convCard = '<div class="ar-card"><h2 class="ar-h">Conversions from AI</h2><p class="ar-cap">Calls, forms, emails and other goals completed by visitors who came from AI in ' + esc(cur.name) + '.</p>' +
-      '<div class="ar-convs"><div class="ar-conv-big"><div><div class="ar-kpi-l">Total conversions</div><div class="ar-kpi-v">' + fmt(tot.k) + '</div><div class="ar-kpi-f">' + change(tot.k, tot.pk) + '<span>vs ' + esc(prev.label) + ' (' + fmt(tot.pk) + ')</span></div></div>' + convBars + '</div>' +
-      '<div>' + matrix + '</div></div></div>';
+      matrix + '</div>';
 
     /* ---------- Pages AI brought visitors to ---------- */
     const pm = {};
     const addPg = (u, src, s0, k0) => { const k = pageKey(u); if (k === 'Landing page not recorded') return; const o = pm[k] = pm[k] || {k, s: 0, c: 0, by: {}}; o.s += s0; o.c += k0; o.by[src] = (o.by[src] || 0) + s0; o.cb = o.cb || {}; o.cb[src] = (o.cb[src] || 0) + k0; };
     M.cur.forEach(r => addPg(r[3], r[1], Number(r[4]) || 0, Number(r[6]) || 0));
     if (gOn) ((feed.gorg && feed.gorg.rows) || []).filter(r => r[0] >= cur.since && r[0] <= cur.end).forEach(r => addPg(r[1], GN, Number(r[2]) || 0, Number(r[4]) || 0));
-    const pages = [].concat(...Object.values(pm).map(o => Object.keys(o.by).map(n => ({k: o.k, src: n, s: o.by[n], c: (o.cb || {})[n] || 0})))).filter(p => p.s).sort((a, b) => b.s - a.s).slice(0, 8);
+    const pages = [].concat(...Object.values(pm).map(o => Object.keys(o.by).map(n => ({k: o.k, src: n, s: o.by[n], c: (o.cb || {})[n] || 0})))).filter(p => p.s).sort((a, b) => b.s - a.s).slice(0, 5);
 
     /* ---------- Google AI Overviews ---------- */
     const lbl = c => c.cited ? '<span class="ar-tag y">Linked to the site</span>' : c.named ? '<span class="ar-tag y">Business named</span>' : c.shown ? '<span class="ar-tag m">Not mentioned</span>' : '<span class="ar-tag n">No AI answer</span>';
@@ -253,23 +263,20 @@
           let y = H - pb;
           srcNames.forEach(nm => { const v = m.by[nm] || 0; if (!v) return; const h = Math.max(2, (H - pt - pb) * v / max); y -= h;
             o += '<rect x="' + (cx - w / 2) + '" y="' + y + '" width="' + w + '" height="' + h + '" fill="' + pc(nm) + '" opacity="' + (last ? 1 : .55) + '"><title>' + esc(m.name + ' \u00b7 ' + nm + ': ' + fmt(v) + ' visit' + (v === 1 ? '' : 's')) + '</title></rect>'; });
-          o += '<text x="' + cx + '" y="' + (y - 7) + '" text-anchor="middle" font-size="13" font-weight="' + (last ? 700 : 600) + '" fill="' + C.ink + '">' + esc(fmt(m.total)) + '</text>';
+          o += '<text x="' + cx + '" y="' + (y - 7) + '" text-anchor="middle" font-size="16" font-weight="700" fill="#555">' + esc(fmt(m.total)) + '</text>';
         }
-        o += '<text x="' + cx + '" y="' + (H - 8) + '" text-anchor="middle" font-size="12" font-weight="' + (last ? 700 : 400) + '" fill="' + (last ? C.ink : C.ink3) + '">' + esc(m.name) + '</text>';
+        o += '<text x="' + cx + '" y="' + (H - 8) + '" text-anchor="middle" font-size="14" font-weight="' + (last ? 600 : 400) + '" fill="' + (last ? '#555' : '#a1a1aa') + '">' + esc(m.name) + '</text>';
       });
       return o + '</svg>';
     };
     const monthTable = srcNames.length ? '<table class="ar-t" style="margin-top:14px"><thead><tr><th>Source</th>' + srcMonth.map((m, i) => '<th class="n"' + (i === srcMonth.length - 1 ? ' style="color:' + C.ink + '"' : '') + '>' + esc(m.label) + '</th>').join('') + '</tr></thead><tbody>' +
       srcNames.map(nm => '<tr><td>' + who(nm, 20) + '</td>' + srcMonth.map((m, i) => '<td class="n">' + (i === srcMonth.length - 1 ? '<b>' : '') + (m.has ? fmt(m.by[nm] || 0) : '\u2014') + (i === srcMonth.length - 1 ? '</b>' : '') + '</td>').join('') + '</tr>').join('') +
-      '<tr><td><b>Total visits from AI</b></td>' + srcMonth.map(m => '<td class="n"><b>' + (m.has ? fmt(m.total) : '\u2014') + '</b></td>').join('') + '</tr></tbody></table>' : '';
+      '</tbody></table>' : '';
     const gLine = gHas ? '<p class="ar-note" style="margin:12px 0 0">' + icon(GN, 14) + ' Times Google\u2019s AI showed the site: ' + monthly.map(x => esc(x.label) + ' <b style="color:' + C.ink2 + '">' + (x.g == null ? '\u2014' : fmt(x.g)) + '</b>' + (x.gNote ? ' (' + esc(x.gNote) + ')' : '')).join(' \u00b7 ') + '</p>' : '';
 
     root.innerHTML = '<div class="ar">' +
       '<div class="ar-card ar-sum"><h2 class="ar-h">' + esc(cur.name) + ' at a glance</h2><ul>' + L.map(l => '<li>' + l + '</li>').join('') + '</ul></div>' +
       '<div class="ar-kpis">' + kpis + '</div>' +
-      '<div class="ar-card"><h2 class="ar-h">Where AI Visitors Came From</h2><p class="ar-cap">Visits and conversions from each AI source in ' + esc(cur.name) + ', compared with ' + esc(prev.name.split(' ')[0]) + '.</p>' +
-        (srcCards ? '<div class="ar-asst">' + srcCards + '</div>' : '<div class="ar-empty">No visits from AI this month.</div>') +
-        (gOn ? '<p class="ar-note" style="margin:12px 0 0">' + icon(GN, 14) + ' <b style="color:' + C.ink2 + '">Google AI Search</b> counts Google visitors to the pages Google’s AI featured. Google doesn’t report AI clicks separately, so it also includes regular Google search clicks on those pages.</p>' : '') + '</div>' +
       convCard +
       '<div class="ar-card"><h2 class="ar-h">Visits from AI \u2014 Last 3 Months</h2><p class="ar-cap">Each bar is one full month, split by the AI source that sent the visitors.</p>' + (srcNames.length ? stacked() + monthTable : '<div class="ar-empty">No visits from AI in the last three months.</div>') + gLine + '</div>' +
       '<div class="ar-card"><h2 class="ar-h">Pages AI Brought Visitors To</h2><p class="ar-cap">The pages visitors from AI landed on in ' + esc(cur.name) + ', and which AI source sent them.</p>' +
