@@ -54,7 +54,7 @@
 .ar-title{font-size:20px;font-weight:600;margin:0}
 .ar-sub{font-size:13px;color:${C.ink3};margin-top:4px}
 .ar-badge{font-size:12px;font-weight:600;color:${C.ink2};background:${C.bg};border:1px solid ${C.line};border-radius:999px;padding:6px 12px}
-.ar-h{font-size:14px;font-weight:600;margin:0 0 4px}
+.ar-h{font-size:14px;font-weight:600;margin:0 0 14px}
 .ar-cap{font-size:12px;color:${C.ink3};margin:0 0 12px}
 .ar-sum ul{margin:8px 0 0;padding-left:18px;display:grid;gap:6px;font-size:14px;line-height:1.5}
 .ar-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}
