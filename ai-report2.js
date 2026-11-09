@@ -12,10 +12,10 @@
 
   const C = {ink: '#222A30', ink2: '#5b6670', ink3: '#8593a0', line: '#e6eaee', bg: '#f4f6f8',
     blue: '#5CBAE6', green: '#B6D957', yellow: '#FAC364', dark: '#171614', up: '#1f9d55', down: '#d64545'};
-  const PCOL = {ChatGPT: '#5CBAE6', Gemini: '#B6D957', Copilot: '#FAC364', Perplexity: '#8CD3FF', Claude: '#D97757', 'Meta AI': '#7FC8A9', Grok: '#C3A6E6', DeepSeek: '#E39FC6'};
+  const PCOL = {'Google AI Search': '#4285F4', ChatGPT: '#5CBAE6', Gemini: '#B6D957', Copilot: '#FAC364', Perplexity: '#8CD3FF', Claude: '#D97757', 'Meta AI': '#7FC8A9', Grok: '#C3A6E6', DeepSeek: '#E39FC6'};
   const pc = n => PCOL[n] || '#9DA8B3';
   /* Each assistant's own site icon (as analytics tools show traffic sources), with a coloured letter badge if it can't load. */
-  const PDOM = {ChatGPT: 'chatgpt.com', Gemini: 'gemini.google.com', Copilot: 'copilot.microsoft.com', Perplexity: 'perplexity.ai', Claude: 'claude.ai', 'Meta AI': 'meta.ai', Grok: 'grok.com', DeepSeek: 'deepseek.com'};
+  const PDOM = {'Google AI Search': 'google.com', ChatGPT: 'chatgpt.com', Gemini: 'gemini.google.com', Copilot: 'copilot.microsoft.com', Perplexity: 'perplexity.ai', Claude: 'claude.ai', 'Meta AI': 'meta.ai', Grok: 'grok.com', DeepSeek: 'deepseek.com'};
   const icon = (name, size) => {
     size = size || 22;
     const badge = '<span class="ar-ico-b" style="width:' + size + 'px;height:' + size + 'px;background:' + pc(name) + ';font-size:' + Math.round(size * .5) + 'px">' + esc(String(name || '?').charAt(0)) + '</span>';
@@ -91,7 +91,8 @@
 .ar-a-n{font-size:14px;font-weight:600}
 .ar-a-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .ar-a-row div{font-size:11.5px;color:${C.ink3}}
-.ar-a-row b{display:block;font-size:20px;font-weight:600;color:${C.ink};margin-top:2px}
+.ar-a-row2{grid-template-columns:repeat(2,1fr)}
+.ar-a-row b{display:block;font-size:22px;font-weight:600;color:${C.ink};margin-top:2px}
 .ar-share{height:6px;border-radius:3px;background:${C.bg};overflow:hidden}
 .ar-share i{display:block;height:100%;background:var(--c);border-radius:3px}
 .ar-a-f{font-size:12px;color:${C.ink2}}
@@ -165,86 +166,89 @@
     const prevG = gStart && gStart <= prev.since ? P.google.n : null;
     const aio = M.aio || [], mentioned = aio.filter(c => c.cited || c.named).length;
 
+    /* ---------- One list of AI sources: Google AI Search + each AI assistant ----------
+       Google AI Search = Google visits to the pages Google's AI featured (Google doesn't separate clicks on
+       AI Overviews / AI Mode from ordinary results, so this includes both; the note says so in one line). */
+    const GN = 'Google AI Search';
+    const G = M.gorg || {}, GP = P.gorg || {};
+    const gOn = !!(G.known && (G.s || GP.s || gHas));
+    const goEv = r => [r[0], GN, r[1], r[2], r[3]];
+    const sources = (gOn ? [{name: GN, s: G.s || 0, k: G.k || 0, ps: GP.s || 0, pk: GP.k || 0}] : [])
+      .concat(plats.map(p => ({name: p.name, s: p.s, k: p.k, ps: p.ps, pk: p.pk})));
+    const tot = {s: sources.reduce((t, x) => t + x.s, 0), k: sources.reduce((t, x) => t + x.k, 0),
+      ps: sources.reduce((t, x) => t + x.ps, 0), pk: sources.reduce((t, x) => t + x.pk, 0)};
+    const evRows = ((M.keyEv && M.keyEv.rows) || []).concat(gOn ? (G.events || []).map(goEv) : []);
+    const types = keyEventsOf(evRows);
+    const srcSorted = sources.slice().sort((a, b) => b.s - a.s || b.k - a.k);
+    const asst = plats.filter(p => p.s), topA = asst.slice().sort((a, b) => b.s - a.s)[0];
+
     /* ---------- In short ---------- */
     const L = [];
-    L.push(M.ai.s
-      ? 'AI assistants sent <b>' + fmt(M.ai.s) + ' visit' + (M.ai.s === 1 ? '' : 's') + '</b> to the website in ' + esc(cur.name) + (topP ? (plats.filter(p => p.s).length > 1 ? ', most of them from ' + esc(topP.name) : ', all from ' + esc(topP.name)) : '') + '. ' +
-        (P.ai.s ? (M.ai.s === P.ai.s ? 'That is the same as ' + esc(prev.name.split(' ')[0]) + '.' : 'That is ' + (M.ai.s > P.ai.s ? fmt(M.ai.s - P.ai.s) + ' more' : fmt(P.ai.s - M.ai.s) + ' fewer') + ' than ' + esc(prev.name.split(' ')[0]) + '.') : '')
-      : 'No visits from AI assistants were recorded in ' + esc(cur.name) + '.');
-    if (M.ai.k) L.push('<b>' + fmt(M.ai.k) + '</b> of those visits led to a conversion (a form, call, email or other goal).');
-    if (gHas) L.push('Google’s AI (AI Overviews and AI Mode) showed the website <b>' + fmt(M.google.n) + ' times</b>' + (gComplete ? '' : ' (Search Console data to ' + esc(U.prettyDate(gLast)) + ')') + (prevG != null && gComplete && prevG ? ', ' + (M.google.n >= prevG ? 'up' : 'down') + ' from ' + fmt(prevG) + ' in ' + esc(prev.name.split(' ')[0]) : '') + '.');
-    if (aio.length) L.push('In Google’s AI Overviews for the searches we track, the business was mentioned in <b>' + fmt(mentioned) + ' of ' + fmt(aio.length) + '</b>.');
+    if (tot.s) L.push('AI brought <b>' + fmt(tot.s) + ' visit' + (tot.s === 1 ? '' : 's') + '</b> to the website in ' + esc(cur.name) +
+      (gOn && G.s && M.ai.s ? ': ' + fmt(G.s) + ' from Google’s AI search results and ' + fmt(M.ai.s) + ' from AI assistants' + (topA ? ' like ' + esc(topA.name) : '') : gOn && G.s ? ', all from Google’s AI search results' : topA ? ', from AI assistants like ' + esc(topA.name) : '') + '.' +
+      (tot.ps ? ' That is ' + (tot.s === tot.ps ? 'the same as' : tot.s > tot.ps ? fmt(tot.s - tot.ps) + ' more than' : fmt(tot.ps - tot.s) + ' fewer than') + ' ' + esc(prev.name.split(' ')[0]) + '.' : ''));
+    else L.push('No visits from AI were recorded in ' + esc(cur.name) + '.');
+    L.push(tot.k ? 'Those visitors completed <b>' + fmt(tot.k) + ' conversion' + (tot.k === 1 ? '' : 's') + '</b>' + (types[0] ? ', mostly <b>' + esc(types[0].label.toLowerCase()) + '</b>' : '') + '.' : 'No conversions came from AI visitors this month.');
+    if (gHas) L.push('Google’s AI showed the website <b>' + fmt(M.google.n) + ' times</b>' + (gComplete ? '' : ' (data to ' + esc(U.prettyDate(gLast)) + ')') + (prevG != null && gComplete && prevG ? ', ' + (M.google.n >= prevG ? 'up' : 'down') + ' from ' + fmt(prevG) + ' in ' + esc(prev.name.split(' ')[0]) : '') + '.');
+    if (aio.length) L.push('When people search for the topics we track, Google’s AI mentions the business in <b>' + fmt(mentioned) + ' of ' + fmt(aio.length) + '</b> searches.');
 
     /* ---------- KPIs ---------- */
     const kpi = (label, val, cur0, prev0, foot) => '<div class="ar-card ar-kpi"><div class="ar-kpi-l">' + esc(label) + '</div><div class="ar-kpi-v">' + val + '</div>' +
       '<div class="ar-kpi-f">' + (prev0 != null ? change(cur0, prev0) + '<span>vs ' + esc(prev.label) + ' (' + fmt(prev0) + ')</span>' : '') + (foot ? '<span>' + foot + '</span>' : '') + '</div></div>';
-    const kpis = kpi('AI Assistant Visits', fmt(M.ai.s), M.ai.s, P.ai.s) +
-      kpi('Conversions from AI', fmt(M.ai.k), M.ai.k, P.ai.k) +
-      (gHas ? kpi('Google AI Impressions', fmt(M.google.n), M.google.n, gComplete ? prevG : null, gComplete ? '' : 'data to ' + esc(U.shortDate(gLast))) : '') +
-      (aio.length ? kpi('AI Overview Mentions', fmt(mentioned) + '<span style="font-size:18px;color:' + C.ink3 + ';font-weight:500"> / ' + fmt(aio.length) + '</span>', null, null, 'tracked searches that name or cite the business') : '');
+    const kpis = kpi('Visits from AI', fmt(tot.s), tot.s, tot.ps) +
+      kpi('Conversions from AI', fmt(tot.k), tot.k, tot.pk) +
+      (gHas ? kpi('Times Google’s AI Showed the Site', fmt(M.google.n), M.google.n, gComplete ? prevG : null, gComplete ? '' : 'data to ' + esc(U.shortDate(gLast))) : '') +
+      (aio.length ? kpi('Mentioned in Google’s AI', fmt(mentioned) + '<span style="font-size:18px;color:' + C.ink3 + ';font-weight:500"> / ' + fmt(aio.length) + '</span>', null, null, 'tracked searches') : '');
 
-    /* ---------- AI assistants: one card each ---------- */
-    const platsNow = plats.slice().sort((a, b) => b.s - a.s || b.ps - a.ps);
-    const evKnown = !!(M.keyEv && M.keyEv.known);
-    const types = keyEventsOf((M.keyEv && M.keyEv.rows) || []);
-    const topTypeOf = name => { const t = types.filter(x => x.plats[name]).sort((a, b) => b.plats[name] - a.plats[name])[0]; return t ? t.label : ''; };
-    const asstCards = platsNow.map(p => '<div class="ar-a" style="--c:' + pc(p.name) + '"><div class="ar-a-h"><span class="ar-who">' + icon(p.name, 26) + '<span class="ar-a-n">' + esc(p.name) + '</span></span>' + change(p.s, p.ps) + '</div>' +
-      '<div class="ar-a-row"><div>Visits<b>' + fmt(p.s) + '</b></div><div>Conversions<b>' + fmt(p.k) + '</b></div><div>Conv. rate<b>' + pct(p.k, p.s) + '</b></div></div>' +
-      '<div class="ar-share" title="Share of all AI visits"><i style="width:' + (M.ai.s ? Math.round(p.s / M.ai.s * 100) : 0) + '%"></i></div>' +
-      '<div class="ar-a-f">' + (M.ai.s ? Math.round(p.s / M.ai.s * 100) + '% of AI visits' : 'No visits this month') + (topTypeOf(p.name) ? ' · mostly <b>' + esc(topTypeOf(p.name)) + '</b>' : '') + '</div></div>').join('');
+    /* ---------- Where AI visitors came from ---------- */
+    const srcCards = srcSorted.map(p => '<div class="ar-a" style="--c:' + pc(p.name) + '"><div class="ar-a-h"><span class="ar-who">' + icon(p.name, 26) + '<span class="ar-a-n">' + esc(p.name) + '</span></span>' + change(p.s, p.ps) + '</div>' +
+      '<div class="ar-a-row ar-a-row2"><div>Visits<b>' + fmt(p.s) + '</b></div><div>Conversions<b>' + fmt(p.k) + '</b></div></div>' +
+      '<div class="ar-share" title="Share of all visits from AI"><i style="width:' + (tot.s ? Math.max(p.s ? 2 : 0, Math.round(p.s / tot.s * 100)) : 0) + '%"></i></div>' +
+      '<div class="ar-a-f">' + (tot.s ? (p.s && p.s / tot.s < .01 ? 'Less than 1%' : Math.round(p.s / tot.s * 100) + '%') + ' of visits from AI' : 'No visits this month') + '</div></div>').join('');
 
-    /* ---------- Conversions from AI: which assistant, which kind ---------- */
-    const convPlats = platsNow.filter(p => p.k || types.some(t => t.plats[p.name]));
-    const convMax = Math.max(1, ...convPlats.map(p => p.k));
-    const convBars = convPlats.length ? '<div class="ar-bar">' + convPlats.map(p => '<div>' + who(p.name, 20) + '<span class="t"><i style="width:' + (p.k / convMax * 100) + '%;background:' + pc(p.name) + '"></i></span><b>' + fmt(p.k) + '</b></div>').join('') + '</div>' : '';
-    const matrix = types.length ? '<table class="ar-t ar-mx"><thead><tr><th>Conversion</th>' + convPlats.map(p => '<th class="c" title="' + esc(p.name) + '">' + icon(p.name, 22) + '<div style="margin-top:4px;text-transform:none;letter-spacing:0">' + esc(p.name) + '</div></th>').join('') + '<th class="n">Total</th></tr></thead><tbody>' +
-      types.slice(0, 8).map(t => '<tr><td>' + esc(t.label) + '</td>' + convPlats.map(p => '<td class="c"><span class="ar-pill' + (t.plats[p.name] ? ' on' : '') + '">' + fmt(t.plats[p.name] || 0) + '</span></td>').join('') + '<td class="n"><b>' + fmt(t.n) + '</b></td></tr>').join('') + '</tbody></table>'
-      : '<div class="ar-empty">' + (M.ai.k ? 'Conversion types aren’t available for this site yet.' : 'No conversions from AI visitors in ' + esc(cur.name) + (P.ai.k ? ' (' + fmt(P.ai.k) + ' in ' + esc(prev.name.split(' ')[0]) + ').' : '.')) + '</div>';
-    const convCard = '<div class="ar-card"><h2 class="ar-h">Conversions from AI Assistants</h2><p class="ar-cap">Forms, calls, emails and other goals completed by visitors who came from an AI assistant in ' + esc(cur.name) + '.</p>' +
-      '<div class="ar-convs"><div class="ar-conv-big"><div><div class="ar-kpi-l">Total conversions</div><div class="ar-kpi-v">' + fmt(M.ai.k) + '</div><div class="ar-kpi-f">' + change(M.ai.k, P.ai.k) + '<span>vs ' + esc(prev.label) + ' (' + fmt(P.ai.k) + ')</span></div></div>' + convBars + '</div>' +
+    /* ---------- Conversions ---------- */
+    const convSrc = srcSorted.filter(p => p.k || types.some(t => t.plats[p.name]));
+    const convMax = Math.max(1, ...convSrc.map(p => p.k));
+    const convBars = convSrc.length ? '<div class="ar-bar">' + convSrc.map(p => '<div>' + who(p.name, 20) + '<span class="t"><i style="width:' + (p.k / convMax * 100) + '%;background:' + pc(p.name) + '"></i></span><b>' + fmt(p.k) + '</b></div>').join('') + '</div>' : '';
+    const matrix = types.length ? '<table class="ar-t ar-mx"><thead><tr><th>What they did</th>' + convSrc.map(p => '<th class="c" title="' + esc(p.name) + '">' + icon(p.name, 22) + '<div style="margin-top:4px;text-transform:none;letter-spacing:0">' + esc(p.name) + '</div></th>').join('') + '<th class="n">Total</th></tr></thead><tbody>' +
+      types.slice(0, 8).map(t => '<tr><td>' + esc(t.label) + '</td>' + convSrc.map(p => '<td class="c"><span class="ar-pill' + (t.plats[p.name] ? ' on' : '') + '">' + fmt(t.plats[p.name] || 0) + '</span></td>').join('') + '<td class="n"><b>' + fmt(t.n) + '</b></td></tr>').join('') + '</tbody></table>'
+      : '<div class="ar-empty">' + (tot.k ? 'Conversion types aren’t available for this site yet.' : 'No conversions from AI visitors in ' + esc(cur.name) + (tot.pk ? ' (' + fmt(tot.pk) + ' in ' + esc(prev.name.split(' ')[0]) + ').' : '.')) + '</div>';
+    const convCard = '<div class="ar-card"><h2 class="ar-h">Conversions from AI</h2><p class="ar-cap">Calls, forms, emails and other goals completed by visitors who came from AI in ' + esc(cur.name) + '.</p>' +
+      '<div class="ar-convs"><div class="ar-conv-big"><div><div class="ar-kpi-l">Total conversions</div><div class="ar-kpi-v">' + fmt(tot.k) + '</div><div class="ar-kpi-f">' + change(tot.k, tot.pk) + '<span>vs ' + esc(prev.label) + ' (' + fmt(tot.pk) + ')</span></div></div>' + convBars + '</div>' +
       '<div>' + matrix + '</div></div></div>';
 
-    /* ---------- Top pages from AI, with the assistants that sent people there ---------- */
+    /* ---------- Pages AI brought visitors to ---------- */
     const pm = {};
-    M.cur.forEach(r => { const k = pageKey(r[3]); if (k === 'Landing page not recorded') return; const o = pm[k] = pm[k] || {k, s: 0, c: 0, by: {}}; o.s += Number(r[4]) || 0; o.c += Number(r[6]) || 0; o.by[r[1]] = (o.by[r[1]] || 0) + (Number(r[4]) || 0); });
-    const pages = Object.values(pm).sort((a, b) => b.s - a.s).slice(0, 6);
+    const addPg = (u, src, s0, k0) => { const k = pageKey(u); if (k === 'Landing page not recorded') return; const o = pm[k] = pm[k] || {k, s: 0, c: 0, by: {}}; o.s += s0; o.c += k0; o.by[src] = (o.by[src] || 0) + s0; };
+    M.cur.forEach(r => addPg(r[3], r[1], Number(r[4]) || 0, Number(r[6]) || 0));
+    if (gOn) ((feed.gorg && feed.gorg.rows) || []).filter(r => r[0] >= cur.since && r[0] <= cur.end).forEach(r => addPg(r[1], GN, Number(r[2]) || 0, Number(r[4]) || 0));
+    const pages = Object.values(pm).sort((a, b) => b.s - a.s).slice(0, 8);
 
-    /* ---------- Google AI → website ---------- */
-    const G = M.gorg, gTypes = keyEventsOf(G.events || []);
-    /* Visits and conversions for the report month only (the shared model sums every month here). */
-    const goRows = ((feed.gorg && feed.gorg.rows) || []).filter(r => r[0] >= cur.since && r[0] <= cur.end);
-    const gPages = (G.pages || []).map(p => { const rs = goRows.filter(r => pageKey(r[1]) === p.key);
-      return {key: p.key, n: p.n, s: rs.reduce((t, r) => t + (Number(r[2]) || 0), 0), k: rs.reduce((t, r) => t + (Number(r[4]) || 0), 0)}; }).slice(0, 6);
-    const pagesMonth = M.google.pagesMonth || '';
-    const googleCard = gHas && G.known && gPages.length ? '<div class="ar-card"><h2 class="ar-h">From Google AI Search to the Website</h2><p class="ar-cap">Pages Google’s AI showed, and what happened when people came to them from Google.</p>' +
-      '<div class="ar-trio"><div><small>Google AI impressions</small><b>' + fmt(M.google.n) + '</b><span>Times Google’s AI showed the site</span></div>' +
-      '<div><small>→ Visits from Google</small><b>' + fmt(G.s) + '</b><span>To the pages its AI showed</span></div>' +
-      '<div><small>→ Conversions</small><b>' + fmt(G.k) + '</b><span>' + (G.s ? Math.round(G.k / G.s * 1000) / 10 + '% of those visits' : '&nbsp;') + '</span></div></div>' +
-      '<table class="ar-t"><thead><tr><th>Page Google’s AI showed</th><th class="n">AI impressions' + (pagesMonth ? ' (' + esc(pagesMonth.split(' ')[0].slice(0, 3)) + ')' : '') + '</th><th class="n">Visits from Google</th><th class="n">Conversions</th></tr></thead><tbody>' +
-      gPages.map(p => '<tr><td class="pg" title="' + esc(p.key) + '">' + esc(p.key) + '</td><td class="n">' + fmt(p.n) + '</td><td class="n">' + fmt(p.s) + '</td><td class="n">' + fmt(p.k) + '</td></tr>').join('') + '</tbody></table>' +
-      (gTypes.length ? '<p class="ar-note" style="margin:10px 0 0"><b style="color:' + C.ink2 + '">Conversions:</b> ' + gTypes.slice(0, 4).map(e => fmt(e.n) + ' ' + esc(e.label)).join(' · ') + '</p>' : '') +
-      '<p class="ar-note" style="margin:6px 0 0">Google doesn’t say which visits came from AI Overviews or AI Mode, so visits and conversions include everyone who reached these pages from Google search.</p></div>' : '';
-
-    /* ---------- AI Overview checks ---------- */
-    const lbl = c => c.cited ? '<span class="ar-tag y">Cited</span>' : c.named ? '<span class="ar-tag y">Named</span>' : c.shown ? '<span class="ar-tag m">Not mentioned</span>' : '<span class="ar-tag n">No AI Overview</span>';
+    /* ---------- Google AI Overviews ---------- */
+    const lbl = c => c.cited ? '<span class="ar-tag y">Linked to the site</span>' : c.named ? '<span class="ar-tag y">Business named</span>' : c.shown ? '<span class="ar-tag m">Not mentioned</span>' : '<span class="ar-tag n">No AI answer</span>';
     const aioSorted = aio.slice().sort((a, b) => (b.cited ? 3 : b.named ? 2 : b.shown ? 1 : 0) - (a.cited ? 3 : a.named ? 2 : a.shown ? 1 : 0));
-    const aioCard = aio.length ? '<div class="ar-card"><h2 class="ar-h">Google AI Overviews · Tracked Searches</h2><p class="ar-cap">Checked ' + esc(U.prettyDate(M.aioRun || '')) + ': does Google show an AI Overview, and does it name or cite the business?</p>' +
+    const aioCard = aio.length ? '<div class="ar-card"><h2 class="ar-h">Is the Business in Google’s AI Answers?</h2><p class="ar-cap">For the searches we track, does Google’s AI answer mention the business? Checked ' + esc(U.prettyDate(M.aioRun || '')) + '.</p>' +
       '<table class="ar-t"><thead><tr><th>Search</th><th>Location</th><th>Result</th></tr></thead><tbody>' +
       aioSorted.slice(0, 8).map(c => '<tr><td>' + esc(c.k) + '</td><td>' + esc(c.loc || '') + '</td><td>' + lbl(c) + '</td></tr>').join('') + '</tbody></table>' +
       (aio.length > 8 ? '<p class="ar-note" style="margin:8px 0 0">and ' + (aio.length - 8) + ' more tracked searches.</p>' : '') + '</div>' : '';
 
+    /* Monthly visits from AI (Google AI Search + assistants) */
+    const monthlyV = ms.map(x => { const Mx = model(feed, {since: x.since, end: x.end}); const has = (ga4Start && ga4Start <= x.end) || (gStart && gStart <= x.end);
+      return {label: x.label, name: x.name, v: has ? (Mx.ai.s || 0) + (gOn && Mx.gorg ? Mx.gorg.s || 0 : 0) : null}; });
+
     root.innerHTML = '<div class="ar">' +
-      '<div class="ar-card ar-head"><div><h1 class="ar-title">' + esc(opts.title || ((feed.name || feed.domain) + ' — AI Visibility')) + '</h1><div class="ar-sub">How people found the website through AI assistants and Google’s AI</div></div><span class="ar-badge">' + esc(cur.name) + '</span></div>' +
-      '<div class="ar-card ar-sum"><h2 class="ar-h">' + esc(cur.name) + ' in short</h2><ul>' + L.map(l => '<li>' + l + '</li>').join('') + '</ul></div>' +
+      '<div class="ar-card ar-head"><div><h1 class="ar-title">' + esc(opts.title || ((feed.name || feed.domain) + ' — AI Visibility')) + '</h1><div class="ar-sub">How people found the website through AI</div></div><span class="ar-badge">' + esc(cur.name) + '</span></div>' +
+      '<div class="ar-card ar-sum"><h2 class="ar-h">' + esc(cur.name) + ' at a glance</h2><ul>' + L.map(l => '<li>' + l + '</li>').join('') + '</ul></div>' +
       '<div class="ar-kpis">' + kpis + '</div>' +
-      '<div class="ar-g2"><div class="ar-card"><h2 class="ar-h">AI Assistant Visits by Month</h2><p class="ar-cap">Full months only. ChatGPT, Gemini, Copilot, Perplexity and others.</p>' + bars(monthly.map(x => ({label: x.label, name: x.name, v: x.ai})), C.dark, {label: 'AI assistant visits by month'}) + '</div>' +
-        (gHas ? '<div class="ar-card"><h2 class="ar-h">Google AI Impressions by Month</h2><p class="ar-cap">Times the site appeared in AI Overviews and AI Mode (Search Console).' + (monthly.some(x => x.gPart) ? ' Part months are shown striped.' : '') + '</p>' + bars(monthly.map(x => ({label: x.label, name: x.name, v: x.g, part: x.gPart, note: x.gNote})), '#8fbf2f', {label: 'Google AI impressions by month'}) + '</div>' : '<div></div>') + '</div>' +
-      '<div class="ar-card"><h2 class="ar-h">AI Assistants</h2><p class="ar-cap">Which AI assistants sent visitors in ' + esc(cur.name) + ', and what those visitors did. Change is compared with ' + esc(prev.name.split(' ')[0]) + '.</p>' +
-        (asstCards ? '<div class="ar-asst">' + asstCards + '</div>' : '<div class="ar-empty">No AI assistant visits this month.</div>') + '</div>' +
+      '<div class="ar-card"><h2 class="ar-h">Where AI Visitors Came From</h2><p class="ar-cap">Visits and conversions from each AI source in ' + esc(cur.name) + ', compared with ' + esc(prev.name.split(' ')[0]) + '.</p>' +
+        (srcCards ? '<div class="ar-asst">' + srcCards + '</div>' : '<div class="ar-empty">No visits from AI this month.</div>') +
+        (gOn ? '<p class="ar-note" style="margin:12px 0 0">' + icon(GN, 14) + ' <b style="color:' + C.ink2 + '">Google AI Search</b> counts Google visitors to the pages Google’s AI featured. Google doesn’t report AI clicks separately, so it also includes regular Google search clicks on those pages.</p>' : '') + '</div>' +
       convCard +
-      '<div class="ar-card"><h2 class="ar-h">Top Pages from AI Assistants</h2><p class="ar-cap">Where AI visitors landed in ' + esc(cur.name) + ', and which assistants sent them.</p>' +
-        (pages.length ? '<table class="ar-t"><thead><tr><th>Page</th><th>Sent by</th><th class="n">Visits</th><th class="n">Conversions</th></tr></thead><tbody>' + pages.map(p => '<tr><td class="pg" title="' + esc(p.k) + '">' + esc(p.k) + '</td><td><span class="ar-icons">' + Object.keys(p.by).sort((a, b) => p.by[b] - p.by[a]).map(n => '<span title="' + esc(n + ': ' + p.by[n] + ' visit' + (p.by[n] === 1 ? '' : 's')) + '">' + icon(n, 20) + '</span>').join('') + '</span></td><td class="n">' + fmt(p.s) + '</td><td class="n">' + fmt(p.c) + '</td></tr>').join('') + '</tbody></table>' : '<div class="ar-empty">No AI assistant visits this month.</div>') + '</div>' +
-      googleCard + aioCard +
+      '<div class="ar-g2"><div class="ar-card"><h2 class="ar-h">Visits from AI by Month</h2><p class="ar-cap">Full months only.</p>' + bars(monthlyV, '#4285F4', {label: 'Visits from AI by month'}) + '</div>' +
+        (gHas ? '<div class="ar-card"><h2 class="ar-h">Times Google’s AI Showed the Site by Month</h2><p class="ar-cap">AI Overviews and AI Mode, from Google Search Console.' + (monthly.some(x => x.gPart) ? ' Part months are striped.' : '') + '</p>' + bars(monthly.map(x => ({label: x.label, name: x.name, v: x.g, part: x.gPart, note: x.gNote})), '#8fbf2f', {label: 'Google AI impressions by month'}) + '</div>' : '<div></div>') + '</div>' +
+      '<div class="ar-card"><h2 class="ar-h">Pages AI Brought Visitors To</h2><p class="ar-cap">The pages visitors from AI landed on in ' + esc(cur.name) + ', and where they came from.</p>' +
+        (pages.length ? '<table class="ar-t"><thead><tr><th>Page</th><th>From</th><th class="n">Visits</th><th class="n">Conversions</th></tr></thead><tbody>' + pages.map(p => '<tr><td class="pg" title="' + esc(p.k) + '">' + esc(p.k) + '</td><td><span class="ar-icons">' + Object.keys(p.by).sort((a, b) => p.by[b] - p.by[a]).map(n => '<span title="' + esc(n + ': ' + p.by[n] + ' visit' + (p.by[n] === 1 ? '' : 's')) + '">' + icon(n, 20) + '</span>').join('') + '</span></td><td class="n">' + fmt(p.s) + '</td><td class="n">' + fmt(p.c) + '</td></tr>').join('') + '</tbody></table>' : '<div class="ar-empty">No visits from AI this month.</div>') + '</div>' +
+      aioCard +
       '<div class="ar-foot">' + esc(opts.foot || '') + '</div></div>';
   }
 
