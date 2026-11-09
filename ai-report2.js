@@ -313,7 +313,7 @@ background:linear-gradient(135deg,transparent 0 50%,#a1a1aa 50% 58%,transparent 
       'kpi-gimpr': {t: 'Times Google’s AI Showed the Site', size: 2, h: 360, ok: gHas, html: () => kpi('Times Google’s AI Showed the Site', fmt(M.google.n), M.google.n, gComplete ? prevG : null, gComplete ? '' : 'data to ' + esc(U.shortDate(gLast)), 'gsc')},
       'conv-types': {t: 'Conversions from AI', size: 6, html: () => convCard},
       'visits-3m': {t: 'Visits from AI — Last 3 Months', size: 6, html: () => card('Visits from AI — Last 3 Months', srcNames.length ? stacked() + monthTable : '<div class="ar-empty">No visits from AI in the last three months.</div>')},
-      pages: {t: 'Pages AI Brought Visitors To', size: 6, html: () => card('Pages AI Brought Visitors To',
+      pages: {t: 'Top 5 Pages AI Brought Visitors To', size: 6, html: () => card('Top 5 Pages AI Brought Visitors To',
         pages.length ? '<table class="ar-t"><thead><tr><th>Page</th><th>Source</th><th class="n">Visits</th><th class="n">Conversions</th></tr></thead><tbody>' + pages.map(p => '<tr><td class="pg" title="' + esc(p.k) + '">' + esc(p.k) + '</td><td>' + who(p.src, 20) + '</td><td class="n">' + fmt(p.s) + '</td><td class="n">' + fmt(p.c) + '</td></tr>').join('') + '</tbody></table>' : '<div class="ar-empty">No visits from AI this month.</div>')},
       /* Extra widgets you can add from the tool */
       sources: {t: 'Where AI Visitors Came From', size: 6, html: () => card('Where AI Visitors Came From', srcCards ? '<div class="ar-asst">' + srcCards + '</div>' : '<div class="ar-empty">No visits from AI this month.</div>')},
