@@ -111,7 +111,7 @@ html::-webkit-scrollbar,body::-webkit-scrollbar{display:none}
 })();
 </script>
 <script>/* Fit the report inside the AgencyAnalytics embed box so nothing is cut off:
-   shorten the number cards first, then scale the whole report down only if it is still too tall. */
+   keep the number cards big (shortened only a little, never below 280px), then scale the whole report evenly to fit. */
 (function(){
   var root=document.getElementById('report'), busy=false;
   function fit(){
@@ -119,9 +119,9 @@ html::-webkit-scrollbar,body::-webkit-scrollbar{display:none}
     root.style.zoom='';
     var kp=[].slice.call(root.querySelectorAll('.ar-fix'));
     kp.forEach(function(c){c.style.height='';});
-    var H=window.innerHeight, over=root.scrollHeight-H;
+    var H=window.innerHeight, over=root.getBoundingClientRect().height-H/0.85;
     if(over>0&&kp.length){
-      var k=kp[0].getBoundingClientRect().height, nk=Math.max(170,Math.round(k-over));
+      var k=kp[0].getBoundingClientRect().height, nk=Math.max(280,Math.round(k-over));
       kp.forEach(function(c){c.style.height=nk+'px';});
     }
     var z=1;
