@@ -29093,5 +29093,49 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
 <script src="edge-ui.js"></script>
 <script src="maintenance.js"></script>
 <script src="report-nav.js?v=20261106b"></script>
+<style>/* Keyword report inside AgencyAnalytics: the keyword list gets its own scroll bar */
+.kwr-list.kwr-scroll{overflow-y:auto;overscroll-behavior:contain;padding-right:6px;scrollbar-width:auto;scrollbar-color:#aab6c1 #eef1f4;}
+.kwr-list.kwr-scroll::-webkit-scrollbar{width:12px;}
+.kwr-list.kwr-scroll::-webkit-scrollbar-track{background:#eef1f4;border-radius:8px;}
+.kwr-list.kwr-scroll::-webkit-scrollbar-thumb{background:#aab6c1;border-radius:8px;border:2px solid #eef1f4;background-clip:padding-box;}
+.kwr-list.kwr-scroll::-webkit-scrollbar-thumb:hover{background:#8a98a6;background-clip:padding-box;}
+</style>
+<script>/* Keyword report embedded in AgencyAnalytics: keep the whole report inside the embed box.
+   When there are more keywords than fit, the keyword list scrolls on its own instead of running past the bottom.
+   Only runs when the report is shown inside another page (an iframe); opened on its own it scrolls normally. */
+(function(){
+  var embedded; try{ embedded = window.self !== window.top; }catch(e){ embedded = true; }
+  if (!embedded) return;
+  var root = document.getElementById('kwReportRoot');
+  if (!root) return;
+  var busy = false;
+  function fit(){
+    if (busy || !document.body.classList.contains('report-mode')) return;
+    var list = root.querySelector('.kwr-list');
+    if (!list) return;
+    busy = true;
+    var keep = list.scrollTop;
+    list.classList.remove('kwr-scroll');
+    list.style.maxHeight = '';
+    var de = document.documentElement;
+    for (var i = 0; i < 3; i++){
+      var over = de.scrollHeight - window.innerHeight;
+      if (over <= 0) break;
+      var z = (list.getBoundingClientRect().height / list.offsetHeight) || 1; /* the report can be zoomed */
+      list.style.maxHeight = Math.max(260, Math.floor(list.offsetHeight - over / z - 1)) + 'px';
+      list.classList.add('kwr-scroll');
+    }
+    list.scrollTop = keep;
+    busy = false;
+  }
+  var t = 0;
+  function soon(){ clearTimeout(t); t = setTimeout(fit, 60); }
+  new MutationObserver(soon).observe(root, {childList: true, subtree: true});
+  root.addEventListener('click', soon);
+  addEventListener('resize', soon);
+  addEventListener('load', soon);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(soon);
+})();
+</script>
 </body>
 </html>
