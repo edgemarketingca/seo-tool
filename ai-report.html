@@ -110,5 +110,29 @@ html::-webkit-scrollbar,body::-webkit-scrollbar{display:none}
   });
 })();
 </script>
+<script>/* Fit the report inside the AgencyAnalytics embed box so nothing is cut off:
+   shorten the number cards first, then scale the whole report down only if it is still too tall. */
+(function(){
+  var root=document.getElementById('report'), busy=false;
+  function fit(){
+    if(busy||!root.querySelector('.ar-grid'))return; busy=true;
+    root.style.zoom='';
+    var kp=[].slice.call(root.querySelectorAll('.ar-fix'));
+    kp.forEach(function(c){c.style.height='';});
+    var H=window.innerHeight, over=root.scrollHeight-H;
+    if(over>0&&kp.length){
+      var k=kp[0].getBoundingClientRect().height, nk=Math.max(170,Math.round(k-over));
+      kp.forEach(function(c){c.style.height=nk+'px';});
+    }
+    var z=1;
+    for(var i=0;i<5;i++){ var h=root.getBoundingClientRect().height; if(h<=H+1)break; z=z*(H-2)/h; root.style.zoom=z.toFixed(4); }
+    busy=false;
+  }
+  function soon(){requestAnimationFrame(function(){requestAnimationFrame(fit);});}
+  new MutationObserver(soon).observe(root,{childList:true});
+  addEventListener('resize',soon);
+  if(document.fonts&&document.fonts.ready)document.fonts.ready.then(soon);
+})();
+</script>
 </body>
 </html>
