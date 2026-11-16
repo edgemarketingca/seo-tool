@@ -11044,6 +11044,14 @@ function stampChanges(){
     const key = 'scan:' + scanKey(s), h = scanHash(s);
     if (syncSig.get(key) !== h){ syncSig.set(key, h); s._mt = syncTick(); n++; }
   });
+  /* Settings get a stamp per key too, the moment one is changed here, so the
+     merge can tell a setting somebody chose from a default nobody touched. */
+  const st = state.settings || {};
+  if (!state.settingsMt || typeof state.settingsMt !== 'object') state.settingsMt = {};
+  Object.keys(st).forEach(k => {
+    const sig = JSON.stringify(st[k] === undefined ? null : st[k]);
+    if (syncSig.get('set:' + k) !== sig){ syncSig.set('set:' + k, sig); state.settingsMt[k] = syncTick(); n++; }
+  });
   return n;
 }
 /* Take note of the workspace as it stands without stamping anything. Used
@@ -11058,6 +11066,9 @@ function seedSigs(){
     syncSig.set('scan:' + scanKey(s), scanHash(s));
     syncSeen(s._mt);
   });
+  const st = state.settings || {};
+  Object.keys(st).forEach(k => syncSig.set('set:' + k, JSON.stringify(st[k] === undefined ? null : st[k])));
+  Object.values(state.settingsMt || {}).forEach(syncSeen);
 }
 function persistLocalQuiet(json){
   if (isPublicView()) return false;
@@ -11263,12 +11274,29 @@ function mergeStates(localState, remoteState){
   const base  = preferRemote ? remoteState : localState;
   const other = preferRemote ? localState  : remoteState;
   const merged = Object.assign({}, other, base);
-  /* Settings are merged key by key: a blank API password on the newer side
-     must not wipe a filled-in one on the older side. */
-  merged.settings = Object.assign({}, DEFAULTS, other.settings || {});
-  Object.keys(base.settings || {}).forEach(k => {
-    const v = base.settings[k];
-    if (v !== '' && v !== null && v !== undefined) merged.settings[k] = v;
+  /* Settings are merged key by key, each by its own stamp (settingsMt):
+       · a blank never replaces a filled-in value (a signed-out browser holds
+         no keys, and an empty password box must not wipe the team's);
+       · otherwise the side that changed that setting most recently wins;
+       · a setting nobody has stamped on either side keeps the cloud's value.
+     This used to follow whichever whole copy was newer, and a browser that
+     had never been used — a new computer, a private window, cleared storage —
+     is always "newer": signing in there reset the team's provider, depth and
+     match rules to the defaults, for everyone. */
+  const ls = localState.settings || {}, rsx = remoteState.settings || {};
+  const lmt = localState.settingsMt || {}, rmt = remoteState.settingsMt || {};
+  const blank = v => v === '' || v === null || v === undefined;
+  merged.settings = Object.assign({}, DEFAULTS);
+  merged.settingsMt = {};
+  new Set(Object.keys(DEFAULTS).concat(Object.keys(ls), Object.keys(rsx))).forEach(k => {
+    const lv = ls[k], rv = rsx[k], lt = +lmt[k] || 0, rt = +rmt[k] || 0;
+    let v;
+    if (blank(lv) && blank(rv)) v = !(k in rsx) && (k in ls) ? lv : rv;
+    else if (blank(lv)) v = rv;
+    else if (blank(rv)) v = lv;
+    else v = lt > rt ? lv : rv;
+    if (v !== undefined) merged.settings[k] = v;
+    if (lt || rt) merged.settingsMt[k] = Math.max(lt, rt);
   });
   const rs = remoteState.settings || {};
   if (Object.keys(merged.settings).some(k => JSON.stringify(merged.settings[k]) !== JSON.stringify(rs[k]))) mergeAhead = true;
@@ -12157,7 +12185,7 @@ function presLive(){
   const now = Date.now() + presOffset;
   const out = [];
   presPeers.forEach(p => {
-    if (p.session !== SESSION_ID && now - (p.tsMs || 0) < PRES_STALE_MS) out.push(p);
+    if (p.session !== SESSION_ID && !presReaped.has(p.session) && now - (p.tsMs || 0) < PRES_STALE_MS) out.push(p);
   });
   return out.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
 }
@@ -12165,6 +12193,15 @@ function presStart(){
   presStop();
   if (!fbDb || !fbUid || isPublicView()) return;
   presOn = true;
+  /* A reload starts a new session, and the old one's note can outlive the
+     page (pagehide doesn't always finish), which showed you to yourself as
+     "here too" for up to two minutes. The tab remembers its last session and
+     clears that note first. */
+  try{
+    const prev = sessionStorage.getItem('edge-pres-session');
+    if (prev && prev !== SESSION_ID){ presReaped.add(prev); presRef(prev).delete().catch(() => {}); }
+    sessionStorage.setItem('edge-pres-session', SESSION_ID);
+  }catch(e){}
   presUnsub = fbDb.collection('users').doc(fbUid).collection('presence').onSnapshot(snap => {
     const next = new Map();
     snap.forEach(d => {
@@ -12667,6 +12704,8 @@ function initCloud(){
       try{ window.edgeSignOut && window.edgeSignOut.hideVeil(); }catch(e){}
       /* nothing from the signed-in session stays on top of the login screen */
       document.querySelectorAll('.elws,.elwb-back,.pta-back').forEach(x => x.remove()); document.body.classList.remove('hub-locked');
+      /* the maintenance reminder lists client names: never leave it on the sign-in screen */
+      document.querySelectorAll('.mt-pop').forEach(x => { x.hidden = true; });
       const btn = $('authSubmitBtn');
       if (btn) btn.disabled = false;
     }
@@ -14270,13 +14309,16 @@ function selectKeyword(id){
 /* ---------- settings ---------- */
 function hydrateSettings(){
   const s = state.settings;
-  $('provider').value = s.provider;
-  $('relay').value = s.relay;
-  $('apiKey').value = s.serperKey;
-  $('dfsLogin').value = s.dfsLogin;
-  $('dfsPassword').value = s.dfsPassword;
-  $('proxyPrefix').value = s.proxyPrefix;
-  $('strictMatch').value = s.strictMatch;
+  /* A signed-out browser holds no keys (see scrubLocalSecrets), so these can
+     be missing. Assigning undefined would print the word "undefined" in the
+     box, and typing after it would save "undefined…" over the real key. */
+  $('provider').value = s.provider || 'dataforseo';
+  $('relay').value = s.relay || 'allorigins';
+  $('apiKey').value = s.serperKey || '';
+  $('dfsLogin').value = s.dfsLogin || '';
+  $('dfsPassword').value = s.dfsPassword || '';
+  $('proxyPrefix').value = s.proxyPrefix || '';
+  $('strictMatch').value = s.strictMatch || 'loose';
   $('depthSel').value = String(s.depth || 100);
   $('includeAds').checked = s.includeAds !== false;
   $('deepVerify').checked = s.deepVerify !== false;
@@ -29118,5 +29160,8 @@ html.kwr-embedded body::-webkit-scrollbar-thumb:hover{background:#9aa7b3;backgro
   addEventListener('load', apply);
 })();
 </script>
+<!-- Calm UI: the visual layer (styles + motion). Loaded last so it sits on top of everything above. -->
+<link rel="stylesheet" href="calm.css?v=2"/>
+<script src="calm.js?v=2"></script>
 </body>
 </html>
