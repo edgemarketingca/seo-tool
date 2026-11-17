@@ -4505,7 +4505,14 @@ body.so-locked{overflow:hidden;}
 .so-stop svg{width:12px; height:12px;}
 .so-stop:hover:not(:disabled){background:#fbe9e6; border-color:var(--alert);}
 .so-stop:disabled{opacity:.6; cursor:wait;}
+.seo-src{display:inline-flex; align-items:center; gap:2px; margin-left:10px; padding:3px; border-radius:11px; background:var(--card-2, #f3f1ed); flex-wrap:wrap;}
+.seo-src-cap{font-size:11.5px; color:var(--ink-3); padding:0 8px 0 7px; white-space:nowrap;}
+.seo-src button{border:0; background:transparent; color:var(--ink-2); font:inherit; font-size:12px; font-weight:550; padding:6px 10px; border-radius:8px; cursor:pointer; white-space:nowrap; transition:background .2s, color .2s, box-shadow .2s;}
+.seo-src button:hover{color:var(--ink);}
+.seo-src button.on{background:#fff; color:var(--ink); box-shadow:0 1px 2px rgba(29,33,39,.08), 0 0 0 1px rgba(29,33,39,.04);}
 .so-close{display:none;}
+.so-act{display:inline-flex; align-items:center; gap:6px; text-decoration:none;}
+.so-root:not(.is-finished) .so-act, .so-root.mini .so-act{display:none !important;}
 .so-root.is-finished .so-close{display:inline-flex;}
 .so-root.is-finished .so-stop, .so-root.is-finished .so-link{display:none;}
 
@@ -7081,7 +7088,16 @@ body.embed-clean .rank-dot.wide{box-shadow:0 0 0 2px #fff,0 0 0 3.5px rgba(212,6
                  no easier to find than "Save now". -->
             <div class="seo-kw-actions">
               <button class="btn btn-go" id="seoScanAllBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><span>Scan all keywords</span></button>
-              <span class="seo-kw-actions-gap"></span>
+              <!-- Where the positions come from. The same setting as GBP Tracker › Setup ›
+               step 4 ("SEO keyword tracker reads"), put where it is used: the free
+               Search Console reading was three screens away from the button it changes. -->
+          <div class="seo-src" id="seoSrcSeg" role="group" aria-label="Where positions are read from">
+            <span class="seo-src-cap">Read from</span>
+            <button type="button" data-src="live" title="A live Google search pinned to each location, through your search provider. Exact position right now; uses provider credit.">Live Google</button>
+            <button type="button" data-src="hybrid" title="Live Google first. Anything it misses, or cannot read, is checked against Search Console before it is saved as not found.">Live + Search Console</button>
+            <button type="button" data-src="gsc" title="Google's own record of where the site appeared for real searchers. Free and never blocked. An average over the last 7 to 28 days, country-wide, not pinned to a city.">Search Console · free</button>
+          </div>
+          <span class="seo-kw-actions-gap"></span>
               <button class="btn btn-quiet" id="seoBulkImportBtn" title="Paste a whole list of keywords at once"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 11l4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg><span>Bulk import</span></button>
               <button class="btn btn-quiet" id="seoShareReportBtn" title="Share or embed this client’s report"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg><span>Share</span></button>
               <button class="btn btn-quiet" id="seoExportClientBtn" title="Download this client’s keywords as an Excel file"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 11l4 4 4-4"/><path d="M4 21h16"/></svg><span>Export .xlsx</span></button>
@@ -7816,6 +7832,22 @@ function syncRegionSelect(selId, iso){
   sel.dispatchEvent(new Event('change', {bubbles:true}));
   return true;
 }
+
+/* ---------- DataForSEO status codes ----------
+   Only a problem with the account itself is worth stopping a run over: bad
+   credentials, no balance, a paused or unverified account, a blocked IP.
+   Everything else in the 401xx/402xx range is about ONE request, not the
+   account - above all 40101 "Internal SE Server Error", which is Google
+   failing to answer DataForSEO's crawler (they refund it), and 40102 "No
+   Search Results". Those used to be treated as fatal because they share the
+   401 prefix with "not authorized", so a single hiccup on Google's side ended
+   a keyword - or a whole grid - without one retry. */
+const DFS_ACCOUNT_CODES = [40100, 40104, 40200, 40201, 40203, 40204, 40207, 40208, 40210];
+function dfsCodeFatal(code){ return DFS_ACCOUNT_CODES.indexOf(Number(code)) !== -1; }
+/* Worth another go after a pause: Google or DataForSEO stumbled, or we were
+   briefly over a rate limit. */
+const DFS_RETRY_CODES = [40101, 40103, 40202, 40209, 50000, 50301, 50302, 50303, 50304, 50401, 50402];
+function dfsCodeRetry(code){ return DFS_RETRY_CODES.indexOf(Number(code)) !== -1; }
 
 /* ---------- uule ---------- */
 function bytesToB64(bytes){ let s = ''; bytes.forEach(b => s += String.fromCharCode(b)); return btoa(s); }
@@ -11548,6 +11580,29 @@ function liveSyncText(kind){
   return 'Synced to cloud \u00b7 ' + syncClockText();
 }
 
+/* A save the cloud refused is tried again without anyone having to make
+   another edit: after 4 seconds, then 8, 16, 32, and every minute after
+   that until it goes through. It used to wait for the next change (or for
+   the browser to report it was back online), so the last thing typed before
+   a hiccup on Google's side could sit in one browser, unsynced, for as long
+   as nobody touched anything. A sign-in problem is not retried: trying
+   again cannot fix it and the message already says what happened. */
+let cloudRetryTimer = null, cloudRetryN = 0;
+function cloudRetryLater(err){
+  const code = err && err.code;
+  if (code === 'permission-denied' || code === 'unauthenticated') return;
+  if (cloudRetryTimer) return;
+  const wait = Math.min(60000, 4000 * Math.pow(2, Math.min(cloudRetryN++, 5)));
+  cloudRetryTimer = setTimeout(() => {
+    cloudRetryTimer = null;
+    if (cloudSaveFailed && fbUid && fbDb) queueCloud();
+  }, window.__edgeFastWaits ? 300 : wait);
+}
+function cloudRetryClear(){
+  cloudRetryN = 0;
+  if (cloudRetryTimer){ clearTimeout(cloudRetryTimer); cloudRetryTimer = null; }
+}
+
 async function cloudSave(){
   if (!fbUid || !fbDb || isPublicView()) return;
   /* Rule 2: a failed read is not evidence that the cloud is empty. Until this
@@ -11574,7 +11629,8 @@ async function cloudSave(){
       let headSnap;
       try{ headSnap = await headRef.get(); }
       catch(err){
-        setSync('Couldn\u2019t check the cloud copy \u2014 skipping this save', 'err');
+        setSync('Couldn\u2019t check the cloud copy \u2014 trying again shortly', 'err');
+        cloudSaveFailed = true; cloudRetryLater(err);
         return;
       }
       const liveHead = headSnap.exists ? (headSnap.data() || {}) : null;
@@ -11653,6 +11709,7 @@ async function cloudSave(){
       return;
     }
     cloudSaveFailed = false;
+    cloudRetryClear();
     setSync(liveSyncText('saved'), 'ok');
   }catch(err){
     const msg = (err && err.message) ? err.message : 'unknown error';
@@ -11660,9 +11717,11 @@ async function cloudSave(){
       /* Offline. Nothing is lost: it goes up when the connection is back. */
       cloudSaveFailed = true;
       setSync('Offline \u2014 your work is safe in this browser and goes up when the connection is back', 'err');
+      cloudRetryLater(err);
       return;
     }
-    setSync('Cloud save failed \u2014 ' + msg, 'err');
+    setSync('Cloud save failed \u2014 ' + msg + ' \u2014 trying again shortly', 'err');
+    cloudRetryLater(err);
     /* This used to be a quiet line in the sidebar footer, which is how a
        failing save went unnoticed for so long. Say it out loud, once. */
     if (!cloudSaveFailed){
@@ -14373,6 +14432,33 @@ bindSetting('seoDeepChase','seoDeepChase', el => el.checked);
 bindSetting('seoConfirmFound','seoConfirmFound', el => el.checked);
 bindSetting('gscClientId','gscClientId', el => el.value.trim());
 $('seoRankSource').addEventListener('change', gscRenderStatus);
+/* The same choice, offered on the SEO Keywords screen where it is used. It
+   drives the select above, so there is one setting and one place it is saved. */
+(function(){
+  const seg = $('seoSrcSeg'), sel = $('seoRankSource');
+  if (!seg || !sel) return;
+  const cur = () => { const v = (state.settings && state.settings.seoRankSource) || 'live'; return (v === 'gsc' || v === 'hybrid') ? v : 'live'; };
+  const paint = () => { const v = cur(); seg.querySelectorAll('button[data-src]').forEach(b => { const on = b.dataset.src === v; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); }); };
+  seg.addEventListener('click', e => {
+    const b = e.target.closest('button[data-src]');
+    if (!b || b.dataset.src === cur()) return;
+    sel.value = b.dataset.src;
+    sel.dispatchEvent(new Event('change', {bubbles: true}));
+    paint();
+    if (b.dataset.src !== 'live' && !gscConfigured()){
+      toast('Search Console needs a one-time setup: GBP Tracker \u203a Setup \u203a step 4, add the Google OAuth client ID and press Connect.', 'err');
+    } else {
+      toast(b.dataset.src === 'gsc' ? 'Scans now read Search Console \u2014 free, no provider credit'
+          : b.dataset.src === 'hybrid' ? 'Scans now read live Google, with Search Console double-checking misses'
+          : 'Scans now read live Google');
+    }
+  });
+  sel.addEventListener('change', paint);
+  /* a teammate can change it too: repaint whenever the screen is looked at */
+  document.addEventListener('click', e => { if (e.target.closest && e.target.closest('.seo-mode, .tn-mod, [data-go]')) setTimeout(paint, 60); }, true);
+  seg.addEventListener('pointerenter', paint);
+  setTimeout(paint, 0); setTimeout(paint, 2500);
+})();
 $('gscClientId').addEventListener('change', () => {
   GSC.token = null; GSC.expiresAt = 0; GSC.sites = null;
   if ((state.settings.gscClientId || '').trim()) gscLoadGis().catch(() => {});
@@ -16389,6 +16475,7 @@ const ScanOverlay = (function(){
             '<div class="so-acts">' +
               '<button type="button" class="so-link" data-so-bg>' + ICON.shrink + '<span>Keep working meanwhile</span></button>' +
               '<button type="button" class="btn so-stop" data-so-stop>' + ICON.stop + '<span>Stop scan</span></button>' +
+              '<a class="btn so-act" data-so-act target="_blank" rel="noopener" style="display:none"></a>' +
               '<button type="button" class="btn btn-go so-close" data-so-close>Close</button>' +
             '</div>' +
           '</div>' +
@@ -16581,6 +16668,8 @@ const ScanOverlay = (function(){
     const stop = q('[data-so-stop]');
     stop.disabled = false; stop.querySelector('span').textContent = o.stopLabel || 'Stop scan';
     stop.style.display = cur.onStop ? '' : 'none';
+    const act0 = q('[data-so-act]');
+    if (act0){ act0.style.display = 'none'; act0.removeAttribute('href'); act0.onpointerdown = act0.onclick = null; }
     setText('[data-so-eyebrow]', o.eyebrow || 'Scan in progress');
     setText('[data-so-title]', o.title || 'Scanning…');
     setText('[data-so-sub]', o.sub || '');
@@ -16621,7 +16710,19 @@ const ScanOverlay = (function(){
     if (o.stats !== undefined) paintStats(o.stats);
     paintNow([]);
     paintProgress(); paintClock();
-    const hold = o.hold != null ? o.hold : (cur.state === 'done' ? 1700 : 3200);
+    /* One follow-on link, for the thing people do next: {label, href, fresh}.
+       `fresh` returns the address again at the moment of the click (a pinned
+       Google link carries a timestamp that has to be current). With a link
+       on offer the screen waits to be closed instead of closing itself. */
+    const act = q('[data-so-act]');
+    if (act && o.action && o.action.href){
+      act.textContent = o.action.label || 'Open';
+      act.href = o.action.href;
+      const again = () => { try{ const u = o.action.fresh && o.action.fresh(); if (u) act.href = u; }catch(e){} };
+      act.onpointerdown = again; act.onclick = again;
+      act.style.display = '';
+    }
+    const hold = o.hold != null ? o.hold : (act && o.action && o.action.href ? 20000 : (cur.state === 'done' ? 1700 : 3200));
     const mine = cur.id;
     closeTimer = setTimeout(() => { if (cur && cur.id === mine) close(); }, hold);
     if (!root.classList.contains('mini')) setTimeout(() => { const c = q('[data-so-close]'); if (c && blocking()) c.focus({preventScroll:true}); }, 30);
@@ -17920,14 +18021,14 @@ async function dfsQuery(keyword, p, region, surface, opts){
   const data = await res.json();
   if (data.status_code && data.status_code !== 20000){
     const err = new Error('DataForSEO said: ' + (data.status_message || data.status_code));
-    err.fatal = [40101,40200,40201,40202].includes(data.status_code);
+    err.code = data.status_code; err.fatal = dfsCodeFatal(data.status_code); err.retry = dfsCodeRetry(data.status_code);
     throw err;
   }
   const t = (data.tasks || [])[0];
   if (t && t.status_code && t.status_code !== 20000){
     const msg = String(t.status_message || t.status_code);
     const err = new Error('DataForSEO returned no results for this view (' + msg + ')');
-    err.fatal = String(t.status_code).startsWith('401') || String(t.status_code).startsWith('402');
+    err.code = t.status_code; err.fatal = dfsCodeFatal(t.status_code); err.retry = dfsCodeRetry(t.status_code);
     // "No Search Results" means this particular map view came back empty. It is
     // not evidence that the business is missing, and it must not end the point —
     // the wider views below it still have to be tried.
@@ -22148,7 +22249,9 @@ function seoNormalizeSerperOrganic(data){
   }));
   return {organic};
 }
-function seoDelay(ms){ return new Promise(res => setTimeout(res, ms)); }
+/* window.__edgeFastWaits is only ever set by the guard tests (tests/), so a
+   run that exercises every retry doesn't sit through the real pauses. */
+function seoDelay(ms){ return new Promise(res => setTimeout(res, window.__edgeFastWaits ? Math.min(ms, 5) : ms)); }
 
 /* ==========================================================================
    READING ONE ORGANIC RANKING
@@ -22475,6 +22578,8 @@ function seoPinIcon(){ return '<svg viewBox="0 0 24 24" width="12" height="12" f
 function seoMapIcon(){ return '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/></svg>'; }
 /* The report widgets (reports.js) open the same view and links. */
 window.seoOpenSnapshot = seoOpenSnapshot; window.seoLiveUrl = seoLiveUrl; window.seoFreshUule = seoFreshUule;
+/* The guard tests drive one keyword check directly (tests/test_rank_resilience.py). */
+window.seoScanOne = (c, k, l, h) => seoScanOne(c, k, l, h);
 
 /* Posts one shaped task and hands back the raw response. Deliberately its
    own function rather than a change to dfsQuery(), which the whole GBP grid
@@ -22505,7 +22610,7 @@ async function seoDfsSerp(endpoint, task, meter){
   if (meter && typeof data.cost === 'number' && isFinite(data.cost)) meter.usd += data.cost;
   if (data.status_code && data.status_code !== 20000){
     const err = new Error(data.status_message || String(data.status_code));
-    err.fatal = [40101, 40200, 40201, 40202].indexOf(data.status_code) !== -1;
+    err.code = data.status_code; err.fatal = dfsCodeFatal(data.status_code); err.retry = dfsCodeRetry(data.status_code);
     throw err;
   }
   const t = (data.tasks || [])[0];
@@ -22525,7 +22630,7 @@ async function seoDfsSerp(endpoint, task, meter){
     const err = new Error(t.status_message || String(t.status_code));
     /* Only money and credentials are worth giving up over. A server error on
        their end is the whole reason the next rung exists. */
-    err.fatal = String(t.status_code).indexOf('401') === 0 || String(t.status_code).indexOf('402') === 0;
+    err.code = t.status_code; err.fatal = dfsCodeFatal(t.status_code); err.retry = dfsCodeRetry(t.status_code);
     throw err;
   }
   return data;
@@ -22680,8 +22785,11 @@ async function seoLiveCheck(keyword, p, region, opts){
         if (o.onPack && Array.isArray(out.localPack)){ try{ o.onPack(out.localPack); }catch(e){} }
         return out;
       }catch(err){
-        if ((err && err.fatal) || k >= 2 || !/internal|server error|timed? ?out|\b50\d\b/i.test(String(err && err.message))) throw err;
-        await seoDelay(2500 * (k + 1));
+        const transient = !!(err && (err.retry || /internal|server error|timed? ?out|\b50\d\b|too many|rate limit/i.test(String(err.message))));
+        if ((err && err.fatal) || k >= 2 || !transient || stopped()) throw err;
+        /* A rate limit wants a longer breather than a hiccup does. */
+        const slow = err && (err.code === 40202 || err.code === 40209);
+        await seoDelay((slow ? 6000 : 2500) * (k + 1));
       }
     }
   };
@@ -22803,7 +22911,13 @@ async function seoLiveCheck(keyword, p, region, opts){
     }
     reads += good.length;
     good.forEach(keep);
-    if (!good.length) await seoDelay(1200 + Math.round(Math.random() * 1200));
+    if (!good.length){
+      /* Nothing has come back at all and every attempt so far has already
+         been retried three times: asking for the same ten pages again only
+         makes the wait longer. Drop to the short read below instead. */
+      if (!reads && tries >= 2) break;
+      await seoDelay(1200 + Math.round(Math.random() * 1200));
+    }
   }
   if (stopped() && reads < maxReads){
     const e = new Error('Stopped before every re-check ran');
@@ -22818,6 +22932,28 @@ async function seoLiveCheck(keyword, p, region, opts){
       if (hit(deep)) return answer(deep, {found: true, deep: true});
       keep(deep);
     }catch(err){ if (err && err.fatal) throw err; }
+  }
+
+  /* THE SHORT READ. When Google errors on DataForSEO's crawler ("Internal SE
+     Server Error") it is nearly always somewhere in the long walk through
+     pages three to ten. The first two pages are a much smaller ask, and they
+     are where almost every ranking that matters lives. So before giving up,
+     the first twenty results are read on their own, still pinned to the same
+     coordinate. A find is a real position. A miss is saved as ">20" and marked
+     as a part-read, never as a clean top-100 absence. */
+  if (!reads && !stopped() && prov === 'dataforseo' && depth > 20){
+    for (let k = 0; k < shapes.length && !reads; k++){
+      if (o.onRead){ try{ o.onRead(1, maxReads, 'shallow'); }catch(e){} }
+      try{
+        const out = await readOnce(shapes[k], 20, 'coordinate');
+        reads = 1;
+        out.shallow = true;
+        if (hit(out)) return answer(out, {found: true, shallow: true});
+        out.partial = true;
+        out.partialNote = 'Google errored on the full read, so only the first 20 results were read';
+        keep(out);
+      }catch(err){ if (err && err.fatal) throw err; lastErr = err; failed++; }
+    }
   }
 
   /* The pinned coordinate was refused on every attempt: ask for the country
@@ -22929,7 +23065,11 @@ async function seoScanOne(client, kw, loc, hooks){
       });
     }catch(err){
       if (err && err.stopped) return 'stopped';
-      if (source !== 'hybrid' || (err && err.fatal) || !gscConfigured()) throw err;
+      /* A live read that failed outright still gets an answer when Search
+         Console can give one: always in double-check mode, and in live mode
+         too when it is already signed in (no window is opened for this). */
+      const rescue = gscConfigured() && (source === 'hybrid' || gscConnected());
+      if (!rescue || (err && err.fatal)) throw err;
       liveErr = err;
     }
 
@@ -22938,7 +23078,7 @@ async function seoScanOne(client, kw, loc, hooks){
        exact search. If they did, that is the answer that gets saved, with
        its source on it. */
     let gscNote = null;
-    if (source === 'hybrid' && gscConfigured() && (!data || !data.found)){
+    if (gscConfigured() && (source === 'hybrid' ? (!data || !data.found) : !!liveErr)){
       try{
         const r = await gscKeywordPosition(client.website, kw.text, region);
         if (h.meter) h.meter.gsc++;
@@ -23178,7 +23318,7 @@ async function seoScanAndRender(c, pairs){
     done, total: pairs.length,
     now: Array.from(inflight.entries()).map(([i, p]) => {
       const r = reading.get(i);
-      const tail = !r ? '' : (r.kind === 'deep' ? ' \u00b7 one deep look' : (r.n > 1 ? ' \u00b7 re-check ' + r.n + ' of ' + r.max : ''));
+      const tail = !r ? '' : (r.kind === 'deep' ? ' \u00b7 one deep look' : r.kind === 'shallow' ? ' \u00b7 Google stumbled \u2014 reading the first two pages' : (r.n > 1 ? ' \u00b7 re-check ' + r.n + ' of ' + r.max : ''));
       return {main: p.k.text, sub: p.loc.label.trim() + tail};
     }),
     note: seoRecheckReads
@@ -23254,7 +23394,18 @@ async function seoScanAndRender(c, pairs){
             (skipped ? ' \u00b7 ' + skipped + ' left as they were' : '') +
             (spent ? ' \u00b7 ' + spent : '');
     }
-    ScanOverlay.finish(ov, {state: st, title, sub, stats: single ? [] : [
+    /* One keyword: the natural next step is to look at it on Google, so the
+       result offers exactly that - the same pinned search, opened on the page
+       the client sits on with their result highlighted. */
+    let action = null;
+    if (single && done === 1 && lastStatus !== 'stopped'){
+      const L = first.loc, u = seoLiveUrl(L);
+      if (u) action = {
+        label: L.error ? 'Check it on Google \u2197' : L.rank > 0 ? 'See it on Google \u2197' : 'Open the search on Google \u2197',
+        href: u, fresh: () => seoLiveUrl(L)
+      };
+    }
+    ScanOverlay.finish(ov, {state: st, title, sub, action, stats: single ? [] : [
       {label: 'Ranking', value: ranking, tone: 'good'},
       {label: 'Not found', value: missing},
       {label: 'Errors', value: failed, tone: failed ? 'bad' : ''}
@@ -24835,8 +24986,9 @@ function seoLocGroupRow(c, k, loc){
     statusEl.innerHTML = esc(fmtWhen(loc.checkedAt)) +
       (loc.precision === 'country' ? ' \u00b7 <b title="The pinned search was refused, so this position was read for the whole country instead of from this city.">country-wide reading</b>' : '') +
       via + score + miss + reads +
+      '<span class="seo-loc-links">' +
       ((loc.snap || loc.sourceUrl) ? ' \u00b7 <a href="' + esc(seoLiveUrl(loc)) + '" target="_blank" rel="noopener" data-view-search="1" title="' + (loc.snap ? 'Shows the exact results this rank came from, with the result highlighted.' : 'Opens this search on Google, on the right page, with the result highlighted.') + '">view the search' + (seoRankPage(loc) > 1 ? ' (page ' + seoRankPage(loc) + ')' : '') + '</a>' : '') +
-      ' \u00b7 <a href="' + esc(seoLiveUrl(loc)) + '" target="_blank" rel="noopener" data-live-preview="1" class="seo-live-a" title="Opens live Google pinned to ' + esc(loc.label || 'this location') + ', on the page the client sits on' + (Number(loc.rank) > 0 ? ' with their result highlighted' : '') + '. Live results shift a little between searches and for people signed in to Google; a private window gives the cleanest view.">Open live preview' + (Number(loc.rank) > 0 && seoRankPage(loc) > 1 ? ' (page ' + seoRankPage(loc) + ')' : '') + ' \u2197</a>';
+      ' \u00b7 <a href="' + esc(seoLiveUrl(loc)) + '" target="_blank" rel="noopener" data-live-preview="1" class="seo-live-a" title="Opens live Google pinned to ' + esc(loc.label || 'this location') + ', on the page the client sits on' + (Number(loc.rank) > 0 ? ' with their result highlighted' : '') + '. Live results shift a little between searches and for people signed in to Google; a private window gives the cleanest view.">Open live preview' + (Number(loc.rank) > 0 && seoRankPage(loc) > 1 ? ' (page ' + seoRankPage(loc) + ')' : '') + ' \u2197</a></span>';
     /* "view the search" shows the results this rank came from. Live Google moves
        results around between searches and for signed-in users, so a live page
        can miss the client even when the rank is right. A modified click (Ctrl,
@@ -24856,8 +25008,10 @@ function seoLocGroupRow(c, k, loc){
     copyLinkBtn.textContent = 'Copy link';
     copyLinkBtn.title = 'Copy this link \u2014 browsers don\u2019t let a webpage force Incognito/Private mode, but you can paste this into one yourself with Ctrl+Shift+N (Cmd+Shift+N on Mac) for an unpersonalized view';
     copyLinkBtn.addEventListener('click', () => seoCopyLink(seoLiveUrl(loc), copyLinkBtn));
-    statusEl.appendChild(document.createTextNode(' '));
-    statusEl.appendChild(copyLinkBtn);
+    /* the links travel together so the row can show them, or not, as one */
+    const linkBox = statusEl.querySelector('.seo-loc-links') || statusEl;
+    linkBox.appendChild(document.createTextNode(' '));
+    linkBox.appendChild(copyLinkBtn);
   }
   else if (loc.lat != null) setStatus(statusEl, 'Pinned \u2014 ready to scan.', 'ok');
   else setStatus(statusEl, 'Not scanned yet \u2014 Scan will pin it automatically.', '');
@@ -25897,6 +26051,20 @@ $('seoBulkImportBtn').addEventListener('click', () => {
   setTimeout(() => $('seoBulkText').focus(), 40);
 });
 $('seoBulkCancel').addEventListener('click', () => $('seoBulkBackdrop').classList.remove('on'));
+/* Escape closes these four dialogs the same way their Cancel/Close button
+   does. They were the only dialogs in the tool that ignored the key. Not
+   while a scan screen is up, and not when a field's own Escape (a picker, a
+   menu) already dealt with it. */
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape' || e.defaultPrevented) return;
+  if (document.body.classList.contains('so-locked')) return;
+  const pairs = [['seoRemoveLocBackdrop', 'seoRemoveLocCancel'], ['seoApplyLocBackdrop', 'seoApplyLocCancel'],
+                 ['seoBulkBackdrop', 'seoBulkCancel'], ['seoShareBackdrop', 'seoShareCancel']];
+  for (const [bd, btn] of pairs){
+    const el = $(bd), b = $(btn);
+    if (el && b && el.classList.contains('on')){ e.preventDefault(); b.click(); return; }
+  }
+});
 $('seoBulkBackdrop').addEventListener('click', e => { if (e.target === $('seoBulkBackdrop')) $('seoBulkBackdrop').classList.remove('on'); });
 /* Two ways out of this modal. The parsing, de-duplicating and saving is
    identical for both — only the last step differs — so one function does
@@ -29163,5 +29331,7 @@ html.kwr-embedded body::-webkit-scrollbar-thumb:hover{background:#9aa7b3;backgro
 <!-- Calm UI: the visual layer (styles + motion). Loaded last so it sits on top of everything above. -->
 <link rel="stylesheet" href="calm.css?v=2"/>
 <script src="calm.js?v=2"></script>
+<link rel="stylesheet" href="quiet.css?v=1"/>
+<script src="quiet.js?v=1"></script>
 </body>
 </html>
