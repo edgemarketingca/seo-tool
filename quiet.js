@@ -27,23 +27,20 @@ const INTERACTIVE = 'a, button, input, select, textarea, label, summary, details
 document.addEventListener('click', safe(e => {
   if (offApp()) return;
   const row = e.target.closest && e.target.closest('#seoview-keywords .seo-lg-row');
-  if (!row || e.target.closest(INTERACTIVE)) return;
+  if (!row) return;
+  const viaButton = !!e.target.closest('.q-more');
+  /* The Details button, or the keyword's own name. A click anywhere else on
+     the row does nothing, so nothing opens by accident. */
+  if (!viaButton && !e.target.closest('.seo-lg-text')) return;
   const sel = window.getSelection && String(window.getSelection());
-  if (sel) return;                                   /* selecting text is not a click */
+  if (sel && !viaButton) return;                     /* selecting text is not a click */
   const key = row.dataset.scankey || '';
   const open = !row.classList.contains('q-open');
   row.classList.toggle('q-open', open);
   if (key){ if (open) openRows.add(key); else openRows.delete(key); }
+  const more = row.querySelector('.q-more');
+  if (more) more.setAttribute('aria-expanded', open ? 'true' : 'false');
 }));
-/* Enter or Space on a focused row does the same. */
-document.addEventListener('keydown', safe(e => {
-  if (offApp() || (e.key !== 'Enter' && e.key !== ' ')) return;
-  const row = e.target.classList && e.target.classList.contains('seo-lg-row') ? e.target : null;
-  if (!row) return;
-  e.preventDefault();
-  row.click();
-}));
-
 /* ------------------------------------------ rank badges react to a change */
 const lastRank = new Map();
 let rankSeeded = false;
@@ -56,7 +53,19 @@ const sweepRows = safe(() => {
   rows.forEach(row => {
     const key = row.dataset.scankey;
     if (openRows.has(key)) row.classList.add('q-open');
-    if (!row.hasAttribute('tabindex')) row.setAttribute('tabindex', '0');
+    /* An always-visible Details button, so opening a row never depends on
+       knowing that the row itself can be clicked. */
+    let more = row.querySelector('.q-more');
+    if (!more){
+      const text = row.querySelector('.seo-lg-top > .seo-lg-text');
+      if (text){
+        more = document.createElement('button');
+        more.type = 'button'; more.className = 'q-more'; more.textContent = 'Details';
+        more.title = 'Show the links, the exact results this position came from, and the location and manual override';
+        text.insertAdjacentElement('afterend', more);
+      }
+    }
+    if (more) more.setAttribute('aria-expanded', row.classList.contains('q-open') ? 'true' : 'false');
     const pill = row.querySelector('.seo-lg-metrics .rank-pill');
     if (!pill) return;
     const now = pill.textContent.trim();
