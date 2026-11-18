@@ -211,36 +211,115 @@ function hookRouter(){
   window.EDGE.currentSection = () => section;
 }
 
-/* The hub becomes four big doors. */
+/* ======================================================================
+   HOME: a command centre. A deep-teal hero with the month in four numbers, then
+   the four pillars as a bento of different shapes, each in its own colour with
+   a live miniature of what is inside.
+   ====================================================================== */
+const PILLAR = {seo: '#E87721', ads: '#004851', maint: '#5E7A70', report: '#6F6DB5'};
+function seoStats(){
+  const cs = seoClients().filter(c => !isArchived(c));
+  const d = {top3: 0, top10: 0, beyond: 0, none: 0}, moves = [];
+  let kws = 0;
+  cs.forEach(c => (c.keywords || []).forEach(k => {
+    kws++;
+    let best = null, prev = null;
+    (k.locations || []).forEach(l => { if (l.rank != null && (best == null || l.rank < best)){ best = l.rank; prev = l.prevRank; } });
+    if (best == null) d.none++; else if (best <= 3) d.top3++; else if (best <= 10) d.top10++; else d.beyond++;
+    if (best != null && prev != null && prev !== best) moves.push({c, k: k.keyword || k.term || k.q || '', from: prev, to: best, gain: prev - best});
+  }));
+  moves.sort((x, y) => y.gain - x.gain);
+  return {clients: cs.length, kws, d, up: moves.filter(m => m.gain > 0).slice(0, 3), upCount: moves.filter(m => m.gain > 0).length, downCount: moves.filter(m => m.gain < 0).length};
+}
+function adsStats(){
+  const all = Channels.list('google_ads').concat(Channels.list('meta_ads'));
+  const m = Channels.latestMonth('google_ads'), pm = prevYm(m);
+  const sum = mm => all.reduce((t, a) => t + num(((a.months || {})[mm] || {}).spend), 0);
+  const months = []; let x = m; for (let i = 0; i < 6; i++){ months.unshift(x); x = prevYm(x); }
+  const logos = []; all.forEach(a => { const c = Channels.link(a); if (c && logoOf(c) && logos.length < 6 && !logos.some(l => l.id === c.id)) logos.push(c); });
+  return {n: all.length, m, spend: sum(m), prev: sum(pm), series: months.map(sum), attn: all.filter(a => Attention.level(Attention.of(a)) === 'bad').length, logos};
+}
+function maintStats(){
+  const api = window.EDGE_maint; if (!api || !api.sites) return {total: 0, done: 0, due: []};
+  const st = api.sites().map(c => ({c, s: api.statusOf(c)})).filter(x => x.s.key !== 'paused');
+  return {total: st.length, done: st.filter(x => x.s.key === 'ok').length, due: st.filter(x => x.s.key === 'due').map(x => x.c)};
+}
+function reportStats(){
+  const cfg = Reporting.cfg(), now = new Date();
+  const next = new Date(now.getFullYear(), now.getMonth() + (now.getDate() > cfg.day || (now.getDate() === cfg.day && now.getHours() >= cfg.hour) ? 1 : 0), cfg.day, cfg.hour);
+  const sched = seoClients().filter(c => cfg.clients[c.id] && cfg.clients[c.id].on && (cfg.clients[c.id].to || []).length);
+  return {sched, days: Math.max(0, Math.ceil((next - now) / 864e5)), next};
+}
+const greetName = () => { try{ const n = localStorage.getItem('edge-presence-name'); if (n) return n.split(' ')[0]; }catch(e){} return meName().split(' ')[0]; };
+const greeting = () => { const h = new Date().getHours(); return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'; };
+const count = (v, f) => '<b data-ct="' + num(v) + '"' + (f ? ' data-f="' + f + '"' : '') + '>' + (f === 'money' ? money(v) : fmt(v)) + '</b>';
+function hubHtml(){
+  const S = seoStats(), A = adsStats(), M = maintStats(), R = reportStats();
+  const dTot = Math.max(1, S.d.top3 + S.d.top10 + S.d.beyond + S.d.none);
+  const seg = (n, cls, l) => n ? '<i class="' + cls + '" style="flex:' + n + '" title="' + l + ': ' + n + '"></i>' : '';
+  const mp = M.total ? M.done / M.total : 0, C = 2 * Math.PI * 46;
+  const mx = Math.max.apply(null, A.series.concat([1]));
+  const bars = A.series.map((v, i) => '<i style="height:' + Math.max(4, Math.round(v / mx * 100)) + '%;animation-delay:' + (i * 60) + 'ms" title="' + esc(monthName(prevYmN(A.m, 5 - i))) + ': ' + money(v) + '"></i>').join('');
+  const dl = A.prev ? Math.round((A.spend - A.prev) / A.prev * 100) : null;
+  const today = new Date().toLocaleDateString('en-CA', {weekday: 'long', month: 'long', day: 'numeric'});
+  return '<div class="osh-hero"><div class="osh-orb a"></div><div class="osh-orb b"></div><div class="osh-hl"><span class="osh-eye">EDGE Workspace · ' + esc(today) + '</span>' +
+      '<h1>' + esc(greeting()) + ', <em>' + esc(greetName()) + '</em>.</h1><p>Strategy, website, marketing and measure: the whole EDGE system, one shared record.</p></div>' +
+      '<div class="osh-month"><div><small>SEO clients</small>' + count(S.clients) + '</div><div><small>Ad spend · ' + esc(monthName(A.m).split(' ')[0]) + '</small>' + count(A.spend, 'money') + '</div>' +
+      '<div><small>Sites maintained</small><b>' + M.done + '<span>/' + M.total + '</span></b></div><div><small>Next reports in</small><b>' + R.days + '<span> day' + (R.days === 1 ? '' : 's') + '</span></b></div></div></div>' +
+    '<div class="osh-grid">' +
+      /* SEO: wide, warm, the ranking mix and who moved up */
+      '<button type="button" class="osh-t seo" data-osgo="seo" style="--p:' + PILLAR.seo + '"><span class="osh-k">1</span><div class="osh-th"><span class="osh-ic">' + ICON.seo + '</span><div><small>Strategy &amp; search</small><h3>SEO</h3></div></div>' +
+        '<div class="osh-seo"><div class="osh-big">' + count(S.kws) + '<span>keywords tracked across ' + S.clients + ' clients</span></div>' +
+        '<div class="osh-mix">' + seg(S.d.top3, 'a', 'Top 3') + seg(S.d.top10, 'b', '4 to 10') + seg(S.d.beyond, 'c', '11+') + seg(S.d.none, 'd', 'Not ranking') + '</div>' +
+        '<div class="osh-leg"><span><i class="a"></i>Top 3 <b>' + S.d.top3 + '</b></span><span><i class="b"></i>4–10 <b>' + S.d.top10 + '</b></span><span><i class="c"></i>11+ <b>' + S.d.beyond + '</b></span><span><i class="d"></i>Not yet <b>' + S.d.none + '</b></span></div>' +
+        (S.up.length ? '<div class="osh-moves"><small>Climbing</small>' + S.up.map(m => '<span>' + logoHtml(logoOf(m.c), m.c.name) + '<em>' + esc(m.c.name) + '</em><b>▲ ' + m.from + ' → ' + m.to + '</b></span>').join('') + '</div>' : '') + '</div>' +
+        '<span class="osh-go">Open SEO <svg viewBox="0 0 24 24"><path d="M5 12h13M13 6l6 6-6 6"/></svg></span></button>' +
+      /* Google Ads: deep teal, the spend by month */
+      '<button type="button" class="osh-t ads" data-osgo="ads" style="--p:' + PILLAR.ads + '"><span class="osh-k">2</span><div class="osh-th"><span class="osh-ic">' + ICON.ads + '</span><div><small>Marketing · read only</small><h3>Google Ads</h3></div></div>' +
+        '<div class="osh-big">' + count(A.spend, 'money') + '<span>spent in ' + esc(monthName(A.m)) + (dl != null ? ' · <b class="' + (dl > 0 ? 'up' : 'down') + '">' + (dl > 0 ? '▲' : '▼') + ' ' + Math.abs(dl) + '%</b>' : '') + '</span></div>' +
+        '<div class="osh-bars">' + bars + '</div>' +
+        '<div class="osh-foot">' + (A.logos.length ? '<span class="osh-stack">' + A.logos.map(c => logoHtml(logoOf(c), c.name)).join('') + '</span>' : '') + '<span>' + A.n + ' accounts</span>' + (A.attn ? '<span class="osh-warn">' + A.attn + ' need attention</span>' : '') + '</div>' +
+        '<span class="osh-go">Open Google Ads <svg viewBox="0 0 24 24"><path d="M5 12h13M13 6l6 6-6 6"/></svg></span></button>' +
+      /* Web Maintenance: sage, the month as a ring */
+      '<button type="button" class="osh-t maint" data-osgo="maint" style="--p:' + PILLAR.maint + '"><span class="osh-k">3</span><div class="osh-th"><span class="osh-ic">' + ICON.maint + '</span><div><small>Website · every month</small><h3>Web Maintenance</h3></div></div>' +
+        '<div class="osh-ringrow"><div class="osh-ring"><svg viewBox="0 0 110 110"><circle cx="55" cy="55" r="46" class="tr"/><circle cx="55" cy="55" r="46" class="fg" style="stroke-dasharray:' + C + ';--off:' + (C * (1 - mp)) + '"/></svg><b>' + Math.round(mp * 100) + '<span>%</span></b></div>' +
+        '<div class="osh-due"><small>' + (M.due.length ? M.due.length + ' still to do in ' + esc(monthName(ym(Date.now())).split(' ')[0]) : 'Every site is done this month') + '</small>' + M.due.slice(0, 4).map(c => '<span>' + esc(c.name) + '</span>').join('') + (M.due.length > 4 ? '<span class="more">+' + (M.due.length - 4) + '</span>' : '') + '</div></div>' +
+        '<span class="osh-go">Open Web Maintenance <svg viewBox="0 0 24 24"><path d="M5 12h13M13 6l6 6-6 6"/></svg></span></button>' +
+      /* Reporting: lavender, the countdown and the stack of reports */
+      '<button type="button" class="osh-t report" data-osgo="report" style="--p:' + PILLAR.report + '"><span class="osh-k">4</span><div class="osh-th"><span class="osh-ic">' + ICON.report + '</span><div><small>Measure · sent for you</small><h3>Reporting</h3></div></div>' +
+        '<div class="osh-rep"><div class="osh-cal"><small>' + esc(R.next.toLocaleDateString('en-CA', {month: 'short'})) + '</small><b>' + R.next.getDate() + '</b><span>' + esc(fmtHour(Reporting.cfg().hour)) + '</span></div>' +
+        '<div><div class="osh-big sm">' + count(R.sched.length) + '<span>client reports scheduled for the next send</span></div>' +
+        '<div class="osh-sheets">' + (R.sched.length ? R.sched.slice(0, 5) : seoClients().slice(0, 3)).map((c, i) => '<span style="--i:' + i + '">' + logoHtml(logoOf(c), c.name) + '<i></i><i></i></span>').join('') + '</div></div></div>' +
+        '<span class="osh-go">Open Reporting <svg viewBox="0 0 24 24"><path d="M5 12h13M13 6l6 6-6 6"/></svg></span></button>' +
+    '</div><div class="osh-kbd"><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd> jump straight in · <kbd>Alt</kbd>+<kbd>H</kbd> comes back here · <kbd>T</kbd> opens your tasks</div>';
+}
+const prevYmN = (m, n) => { let x = m; for (let i = 0; i < n; i++) x = prevYm(x); return x; };
 function buildHub(){
-  const grid = $('hubGrid'); if (!grid || grid.dataset.os) return;
-  grid.dataset.os = '1';
-  const hero = document.querySelector('.hub-hero');
-  if (hero) hero.innerHTML = '<span class="hub-eyebrow">EDGE workspace</span><h2>Four sections. One brain.</h2><p>SEO, Google Ads, Web Maintenance and Reporting share one client list, one set of Basecamp tasks and one cloud record, so what happens in one shows up everywhere it matters.</p>';
-  const desc = {
-    seo: ['Rankings, maps and live search', 'Every SEO client with their keywords and positions, the GBP Tracker’s map grids and Live SERP previews. The client list follows Robert’s Tidyboard.'],
-    ads: ['Read only, every account', 'Every Google Ads account with its logo, the month’s numbers and campaigns, and which clients need attention. Plus Facebook and Instagram ads.'],
-    maint: ['WordPress care, every month', 'Red until this month’s maintenance is done, green once it is, with exactly what got done and by whom. A reminder lands on the 1st.'],
-    report: ['Client reports, sent for you', 'AgencyAnalytics-style monthly reports for every client: traffic, SEO, AI, ads and social. Share links, and a scheduled send on the 1st of each month.']
-  };
-  grid.innerHTML = SECTIONS.map(s => '<button class="hub-card" data-osgo="' + s.k + '" type="button"><span class="hub-key">' + s.key + '</span><span class="hub-ico">' + s.ic + '</span>' +
-    '<p class="hub-sub">' + esc(desc[s.k][0]) + '</p><h3 class="hub-title">' + esc(s.l) + '</h3><p class="hub-desc">' + esc(desc[s.k][1]) + '</p><span class="hub-meta os-hubmeta" data-hubmeta="' + s.k + '"></span>' +
-    '<span class="hub-go">Open ' + esc(s.l) + ' <svg viewBox="0 0 24 24"><path d="M5 12h13M13 6l6 6-6 6"/></svg></span></button>').join('');
-  grid.addEventListener('click', e => { const c = e.target.closest('[data-osgo]'); if (c){ try{ EDGE_showHub(false); }catch(err){} go(c.dataset.osgo); } });
-  const kbd = document.querySelector('.hub-kbd'); if (kbd) kbd.innerHTML = '<span>Press</span><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd><span>to jump straight in · <kbd>Alt</kbd>+<kbd>H</kbd> returns here from anywhere</span>';
+  const inner = document.querySelector('#hubScreen .hub-inner'); if (!inner || $('osHub')) return;
+  document.body.classList.add('os-hub');
+  const h = document.createElement('section'); h.id = 'osHub'; h.className = 'osh';
+  const top = inner.querySelector('.hub-top');
+  inner.insertBefore(h, top ? top.nextSibling : inner.firstChild);
+  h.addEventListener('click', e => { const t = e.target.closest('[data-osgo]'); if (t){ try{ EDGE_showHub(false); }catch(err){} go(t.dataset.osgo); } });
+  h.addEventListener('mousemove', e => { const t = e.target.closest('.osh-t'); if (!t) return; const r = t.getBoundingClientRect(); t.style.setProperty('--mx', (e.clientX - r.left) + 'px'); t.style.setProperty('--my', (e.clientY - r.top) + 'px'); });
+  paintHub(true);
+  /* Count up once each time home opens. */
+  const hs = $('hubScreen'); if (hs) new MutationObserver(() => { if (hs.classList.contains('on')) paintHub(true); }).observe(hs, {attributes: true, attributeFilter: ['class']});
 }
-function paintHubMeta(){
-  const chip = (v, l) => '<span class="hub-chip"><b>' + esc(String(v)) + '</b> ' + esc(l) + '</span>';
-  /* Only touch the DOM when the text really changed: a repaint replays the count-up and reads as a blink. */
-  const set = (k, html) => { const el = document.querySelector('[data-hubmeta="' + k + '"]'); if (el && el._osHtml !== html){ el._osHtml = html; el.innerHTML = html; } };
-  const cs = seoClients(), active = cs.filter(c => !isArchived(c));
-  set('seo', chip(active.length, 'active clients') + chip((state.clients || []).reduce((t, c) => t + ((c.gbps || []).length), 0), 'profiles'));
-  const g = Channels.list('google_ads'), att = g.filter(a => Attention.of(a).length);
-  set('ads', chip(g.length, 'accounts') + (att.length ? chip(att.length, 'need attention') : ''));
-  const due = window.EDGE_maint && EDGE_maint.due ? EDGE_maint.due().length : 0;
-  set('maint', chip(due, due === 1 ? 'site due' : 'sites due'));
-  set('report', chip(Reporting.scheduledCount(), 'scheduled'));
+function paintHub(animate){
+  const h = $('osHub'); if (!h) return;
+  const html = hubHtml();
+  if (!animate && h._html === html) return;
+  h._html = html; h.innerHTML = html;
+  if (!animate || RM()) return;
+  h.querySelectorAll('[data-ct]').forEach(b => {
+    const end = num(b.dataset.ct), f = b.dataset.f, t0 = performance.now(), dur = 900;
+    if (end < 2) return;
+    const step = now => { const p = Math.min(1, (now - t0) / dur), v = end * (1 - Math.pow(1 - p, 3)); b.textContent = f === 'money' ? money(v) : fmt(v); if (p < 1) requestAnimationFrame(step); else b.textContent = f === 'money' ? money(end) : fmt(end); };
+    requestAnimationFrame(step);
+  });
 }
+function paintHubMeta(){ paintHub(false); }
 
 /* Keyboard: Alt+1..4 jump between sections, T opens Tasks. */
 document.addEventListener('keydown', e => {

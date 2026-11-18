@@ -498,15 +498,15 @@ body.rp-fs-on{overflow:hidden;}
 .rp-aia .rp-text{color:#55606A;}
 .rp-aa .rp-text h2{font-family:inherit;color:#222A30;}
 .rp-aia .rp-text h2{font-family:inherit;color:#222A30;}
-.rp-aa .rp-w.sec{background:#171614;border-color:#171614;padding:10px 16px;}
+.rp-aa .rp-w.sec{background:none;border:0;border-radius:0;box-shadow:none;padding:4px 16px 2px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;overflow:visible;}
 .rp-aia .rp-w.sec{background:#171614;border-color:#171614;padding:10px 16px;}
-.rp-aa .rp-w.sec .rp-sec-t{color:#fff;font-family:inherit;font-weight:500;font-size:calc(28px * var(--s,1));}
+.rp-aa .rp-w.sec .rp-sec-t{color:#555;font-family:inherit;font-weight:700;font-size:calc(34px * var(--s,1));line-height:1.15;letter-spacing:-.01em;}
 .rp-aia .rp-w.sec .rp-sec-t{color:#fff;font-family:inherit;font-weight:500;font-size:calc(28px * var(--s,1));}
-.rp-aa .rp-w.sec .rp-sec-d{color:#C9CDD2;font-size:calc(13px * var(--t,1));}
+.rp-aa .rp-w.sec .rp-sec-d{color:#71717A;font-size:calc(13px * var(--t,1));max-width:760px;margin:4px auto 0;line-height:1.35;}
 .rp-aia .rp-w.sec .rp-sec-d{color:#C9CDD2;font-size:calc(13px * var(--t,1));}
 .rp-aa .rp-w.sec .rp-wh{position:absolute;right:8px;top:8px;margin:0;}
 .rp-aia .rp-w.sec .rp-wh{position:absolute;right:8px;top:8px;margin:0;}
-.rp-aa .rp-w.sec .rp-drag{color:#fff;}
+.rp-aa .rp-w.sec .rp-drag{color:#A1A1AA;}
 .rp-aia .rp-w.sec .rp-drag{color:#fff;}
 .rp-aa .aiv-pill{border-radius:4px;}
 .rp-aia .aiv-pill{border-radius:4px;}
@@ -887,6 +887,29 @@ button.rp-lead{cursor:pointer;} button.rp-lead:hover{border-color:#b8c2cc;}
 .rp-pp li button{all:unset;display:block;box-sizing:border-box;width:100%;padding:8px 10px;border-radius:4px;font:500 13px 'Geist','Helvetica Neue',Helvetica,Arial,sans-serif;color:#3F3F46;cursor:pointer;}
 .rp-pp li button:hover{background:#F4F4F5;}
 .rp-pp li button.on{background:#171614;color:#fff;}
+
+/* ---- AgencyAnalytics report look, everywhere (team, client, shared link) ---- */
+.rp-aa{font-family:'Geist','Helvetica Neue',Helvetica,Arial,sans-serif;}
+.rp-aa .rp-head.rp-aahead{padding:26px 32px 0;}
+.rp-aa .rp-aatop{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-bottom:18px;}
+.rp-aa .rp-aatop .rp-brand{margin:0 !important;}
+.rp-aa .rp-aameta{text-align:right;display:flex;flex-direction:column;gap:2px;font-size:16.8px;line-height:24px;color:#71717A;}
+.rp-aa .rp-aameta b{font-weight:400;color:#71717A;}
+.rp-aa .rp-aameta b:empty{display:none;}
+.rp-aa .rp-w{border:1px solid #E4E4E7;border-radius:8px;transition:box-shadow .2s ease,border-color .2s ease;animation:rpAaIn .42s cubic-bezier(.2,.8,.2,1) both;}
+.rp-aa .rp-w.sec{animation:rpAaIn .42s cubic-bezier(.2,.8,.2,1) both;}
+.rp-aa .rp-wh h3{font-size:calc(13px * var(--t,1));color:#52525B;font-weight:500;}
+.rp-aa .rp-wh h3 small,.rp-aa .rp-wsub{font-size:calc(10.5px * var(--t,1));color:#A1A1AA;font-weight:400;}
+.rp-aa .rp-big,.rp-aa .rp-kpi-v{color:#4D4D4D;}
+.rp-aa .rp-w:hover{border-color:#D4D4D8;}
+.rp.rp-aa.editing .rp-w:hover{border-color:#52525B;box-shadow:0 0 0 1px #52525B,0 10px 28px -16px rgba(24,24,27,.35);}
+.rp.rp-aa.editing .rp-w.sec:hover{box-shadow:none;outline:1px dashed #A1A1AA;outline-offset:2px;}
+.rp.rp-aa .rp-rz{opacity:0;transition:opacity .15s;} .rp.rp-aa.editing .rp-w:hover .rp-rz{opacity:1;}
+.rp-grid.free > .rp-w{transition:left .28s cubic-bezier(.2,.8,.2,1),top .28s cubic-bezier(.2,.8,.2,1),width .28s cubic-bezier(.2,.8,.2,1),height .28s cubic-bezier(.2,.8,.2,1),box-shadow .2s,border-color .2s;}
+body.rp-moving .rp-grid.free > .rp-w,.rp-grid.free > .rp-w.moving,.rp-grid.free > .rp-w.placing{transition:none !important;}
+.rp-grid.free > .rp-w.moving{box-shadow:0 22px 50px -20px rgba(24,24,27,.45) !important;z-index:5;}
+@keyframes rpAaIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.rp-aa .rp-w,.rp-aa .rp-w.sec{animation:none;}.rp-grid.free > .rp-w{transition:none;}}
 `;
   document.head.appendChild(st);
 }
@@ -4090,6 +4113,9 @@ function brandHtml(o){
    been moved keeps flowing like before; the first drag or resize turns it into
    a free layout that looks exactly the same at that moment. */
 const GAP = 16, SNAP = 10;
+/* AgencyAnalytics' header shows the report month ("October 2026"), or the dates when the period isn't one month. */
+const aaMonth = R => { try{ const a = String(R.since || '').slice(0, 7), b = String(R.end || '').slice(0, 7);
+  if (a && a === b) return new Date(b + '-15T12:00:00').toLocaleDateString('en-CA', {month: 'long', year: 'numeric'}); return R.text || ''; }catch(e){ return ''; } };
 const hasPos = it => it.x != null && it.y != null && isFinite(Number(it.x)) && isFinite(Number(it.y)) && Number(it.h) > 0;
 function normPos(it){
   it.cols = Math.max(1, Math.min(12, Math.round(Number(it.cols) || SIZE_COLS[it.size] || 6)));
@@ -4173,7 +4199,8 @@ function renderBoard(root, o){
   /* Client report (AgencyAnalytics look): logos, title and dates on the left with room to breathe,
      the period and the PDF download on the right, and the team's tools on their own row below. */
   const head = o.bare ? '' : aa
-    ? '<div class="rp-head rp-aahead"><div class="rp-hrow"><div class="rp-hl">' + brandHtml(o) + '<h2 class="rp-title">' + esc(o.title || '') + '</h2>' + (sub ? '<div class="rp-sub">' + sub + '</div>' : '') + '</div>' +
+    ? '<div class="rp-head rp-aahead"><div class="rp-aatop">' + brandHtml(o) + '<div class="rp-aameta"><b>' + esc(o.clientName || ctx.clientName || '') + '</b><span>' + esc(aaMonth(ctx.R)) + '</span></div></div>' +
+      '<div class="rp-hrow"><div class="rp-hl">' + (o.whoHtml || '') + '<h2 class="rp-title">' + esc(o.title || '') + '</h2>' + (sub ? '<div class="rp-sub">' + sub + '</div>' : '') + '</div>' +
         '<div class="rp-hr">' + seg + (o.editable ? '' : fsBtn) + pdfBtn + '</div></div>' +
         (o.editable ? '<div class="rp-tools">' + editBtns + tlBtn + fsBtn + '<span class="rp-tsp"></span>' + (o.actionsHtml || '') + '</div>' : '') + '</div>'
     : '<div class="rp-head' + (brand.banner ? ' rp-banner' : '') + '"><div>' + brandHtml(o) + (o.whoHtml || '') + '<h2 class="rp-title">' + esc(o.title || '') + '</h2>' + (sub ? '<div class="rp-sub">' + sub + '</div>' : '') + '</div>' +
@@ -5401,7 +5428,7 @@ function draw(){
   if (id === 'rteam' && curWho){ drawMember(v, c, ctx, R, memberOf(curWho)); return; }
   if (id === 'rteam'){
     const clientFrom = new Set(R.client.items.map(x => x.from).filter(Boolean));
-    renderBoard(v, Object.assign({mode: 'team', title: (c.name || ctx.domain) + ' — Team report', sub: esc(ctx.domain) + ' · internal · <button type="button" class="rp-tpl-pill" data-tplpill title="Open templates">' + glyph('grid', 12) + esc(tplLabel(tplStatus(R.team, 'team'))) + '</button>', items: R.team.items, period: validPeriod(R.team.period) ? R.team.period : '30', ctx,
+    renderBoard(v, Object.assign({mode: 'team', aa: true, clientName: c.name, title: (c.name || ctx.domain) + ' — Team report', sub: esc(ctx.domain) + ' · internal · <button type="button" class="rp-tpl-pill" data-tplpill title="Open templates">' + glyph('grid', 12) + esc(tplLabel(tplStatus(R.team, 'team'))) + '</button>', items: R.team.items, period: validPeriod(R.team.period) ? R.team.period : '30', ctx,
       whoHtml: whoHtml(), stars: teamPrefs().stars, onStar: st => { teamPrefs().stars = st; saveState(); },
       editable: true, startEditing: editingState.rteam, onEditing: e => { editingState.rteam = e; },
       free: !!R.team.free, onFree: on => { R.team.free = on; }, teamLink: teamUrl(c, 'rteam'),
