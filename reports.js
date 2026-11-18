@@ -168,6 +168,21 @@ function styles(){
   st.id = 'rpStyles';
   st.textContent = `
 .rp{max-width:1280px;margin:0 auto;}
+.rp-soc{margin-bottom:14px}.rp-soc:last-child{margin-bottom:0}
+.rp-soc-h{display:flex;align-items:center;gap:8px;font:600 13.5px var(--ui,Inter,sans-serif);color:var(--a-ink,#1b222a);margin-bottom:8px}
+.rp-soc-h i{width:10px;height:10px;border-radius:3px;display:inline-block}.rp-soc-h .aiv-cap{font-weight:400;margin-left:4px}
+.rp-posts{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+.rp-post{border:1px solid var(--a-line,#e6e8eb);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:6px;background:var(--a-card,#fff)}
+.rp-post-pf{font:600 11px var(--ui,Inter,sans-serif);letter-spacing:.04em;text-transform:uppercase}
+.rp-post-t{font-size:12.5px;line-height:1.45;color:var(--a-ink2,#57646f);flex:1}
+.rp-post-n{font-size:11.5px;color:var(--a-ink3,#8b98a3)}.rp-post-n b{color:var(--a-ink,#1b222a)}
+.rp-cover{min-height:520px;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:40px 20px;
+  background:radial-gradient(1200px 400px at 50% 110%,rgba(232,119,34,.10),transparent 60%)}
+.rp-cover-ag{max-height:96px;max-width:320px;object-fit:contain;margin-bottom:26px}
+.rp-cover-t{font:600 12px var(--ui,Inter,sans-serif);letter-spacing:.14em;text-transform:uppercase;color:var(--brand,#e87722)}
+.rp-cover-c{font:700 38px/1.15 "Geist",Inter,sans-serif;color:#222;letter-spacing:-.02em}
+.rp-cover-m{font:500 18px "Geist",Inter,sans-serif;color:#777}
+.rp-cover-cl{max-height:70px;max-width:220px;object-fit:contain;margin-top:30px;opacity:.95}
 .rp-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
 .rp-title{font-family:var(--display,Poppins,Inter,sans-serif);font-size:21px;font-weight:600;letter-spacing:-.01em;margin:0;}
 .rp-sub{color:var(--a-ink2);font-size:12.5px;margin-top:4px;}
@@ -990,7 +1005,7 @@ const W = {};
 const G = {
   overview: 'Overview', insight: 'Insights & goals', conv: 'Conversions (GA4, every channel)', traffic: 'Traffic (GA4)', ai: 'AI assistants (GA4)',
   gai: 'Google AI search', bing: 'Copilot / Bing', llm: 'AI answers (prompt checks)', gsc: 'Search Console', kw: 'Keyword rankings',
-  gbp: 'Google Business Profile', content: 'Text and embeds'
+  gbp: 'Google Business Profile', paid: 'Paid ads (Google Ads, Meta Ads)', social: 'Social media', content: 'Text and embeds'
 };
 const kpiTile = (label, val, note, opts) => {
   opts = opts || {};
@@ -3413,6 +3428,131 @@ W.section = {g: 'content', t: 'Section header', d: 'A bold heading bar that star
   },
   form: w => '<label>Heading</label><input data-c="heading" value="' + esc((w.cfg || {}).heading || '') + '"><label>Description (optional, one line)</label><input data-c="body" value="' + esc((w.cfg || {}).body || '') + '">'};
 
+
+/* ---------- Paid ads and social media (read-only, collected from the platforms' own dashboards) ----------
+   Data: 'chan', the channel record the Google Ads / Paid Social sections keep for each client
+   (edge-os.js, window.EDGE_channelsFor). One entry per connected account, with monthly totals,
+   campaigns and daily rows: {google_ads: [acct], meta_ads: [acct], facebook: [acct], instagram: [acct], linkedin: [acct]}.
+   The month shown is the month the report period ends in; the change is against the month before. */
+const chMonth = ctx => String((ctx.R && ctx.R.end) || today()).slice(0, 7);
+const chPrevMonth = m => { const d = new Date(m + '-15T12:00:00Z'); d.setUTCMonth(d.getUTCMonth() - 1); return d.toISOString().slice(0, 7); };
+const chNum = v => Number(v) || 0;
+const chSum = (accts, m, k) => accts.reduce((t, a) => t + chNum(((a.months || {})[m] || {})[k]), 0);
+const chHas = (accts, m) => accts.some(a => (a.months || {})[m]);
+const chAccts = (D, src) => (D.chan && Array.isArray(D.chan[src]) ? D.chan[src] : []);
+const money = n => '$' + (Math.round(chNum(n) * 100) / 100).toLocaleString('en-CA', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+const chEmpty = (h, what) => { h.innerHTML = '<div class="rp-err">No ' + esc(what) + ' data for this client yet. It arrives with the next monthly read of the dashboards.</div>'; };
+/* A KPI row for any set of accounts: [label, key, fmt, better-is-lower] */
+function chKpis(h, ctx, accts, defs){
+  const m = chMonth(ctx), pm = chPrevMonth(m), hasPrev = chHas(accts, pm);
+  const calc = (mm, d) => d.calc ? d.calc(k => chSum(accts, mm, k)) : chSum(accts, mm, d.k);
+  h.innerHTML = '<div class="rp-kpis">' + defs.map(d => {
+    const cur = calc(m, d), prev = calc(pm, d), dl = delta(cur, prev, hasPrev);
+    if (d.lower && dl.cls !== 'flat') dl.cls = dl.cls === 'up' ? 'down' : 'up';
+    return kpiTile(d.l, (d.f || fmt)(cur), hasPrev ? 'vs ' + (d.f || fmt)(prev) + ' the month before' : '', {d: dl, icon: d.icon ? glyph(d.icon, 18, d.tint || '#e87722') : ''});
+  }).join('') + '</div>';
+}
+function chCampaigns(h, ctx, accts, cols){
+  const m = chMonth(ctx), rows = [];
+  accts.forEach(a => (((a.months || {})[m] || {}).campaigns || []).forEach(cp => rows.push(Object.assign({acct: a.name || ''}, cp))));
+  if (!rows.length){ h.innerHTML = '<div class="rp-err">No campaign activity recorded for ' + esc(m) + '.</div>'; return; }
+  table(h, rows, [{key: 'name', label: 'Campaign', fmt: r => '<b style="font-weight:600">' + esc(r.name || '') + '</b>' + (accts.length > 1 ? '<div class="aiv-cap">' + esc(r.acct) + '</div>' : '')}].concat(cols), {sort: cols[0].key});
+}
+const chDaily = (accts, R, i) => { const by = {}; accts.forEach(a => (a.daily || []).forEach(r => { if (r && r[0] >= R.since && r[0] <= R.end) by[r[0]] = (by[r[0]] || 0) + chNum(r[i]); })); return by; };
+
+W.gads_kpis = {g: 'paid', t: 'Google Ads summary', d: 'Spend, clicks, impressions, CTR, cost per click, conversions and cost per conversion for the month, with the change.', size: 'xl', needs: ['chan'],
+  render(h, ctx, w, D){
+    const a = chAccts(D, 'google_ads'); if (!a.length) return chEmpty(h, 'Google Ads');
+    chKpis(h, ctx, a, [
+      {l: 'Spend', k: 'spend', f: money, icon: 'bars'},
+      {l: 'Clicks', k: 'clicks', icon: 'up', tint: '#2a78d6'},
+      {l: 'Impressions', k: 'impressions', icon: 'users', tint: '#6250d6'},
+      {l: 'CTR', calc: g => g('impressions') ? g('clicks') / g('impressions') * 100 : 0, f: v => v.toFixed(2) + '%', icon: 'target', tint: '#1baf7a'},
+      {l: 'Avg. CPC', calc: g => g('clicks') ? g('spend') / g('clicks') : 0, f: money, lower: true, icon: 'bars', tint: '#d08c00'},
+      {l: 'Conversions', k: 'conversions', f: v => (Math.round(v * 10) / 10).toLocaleString(), icon: 'trophy', tint: '#0f7a58'},
+      {l: 'Cost / conversion', calc: g => g('conversions') ? g('spend') / g('conversions') : 0, f: money, lower: true, icon: 'target', tint: '#b5352a'}
+    ]);
+  }};
+W.gads_trend = {g: 'paid', t: 'Google Ads clicks and conversions by day', d: 'Clicks and conversions from Google Ads, day by day.', size: 'l', needs: ['chan'],
+  render(h, ctx, w, D){
+    const a = chAccts(D, 'google_ads'); if (!a.length) return chEmpty(h, 'Google Ads');
+    const B = buckets(ctx.R), cl = chDaily(a, ctx.R, 2), cv = chDaily(a, ctx.R, 4);
+    const s1 = B.zero(), s2 = B.zero();
+    Object.keys(cl).forEach(d => { const i = B.slot(d); if (i != null) s1[i] += cl[d]; });
+    Object.keys(cv).forEach(d => { const i = B.slot(d); if (i != null) s2[i] += cv[d]; });
+    fillBody(h, ctx, w);
+    chart(h, {labels: B.labels, weekly: ctx.R.weekly, height: chH(w, 230, 70), series: [{name: 'Clicks', color: ctx.aa ? AA_LINES[0] : '#2a78d6', values: s1}, {name: 'Conversions', color: ctx.aa ? AA_LINES[2] : '#0f7a58', values: s2}], empty: 'No Google Ads activity in this period.'}, ctx, w);
+  }};
+W.gads_campaigns = {g: 'paid', t: 'Google Ads campaigns', d: 'Every campaign with its spend, clicks, CTR, conversions and cost per conversion.', size: 'xl', needs: ['chan'],
+  render(h, ctx, w, D){
+    const a = chAccts(D, 'google_ads'); if (!a.length) return chEmpty(h, 'Google Ads');
+    chCampaigns(h, ctx, a, [
+      {key: 'spend', label: 'Spend', num: true, fmt: r => money(r.spend)},
+      {key: 'impressions', label: 'Impr.', num: true, fmt: r => fmt(r.impressions)},
+      {key: 'clicks', label: 'Clicks', num: true, fmt: r => fmt(r.clicks)},
+      {key: 'ctr', label: 'CTR', num: true, sort: r => r.impressions ? r.clicks / r.impressions : 0, fmt: r => r.impressions ? (r.clicks / r.impressions * 100).toFixed(2) + '%' : '—'},
+      {key: 'conversions', label: 'Conv.', num: true, fmt: r => fmt(Math.round(chNum(r.conversions) * 10) / 10)},
+      {key: 'cpa', label: 'Cost / conv.', num: true, sort: r => r.conversions ? r.spend / r.conversions : 0, fmt: r => r.conversions ? money(r.spend / r.conversions) : '—'}
+    ]);
+  }};
+W.meta_kpis = {g: 'paid', t: 'Facebook & Instagram ads summary', d: 'Meta Ads spend, reach, impressions, link clicks, CTR, results and cost per result for the month.', size: 'xl', needs: ['chan'],
+  render(h, ctx, w, D){
+    const a = chAccts(D, 'meta_ads'); if (!a.length) return chEmpty(h, 'Meta Ads');
+    chKpis(h, ctx, a, [
+      {l: 'Amount spent', k: 'spend', f: money, icon: 'bars'},
+      {l: 'Reach', k: 'reach', icon: 'users', tint: '#6250d6'},
+      {l: 'Impressions', k: 'impressions', icon: 'users', tint: '#2a78d6'},
+      {l: 'Link clicks', k: 'clicks', icon: 'up', tint: '#2a78d6'},
+      {l: 'CTR', calc: g => g('impressions') ? g('clicks') / g('impressions') * 100 : 0, f: v => v.toFixed(2) + '%', icon: 'target', tint: '#1baf7a'},
+      {l: 'Results', k: 'conversions', icon: 'trophy', tint: '#0f7a58'},
+      {l: 'Cost per result', calc: g => g('conversions') ? g('spend') / g('conversions') : 0, f: money, lower: true, icon: 'target', tint: '#b5352a'}
+    ]);
+  }};
+W.meta_campaigns = {g: 'paid', t: 'Facebook & Instagram ad campaigns', d: 'Each Meta Ads campaign: spend, reach, clicks, results and cost per result.', size: 'xl', needs: ['chan'],
+  render(h, ctx, w, D){
+    const a = chAccts(D, 'meta_ads'); if (!a.length) return chEmpty(h, 'Meta Ads');
+    chCampaigns(h, ctx, a, [
+      {key: 'spend', label: 'Spent', num: true, fmt: r => money(r.spend)},
+      {key: 'reach', label: 'Reach', num: true, fmt: r => fmt(r.reach)},
+      {key: 'clicks', label: 'Link clicks', num: true, fmt: r => fmt(r.clicks)},
+      {key: 'conversions', label: 'Results', num: true, fmt: r => fmt(r.conversions) + (r.resultType ? ' <span class="aiv-cap">' + esc(r.resultType) + '</span>' : '')},
+      {key: 'cpr', label: 'Cost / result', num: true, sort: r => r.conversions ? r.spend / r.conversions : 0, fmt: r => r.conversions ? money(r.spend / r.conversions) : '—'}
+    ]);
+  }};
+const SOC = [['facebook', 'Facebook', '#1877F2'], ['instagram', 'Instagram', '#E1306C'], ['linkedin', 'LinkedIn', '#0A66C2']];
+W.social_kpis = {g: 'social', t: 'Social media at a glance', d: 'Facebook, Instagram and LinkedIn: followers, new followers, reach, impressions, engagement and posts for the month.', size: 'xl', needs: ['chan'],
+  render(h, ctx, w, D){
+    const m = chMonth(ctx), pm = chPrevMonth(m);
+    const have = SOC.filter(p => chAccts(D, p[0]).length);
+    if (!have.length) return chEmpty(h, 'social media');
+    h.innerHTML = have.map(p => {
+      const a = chAccts(D, p[0]), hasPrev = chHas(a, pm);
+      const t = (k, l, ic) => { const cur = chSum(a, m, k), prev = chSum(a, pm, k); return kpiTile(l, fmt(cur), '', {d: delta(cur, prev, hasPrev), icon: ic ? glyph(ic, 16, p[2]) : ''}); };
+      return '<div class="rp-soc"><div class="rp-soc-h"><i style="background:' + p[2] + '"></i>' + esc(p[1]) + '<span class="aiv-cap">' + esc(a.map(x => x.name).join(', ')) + '</span></div><div class="rp-kpis">' +
+        t('followers', 'Followers', 'users') + t('newFollowers', 'New followers', 'up') + t('reach', 'Reach', 'users') + t('impressions', 'Impressions', 'bars') + t('engagement', 'Engagement', 'spark') + t('posts', 'Posts', 'text') + '</div></div>';
+    }).join('');
+  }};
+W.social_posts = {g: 'social', t: 'Top social posts', d: 'The month’s best posts across Facebook, Instagram and LinkedIn, by engagement.', size: 'l', needs: ['chan'],
+  render(h, ctx, w, D){
+    const m = chMonth(ctx), rows = [];
+    SOC.forEach(p => chAccts(D, p[0]).forEach(a => ((((a.months || {})[m] || {}).topPosts) || []).forEach(x => rows.push(Object.assign({pf: p[1], col: p[2]}, x)))));
+    if (!rows.length) return chEmpty(h, 'post');
+    rows.sort((a, b) => chNum(b.engagement) - chNum(a.engagement));
+    h.innerHTML = '<div class="rp-posts">' + rows.slice(0, 8).map(x => '<div class="rp-post"><span class="rp-post-pf" style="color:' + x.col + '">' + esc(x.pf) + (x.date ? ' · ' + esc(prettyDate(x.date)) : '') + '</span>' +
+      '<div class="rp-post-t">' + esc(String(x.text || '').slice(0, 180)) + '</div><div class="rp-post-n"><b>' + fmt(x.engagement) + '</b> engagements · <b>' + fmt(x.reach) + '</b> reached' +
+      (safeUrl(x.url) ? ' · <a href="' + esc(safeUrl(x.url)) + '" target="_blank" rel="noopener">view ↗</a>' : '') + '</div></div>').join('') + '</div>';
+  }};
+/* The AgencyAnalytics cover page: the client's logo large, their name and the month. */
+W.cover = {g: 'content', t: 'Cover page', d: 'A full cover like AgencyAnalytics’ first page: your logo, the client’s name and the report month.', size: 'xl', needs: [], plain: true, editable: true,
+  render(h, ctx, w){
+    const c = w.cfg || {}, m = String((ctx.R && ctx.R.end) || today()).slice(0, 7), lg = (ctx.logos || {});
+    const month = new Date(m + '-15T12:00:00').toLocaleDateString('en-CA', {month: 'long', year: 'numeric'});
+    h.innerHTML = '<div class="rp-cover">' + (lg.agencyLogo ? '<img class="rp-cover-ag" alt="" src="' + esc(lg.agencyLogo) + '">' : '') +
+      '<div class="rp-cover-t">' + esc(c.heading || 'Monthly marketing report') + '</div><div class="rp-cover-c">' + esc(ctx.clientName || '') + '</div><div class="rp-cover-m">' + esc(month) + '</div>' +
+      (lg.clientLogo ? '<img class="rp-cover-cl" alt="" src="' + esc(lg.clientLogo) + '">' : '') + '</div>';
+  },
+  form: w => '<label>Title</label><input data-c="heading" placeholder="Monthly marketing report" value="' + esc((w.cfg || {}).heading || '') + '">'};
+
 /* ---------- Client personas (the people behind the form submissions) ----------
    One card per person: every website and Easyleads form they ever sent, linked
    to them by email, then phone, then full name; their stats (forms sent, first
@@ -3801,6 +3941,8 @@ const GMETA = {
   gsc: {src: ['gsc'], lbl: 'Search Console', ic: 'search', tint: '#2a78d6'},
   kw: {src: ['google'], lbl: 'Rankings', ic: 'trophy', tint: '#6250d6'},
   gbp: {src: ['gbp', 'maps'], lbl: 'Business Profile', ic: 'pin', tint: '#e34948'},
+  paid: {src: ['google'], lbl: 'Paid ads', ic: 'target', tint: '#e87722'},
+  social: {src: [], lbl: 'Social', ic: 'users', tint: '#6250d6'},
   content: {src: [], lbl: '', ic: 'text', tint: '#8795a1'}
 };
 const WIC = {gsc_health: 'flag', insight_summary: 'text', insight_wins: 'up', goal_tracker: 'target', insight_scorecard: 'trophy', insight_compare: 'bars', insight_forecast: 'line', insight_weekday: 'cal',
@@ -3940,6 +4082,8 @@ function renderBoard(root, o){
   ctx.editable = !!o.editable;
   const aa = o.aa != null ? !!o.aa : o.mode !== 'team';
   ctx.aa = aa;
+  ctx.logos = {clientLogo: o.clientLogo || '', agencyLogo: o.agencyLogo || ''};
+  if (o.clientName && !ctx.clientName) ctx.clientName = o.clientName;
   let free = aa || !!o.free;
   let editing = !!o.startEditing;
   const items = o.items;
@@ -5033,6 +5177,8 @@ function ctxFor(c){
   ctx.get = name => {
     if (name === 'kw') return Promise.resolve(kwRows(c));
     if (name === 'gbp') return Promise.resolve(gbpSummary(gbpsFor(c)));
+    /* Paid ads and social media: kept by the Google Ads section (edge-os.js), not the tracker. */
+    if (name === 'chan') return window.EDGE_channelsFor ? window.EDGE_channelsFor(c) : Promise.resolve({});
     if (domain.indexOf('.') < 0) return noSite();
     if (!s.url || !s.key) return noTracker();
     if (name === 'feed') return dc.feed || (dc.feed = AIV.getFeed(domain).catch(e => { dc.feed = null; throw e; }));
@@ -5517,8 +5663,10 @@ name: r.name, email: r.email, phone: r.phone, company: r.company, message: r.mes
 if (need.has('pages')){ const g = await get('pages'); if (g && !g.error) snap.pages = Object.assign({}, g, {pages: (g.pages || []).slice(0, 400), sitemap: (g.sitemap || []).slice(0, 2000)}); }
   if (need.has('kw')) doc.kw = JSON.stringify(kwRows(c));
   if (need.has('gbp')) doc.gbp = JSON.stringify(gbpSummary(gbpsFor(c)));
+  /* Paid ads and social travel with the report: monthly totals, campaigns and daily rows, never logins. */
+  if (need.has('chan')){ const ch = await get('chan'); if (ch) doc.chan = JSON.stringify(ch).slice(0, 300000); }
   /* Firestore keeps up to 1 MB per document: the data copy gets what the rest leaves. */
-  const room = 960000 - ['kw', 'gbp', 'clientLogo', 'agencyLogo', 'layout', 'brand'].reduce((t, k) => t + String(doc[k] || '').length, 0);
+  const room = 960000 - ['kw', 'gbp', 'chan', 'clientLogo', 'agencyLogo', 'layout', 'brand'].reduce((t, k) => t + String(doc[k] || '').length, 0);
   let str = JSON.stringify(snap);
   if (str.length > room && snap.feed){ delete snap.feed.channels; str = JSON.stringify(snap); }
   if (str.length > room && snap.gsc){ snap.gsc = trimGsc(snap.gsc, 100); str = JSON.stringify(snap); }
@@ -5640,6 +5788,23 @@ async function regenerate(v, c){
     toastMsg('Couldn\u2019t make the new link: ' + (e.message || e));
   }
 }
+/* For the Reporting section (edge-os.js): build the AgencyAnalytics-style monthly report, publish it, read its link. */
+window.EdgeReportsApp = {
+  W,
+  clientItems: c => reportsOf(c).client.items.slice(),
+  isPublished: c => !!reportsOf(c).client.publishedAt,
+  publishedAt: c => reportsOf(c).client.publishedAt || 0,
+  applyClient(c, items, title){
+    const R = reportsOf(c);
+    R.client.items = items.map((it, i) => Object.assign({id: 'w' + Date.now().toString(36) + i}, it, {cfg: Object.assign({}, it.cfg || {})}));
+    if (title) R.client.title = title;
+    R.client.period = 'lastMonth';
+    persist(c, 'client');
+    try{ if (activeTab === 'rclient' && client() && client().id === c.id) draw(); }catch(e){}
+  },
+  publish: async c => { await publish(c); return reportUrl(c); },
+  url: c => reportUrl(c)
+};
 async function share(v, c){
   const box = v.querySelector('[data-sharebox]');
   box.innerHTML = '<div class="rp-share"><span><span class="aiv-spin"></span>Publishing…</span></div>';

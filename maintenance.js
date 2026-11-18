@@ -839,5 +839,5 @@ document.addEventListener('keydown', e => {
   e.preventDefault(); if (window.EDGE) window.EDGE.go('maint');
 });
 
-window.EDGE_maint = {render, open: openSite, due: () => dueSites().map(c => c.name), notify: () => notifyDue(true)};
+window.EDGE_maint = {render, open: openSite, due: () => dueSites().map(c => c.name), notify: () => notifyDue(true), sites, statusOf};
 })();

@@ -1,0 +1,923 @@
+/* ==========================================================================
+   EDGE OS: one tool, four sections, everything connected.
+
+     SEO               Clients · GBP Tracker · Live SERP (the three existing tools, one section).
+                       The client list follows Robert's "SEO Clients" column on Tidyboard:
+                       a client taken off his board moves to Inactive / Archived, and back
+                       again when the card returns.
+     Google Ads        Read only. Every Google Ads account with its logo, the month's numbers,
+                       campaigns and what needs attention; a Paid Social tab for Facebook and
+                       Instagram ads. Data is read from the platforms' own dashboards in Chrome
+                       (by Claude, monthly) and handed to EDGE_ingest(); nothing here can change
+                       an ad account.
+     Web Maintenance   The monthly WordPress care desk (maintenance.js): red until done, what got
+                       done and by whom, and its reminders on the 1st. Its due count shows on the
+                       section button, and "Add to Basecamp" turns the month's list into a task.
+     Reporting         The only place reports appear: AI Visibility, Team report, Client report
+                       and embedded dashboards, plus a Reporting home with every client's report
+                       status, the AgencyAnalytics-style monthly template, share links and the
+                       monthly send schedule (sent by tracker/report-mailer.gs).
+
+   The EDGE brain is the shared record behind all four: one client list (state.seoClients),
+   channel accounts linked to those clients, and Basecamp tasks tied to a client and a section.
+   Tasks go through the Tidyboard extension (your own Basecamp login; no tokens here).
+
+   Storage: client edits and settings ride the workspace's own sync (state, save()). Channel data
+   is bigger, so it lives in its own Firestore documents: users/{uid}/edgeChannels/{source}_{id}.
+   ========================================================================== */
+(function () {
+'use strict';
+if (typeof state === 'undefined' || !document.getElementById('appShell')) return;
+if (typeof isPublicView === 'function' && isPublicView()) return;
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+const RM = () => !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+const num = v => Number(v) || 0;
+const fmt = n => Math.round(num(n)).toLocaleString('en-CA');
+const money = n => '$' + num(n).toLocaleString('en-CA', {minimumFractionDigits: 0, maximumFractionDigits: num(n) < 100 ? 2 : 0});
+const pct = (a, b) => b ? (a / b * 100) : 0;
+const ym = t => { const d = new Date(t); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); };
+const prevYm = m => { const d = new Date(m + '-15T12:00:00'); d.setMonth(d.getMonth() - 1); return ym(d); };
+const monthName = m => new Date(m + '-15T12:00:00').toLocaleDateString('en-CA', {month: 'long', year: 'numeric'});
+const norm = s => String(s || '').toLowerCase().replace(/&/g, ' and ').replace(/\b(inc|ltd|llc|corp|co|the|and)\b/g, ' ').replace(/[^a-z0-9]+/g, ' ').trim();
+const normDomain = v => String(v || '').trim().toLowerCase().replace(/^[a-z]+:\/\//, '').replace(/^www\./, '').split(/[\/?#:]/)[0];
+const me = () => { try{ return (fbAuth && fbAuth.currentUser && fbAuth.currentUser.email) || ''; }catch(e){ return ''; } };
+const meName = () => { const m = me(); const tm = (state.teamMembers || []).find(t => t && t.email && String(t.email).toLowerCase() === m.toLowerCase()); return (tm && tm.name) || (m.split('@')[0] || 'Someone').replace(/^./, c => c.toUpperCase()); };
+/* Reading never touches the workspace (an unsaved change there would look like a local edit to the sync). */
+const settings = () => (state.settings && state.settings.edgeOs) || {};
+/* Only writes when the value really changes: every save is a cloud write that could race a teammate's edit. */
+const setSetting = (k, v) => { const cur = settings(); if (JSON.stringify(cur[k]) === JSON.stringify(v)) return; const s = Object.assign({}, cur); s[k] = v; state.settings = state.settings || {}; state.settings.edgeOs = s; try{ save(); }catch(e){} };
+/* Where you are (section, sub-tool, report tab) is this browser's own business: kept locally, never synced. */
+const localPref = (k, v) => { try{ if (v === undefined) return localStorage.getItem('osPref:' + k) || ''; localStorage.setItem('osPref:' + k, v); }catch(e){ return ''; } };
+const seoClients = () => (state.seoClients || []).filter(Boolean);
+const activeClient = () => seoClients().find(c => c.id === state.activeSeoClientId) || null;
+const logoOf = c => { if (!c) return ''; if (c.logoUrl) return c.logoUrl; const d = normDomain(c.website); return d.indexOf('.') > -1 ? 'https://www.google.com/s2/favicons?sz=128&domain=' + encodeURIComponent(d) : ''; };
+const initials = n => String(n || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+const logoHtml = (src, name) => src ? '<span class="os-logo"><img alt="" src="' + esc(src) + '" onerror="this.parentNode.classList.add(\'mono\');this.parentNode.textContent=\'' + esc(initials(name)) + '\'"></span>' : '<span class="os-logo mono">' + esc(initials(name)) + '</span>';
+const ICON = {
+  seo: '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/><path d="M8 11.5l2 2 4-4"/></svg>',
+  ads: '<svg viewBox="0 0 24 24"><path d="M3 11v2a2 2 0 0 0 2 2h1l4 4V5L6 9H5a2 2 0 0 0-2 2z"/><path d="M15 8a5 5 0 0 1 0 8M18 5a9 9 0 0 1 0 14"/></svg>',
+  maint: '<svg viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18v3h3l6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></svg>',
+  report: '<svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 5-6"/></svg>',
+  clients: '<svg viewBox="0 0 24 24"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>',
+  gbp: '<svg viewBox="0 0 24 24"><path d="M12 21s-7-5.33-7-11a7 7 0 0 1 14 0c0 5.67-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>',
+  serp: '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/></svg>',
+  tasks: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="3"/><path d="m8 12 2.5 2.5L16 9"/><path d="M8 2v4M16 2v4"/></svg>',
+  sync: '<svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>',
+  plus: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
+  x: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+  ext: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>',
+  check: '<svg viewBox="0 0 24 24"><path d="m5 12 5 5L20 7"/></svg>',
+  trash: '<svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>',
+  mail: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m4 7 8 6 8-6"/></svg>',
+  link: '<svg viewBox="0 0 24 24"><path d="M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>'
+};
+
+/* ======================================================================
+   EFFECTS: toast, confetti, flash, fade-out. Every one respects reduced motion.
+   ====================================================================== */
+const FX = {
+  toast(msg, kind){
+    let t = $('osToast');
+    if (!t){ t = document.createElement('div'); t.id = 'osToast'; t.className = 'os-toast'; t.setAttribute('role', 'status'); document.body.appendChild(t); }
+    const ic = {del: ICON.trash, sync: ICON.sync, add: ICON.plus}[kind] || ICON.check;
+    t.className = 'os-toast ' + (kind || '');
+    t.innerHTML = '<i>' + ic + '</i><span>' + esc(msg) + '</span>';
+    requestAnimationFrame(() => t.classList.add('on'));
+    clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('on'), 2600);
+  },
+  confetti(x, y, n){
+    if (RM()) return;
+    const cols = ['#e87722', '#ff9a3d', '#12a36f', '#2a78d6', '#ffd23f', '#e0483c', '#7b61ff'];
+    x = x == null ? innerWidth / 2 : x; y = y == null ? innerHeight / 3 : y;
+    for (let i = 0; i < (n || 46); i++){
+      const p = document.createElement('i'); p.className = 'os-conf';
+      p.style.background = cols[i % cols.length]; p.style.left = x + 'px'; p.style.top = y + 'px';
+      document.body.appendChild(p);
+      const a = Math.random() * Math.PI * 2, v = 6 + Math.random() * 9, dx = Math.cos(a) * v * 22, dy = Math.sin(a) * v * 16 - 120, r = Math.random() * 720;
+      p.animate([{transform: 'translate(0,0) rotate(0)', opacity: 1}, {transform: 'translate(' + dx + 'px,' + (dy + 260) + 'px) rotate(' + r + 'deg)', opacity: 0}],
+        {duration: 1100 + Math.random() * 700, easing: 'cubic-bezier(.2,.7,.3,1)'}).onfinish = () => p.remove();
+    }
+  },
+  at(el){ try{ const r = el.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; }catch(e){ return [null, null]; } },
+  done(el, msg){ const p = el ? FX.at(el) : [null, null]; FX.confetti(p[0], p[1], 40); if (msg) FX.toast(msg, 'ok'); },
+  flash(el){ if (!el || RM()) return; el.classList.remove('os-flash'); void el.offsetWidth; el.classList.add('os-flash'); },
+  out(el, then){ if (!el){ if (then) then(); return; } if (RM()){ el.remove(); if (then) then(); return; } el.classList.add('os-out'); setTimeout(() => { el.remove(); if (then) then(); }, 440); },
+  shimmer(el, on){ if (el) el.classList.toggle('os-syncing', !!on); }
+};
+window.EDGE_FX = FX;
+
+/* ======================================================================
+   SECTIONS
+   ====================================================================== */
+const SECTIONS = [
+  {k: 'seo', l: 'SEO', ic: ICON.seo, key: '1'},
+  {k: 'ads', l: 'Google Ads', ic: ICON.ads, key: '2'},
+  {k: 'maint', l: 'Web Maintenance', ic: ICON.maint, key: '3'},
+  {k: 'report', l: 'Reporting', ic: ICON.report, key: '4'}
+];
+const SEO_SUBS = [{k: 'seo', l: 'Clients', ic: ICON.clients}, {k: 'gbp', l: 'GBP Tracker', ic: ICON.gbp}, {k: 'serp', l: 'Live SERP', ic: ICON.serp}];
+let section = 'seo';
+const renders = {};
+
+/* Google Ads gets a stage of its own (full width, no rail). */
+function ensureStage(){
+  if ($('adsStage')) return;
+  const st = document.createElement('main');
+  st.className = 'stage os-stage'; st.id = 'adsStage'; st.style.display = 'none';
+  const ref = $('maintStage') || $('seoStage');
+  ref.parentNode.insertBefore(st, ref.nextSibling);
+  const M = window.EDGE_MODULES || (typeof MODULES !== 'undefined' ? MODULES : null);
+  if (M) M.ads = {rail: 'adsRail', stage: 'adsStage', label: 'Google Ads'};
+}
+
+function buildBar(){
+  const nav = $('topNav'); if (!nav || $('osSecs')) return;
+  document.body.classList.add('os-on');
+  const secs = document.createElement('div'); secs.className = 'os-secs'; secs.id = 'osSecs'; secs.setAttribute('role', 'tablist');
+  secs.innerHTML = '<span class="os-pill" aria-hidden="true"></span>' + SECTIONS.map(s =>
+    '<button type="button" class="os-sec" role="tab" data-sec="' + s.k + '" title="' + esc(s.l) + ' (Alt+' + s.key + ')">' + s.ic + '<span class="l">' + esc(s.l) + '</span><span class="os-badge" data-badge="' + s.k + '"></span></button>').join('');
+  const sub = document.createElement('div'); sub.className = 'os-sub'; sub.id = 'osSub';
+  sub.innerHTML = SEO_SUBS.map(s => '<button type="button" class="os-sub-b" data-sub="' + s.k + '" title="' + esc(s.l) + '">' + s.ic + '<span class="l">' + esc(s.l) + '</span></button>').join('') +
+    '<button type="button" class="os-sub-act" id="osBoardSync" title="Match the SEO client list to the SEO Clients column on Robert’s Tidyboard">' + ICON.sync + '<span class="l">Robert’s board</span></button>';
+  const grow = document.createElement('div'); grow.className = 'os-grow';
+  const tasks = document.createElement('button'); tasks.type = 'button'; tasks.className = 'os-tasks-btn'; tasks.id = 'osTasksBtn';
+  tasks.title = 'Your Basecamp tasks, through Tidyboard (T)';
+  tasks.innerHTML = ICON.tasks + '<span class="l">Tasks</span><span class="os-badge" id="osTasksBadge"></span>';
+  const mods = $('tnMods');
+  mods.parentNode.insertBefore(secs, mods.nextSibling);
+  secs.parentNode.insertBefore(sub, secs.nextSibling);
+  sub.parentNode.insertBefore(grow, sub.nextSibling);
+  const right = nav.querySelector('.tn-right');
+  if (right) right.insertBefore(tasks, right.firstChild); else nav.appendChild(tasks);
+  secs.addEventListener('click', e => { const b = e.target.closest('.os-sec'); if (b) go(b.dataset.sec); });
+  sub.addEventListener('click', e => { const b = e.target.closest('.os-sub-b'); if (b) go('seo', b.dataset.sub); });
+  $('osBoardSync').addEventListener('click', () => Board.sync(true));
+  tasks.addEventListener('click', () => Tasks.open());
+  window.addEventListener('resize', movePill);
+}
+function movePill(){
+  const secs = $('osSecs'); if (!secs) return;
+  const on = secs.querySelector('.os-sec.on'), pill = secs.querySelector('.os-pill');
+  if (!on || !pill) return;
+  pill.style.left = on.offsetLeft + 'px'; pill.style.width = on.offsetWidth + 'px';
+}
+function paintBar(){
+  document.querySelectorAll('.os-sec').forEach(b => { const on = b.dataset.sec === section; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
+  const mod = (window.EDGE && EDGE.current && EDGE.current()) || state.seoModule;
+  document.querySelectorAll('.os-sub-b').forEach(b => b.classList.toggle('on', b.dataset.sub === mod));
+  ['seo', 'ads', 'maint', 'report'].forEach(k => document.body.classList.toggle('os-sec-' + k, k === section));
+  requestAnimationFrame(movePill);
+}
+
+let routing = false;
+const origGo = window.EDGE && window.EDGE.go;
+function go(sec, sub){
+  section = SECTIONS.some(s => s.k === sec) ? sec : 'seo';
+  localPref('section', section);
+  routing = true;
+  try{
+    if (section === 'seo'){
+      const m = sub || localPref('seoSub') || 'seo';
+      if (sub) localPref('seoSub', sub);
+      origGo.call(window.EDGE, ['seo', 'gbp', 'serp'].indexOf(m) > -1 ? m : 'seo');
+    } else if (section === 'report'){
+      origGo.call(window.EDGE, 'seo');
+      Reporting.enter();
+    } else {
+      origGo.call(window.EDGE, section);
+    }
+  } finally { routing = false; }
+  paintBar();
+  const stage = section === 'ads' ? $('adsStage') : section === 'maint' ? $('maintStage') : null;
+  if (stage && !RM()){ stage.classList.remove('os-enter'); void stage.offsetWidth; stage.classList.add('os-enter'); }
+}
+/* Older entry points (hub cards, Alt+1/2/3, "open in Live SERP" buttons) still call EDGE.go(module). */
+function hookRouter(){
+  if (!window.EDGE || !origGo) return;
+  window.EDGE.go = function (m){
+    if (!routing){
+      if (m === 'ads' || m === 'maint') section = m;
+      else if (['seo', 'gbp', 'serp'].indexOf(m) > -1){ section = 'seo'; localPref('seoSub', m); }
+    }
+    const r = origGo.call(window.EDGE, m);
+    if (!routing){ document.body.classList.remove('os-report-mode'); paintBar(); }
+    return r;
+  };
+  window.EDGE.section = go;
+  window.EDGE.currentSection = () => section;
+}
+
+/* The hub becomes four big doors. */
+function buildHub(){
+  const grid = $('hubGrid'); if (!grid || grid.dataset.os) return;
+  grid.dataset.os = '1';
+  const hero = document.querySelector('.hub-hero');
+  if (hero) hero.innerHTML = '<span class="hub-eyebrow">EDGE workspace</span><h2>Four sections. One brain.</h2><p>SEO, Google Ads, Web Maintenance and Reporting share one client list, one set of Basecamp tasks and one cloud record, so what happens in one shows up everywhere it matters.</p>';
+  const desc = {
+    seo: ['Rankings, maps and live search', 'Every SEO client with their keywords and positions, the GBP Tracker’s map grids and Live SERP previews. The client list follows Robert’s Tidyboard.'],
+    ads: ['Read only, every account', 'Every Google Ads account with its logo, the month’s numbers and campaigns, and which clients need attention. Plus Facebook and Instagram ads.'],
+    maint: ['WordPress care, every month', 'Red until this month’s maintenance is done, green once it is, with exactly what got done and by whom. A reminder lands on the 1st.'],
+    report: ['Client reports, sent for you', 'AgencyAnalytics-style monthly reports for every client: traffic, SEO, AI, ads and social. Share links, and a scheduled send on the 1st of each month.']
+  };
+  grid.innerHTML = SECTIONS.map(s => '<button class="hub-card" data-osgo="' + s.k + '" type="button"><span class="hub-key">' + s.key + '</span><span class="hub-ico">' + s.ic + '</span>' +
+    '<p class="hub-sub">' + esc(desc[s.k][0]) + '</p><h3 class="hub-title">' + esc(s.l) + '</h3><p class="hub-desc">' + esc(desc[s.k][1]) + '</p><span class="hub-meta" data-hubmeta="' + s.k + '"></span>' +
+    '<span class="hub-go">Open ' + esc(s.l) + ' <svg viewBox="0 0 24 24"><path d="M5 12h13M13 6l6 6-6 6"/></svg></span></button>').join('');
+  grid.addEventListener('click', e => { const c = e.target.closest('[data-osgo]'); if (c){ try{ EDGE_showHub(false); }catch(err){} go(c.dataset.osgo); } });
+  const kbd = document.querySelector('.hub-kbd'); if (kbd) kbd.innerHTML = '<span>Press</span><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd><span>to jump straight in · <kbd>Alt</kbd>+<kbd>H</kbd> returns here from anywhere</span>';
+}
+function paintHubMeta(){
+  const chip = (v, l) => '<span class="hub-chip"><b>' + esc(String(v)) + '</b> ' + esc(l) + '</span>';
+  const set = (k, html) => { const el = document.querySelector('[data-hubmeta="' + k + '"]'); if (el) el.innerHTML = html; };
+  const cs = seoClients(), active = cs.filter(c => !isArchived(c));
+  set('seo', chip(active.length, 'active clients') + chip((state.clients || []).reduce((t, c) => t + ((c.gbps || []).length), 0), 'profiles'));
+  const g = Channels.list('google_ads'), att = g.filter(a => Attention.of(a).length);
+  set('ads', chip(g.length, 'accounts') + (att.length ? chip(att.length, 'need attention') : ''));
+  const due = window.EDGE_maint && EDGE_maint.due ? EDGE_maint.due().length : 0;
+  set('maint', chip(due, due === 1 ? 'site due' : 'sites due'));
+  set('report', chip(Reporting.scheduledCount(), 'scheduled'));
+}
+
+/* Keyboard: Alt+1..4 jump between sections, T opens Tasks. */
+document.addEventListener('keydown', e => {
+  const shell = $('appShell'); if (!shell || shell.classList.contains('hidden')) return;
+  const t = e.target, typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
+  if (e.altKey && !e.ctrlKey && !e.metaKey){
+    const s = SECTIONS.find(x => x.key === e.key);
+    if (s){ e.preventDefault(); e.stopImmediatePropagation(); try{ EDGE_showHub(false); }catch(err){} go(s.k); return; }
+  }
+  if (e.key === 'Escape'){ if (Drawer.close()) e.stopPropagation(); return; }
+  if (typing || e.ctrlKey || e.metaKey || e.altKey) return;
+  const hub = $('hubScreen');
+  if (hub && hub.classList.contains('on')){ const s = SECTIONS.find(x => x.key === e.key); if (s){ e.preventDefault(); e.stopImmediatePropagation(); EDGE_showHub(false); go(s.k); } return; }
+  if ((e.key === 't' || e.key === 'T') && !document.querySelector('.os-drawer.on')){ e.preventDefault(); Tasks.open(); }
+}, true);
+
+/* ======================================================================
+   DRAWER (one at a time)
+   ====================================================================== */
+const Drawer = {
+  el: null, scrim: null,
+  open(html, opts){
+    opts = opts || {};
+    this.close(true);
+    const sc = document.createElement('div'); sc.className = 'os-scrim';
+    const d = document.createElement('aside'); d.className = 'os-drawer' + (opts.wide ? ' wide' : ''); d.setAttribute('role', 'dialog'); d.setAttribute('aria-modal', 'true');
+    d.innerHTML = html;
+    document.body.appendChild(sc); document.body.appendChild(d);
+    this.el = d; this.scrim = sc;
+    requestAnimationFrame(() => { sc.classList.add('on'); d.classList.add('on'); });
+    sc.addEventListener('click', () => this.close());
+    d.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => this.close()));
+    const f = d.querySelector('input,button.os-x'); if (f) setTimeout(() => { try{ f.focus({preventScroll: true}); }catch(e){} }, 80);
+    return d;
+  },
+  close(instant){
+    const d = this.el, sc = this.scrim; if (!d) return false;
+    this.el = this.scrim = null;
+    if (instant || RM()){ d.remove(); sc.remove(); return true; }
+    d.classList.remove('on'); sc.classList.remove('on');
+    setTimeout(() => { d.remove(); sc.remove(); }, 420);
+    return true;
+  }
+};
+const dHead = (title, sub) => '<div class="os-dh"><div style="flex:1;min-width:0"><h2>' + esc(title) + '</h2>' + (sub ? '<small>' + sub + '</small>' : '') + '</div><button type="button" class="os-x" data-close aria-label="Close">' + ICON.x + '</button></div>';
+
+/* ======================================================================
+   TIDYBOARD BRIDGE → Basecamp
+   The Tidyboard extension (v2.1+) answers messages from seo.edgemarketing.ca using the
+   Basecamp login already in Chrome. Its id arrives with a hello the extension posts to this
+   page; it can also be pasted once in Tasks → Settings.
+   Messages: {action:'ping'|'me'|'myTodos'|'projects'|'createTodo'|'completeTodo'|'boardColumn'|'addToBoard', ...}
+   ====================================================================== */
+const Bridge = {
+  id: '',
+  hello: false,
+  init(){
+    this.id = settings().tidyboardId || '';
+    window.addEventListener('message', e => {
+      if (e.source !== window || !e.data || e.data.source !== 'tidyboard' || e.data.type !== 'hello') return;
+      if (/^[a-p]{32}$/.test(String(e.data.id || ''))){ this.id = e.data.id; this.hello = true; if (settings().tidyboardId !== this.id) setSetting('tidyboardId', this.id); Tasks.refresh(); }
+    });
+    try{ window.postMessage({source: 'edge-os', type: 'hello?'}, location.origin); }catch(e){}
+  },
+  available(){ return !!(this.id && window.chrome && chrome.runtime && chrome.runtime.sendMessage); },
+  call(action, payload){
+    return new Promise((res, rej) => {
+      if (!this.available()) return rej(new Error('Tidyboard isn’t connected to this page yet.'));
+      let done = false;
+      const t = setTimeout(() => { if (!done){ done = true; rej(new Error('Tidyboard didn’t answer. Is Chrome signed in to Basecamp?')); } }, 20000);
+      try{
+        chrome.runtime.sendMessage(this.id, Object.assign({edge: 1, action}, payload || {}), r => {
+          if (done) return; done = true; clearTimeout(t);
+          const le = chrome.runtime.lastError;
+          if (le) return rej(new Error(le.message || 'Tidyboard is not installed or not updated.'));
+          if (!r || r.error) return rej(new Error((r && r.error) || 'No answer from Tidyboard.'));
+          res(r.data);
+        });
+      }catch(e){ done = true; clearTimeout(t); rej(e); }
+    });
+  }
+};
+
+/* ======================================================================
+   TASKS: Basecamp to-dos assigned to you, in a drawer that knows which section and client you are on.
+   ====================================================================== */
+const Tasks = {
+  list: [], projects: null, at: 0, err: '', seen: new Set(JSON.parse(localStorage.getItem('osTasksSeen') || '[]')),
+  ctx(){
+    const c = (section === 'seo' || section === 'report') ? activeClient() : null;
+    return {section, client: c, label: (SECTIONS.find(s => s.k === section) || {}).l || ''};
+  },
+  async refresh(quiet){
+    if (!Bridge.available()){ this.err = 'nobridge'; this.paintBadge(); return; }
+    const btn = $('osTasksBtn'); FX.shimmer(btn, true);
+    try{
+      const rows = await Bridge.call('myTodos');
+      const fresh = (rows || []).filter(t => !this.seen.has(String(t.id)));
+      this.list = rows || []; this.at = Date.now(); this.err = '';
+      if (fresh.length && this.at && !quiet){ btn.classList.remove('ping'); void btn.offsetWidth; btn.classList.add('ping'); if (this.loadedOnce) FX.toast(fresh.length === 1 ? 'New Basecamp task: ' + fresh[0].title : fresh.length + ' new Basecamp tasks', 'add'); }
+      this.loadedOnce = true;
+    }catch(e){ this.err = e.message; }
+    FX.shimmer(btn, false);
+    this.paintBadge();
+    if (Drawer.el && Drawer.el.dataset.kind === 'tasks') this.paint();
+  },
+  paintBadge(){
+    const b = $('osTasksBadge'); if (!b) return;
+    const n = this.list.filter(t => !this.seen.has(String(t.id))).length;
+    b.textContent = n ? String(n) : (this.list.length ? '' : '');
+  },
+  open(prefill){
+    const x = this.ctx();
+    const d = Drawer.open(dHead('Tasks', 'Basecamp to-dos assigned to you' + (x.client ? ' · ' + esc(x.client.name) : '')) +
+      '<div class="os-db"><div class="os-tabs" style="margin-bottom:14px"><button type="button" class="os-tab on" data-tt="mine">Mine</button>' +
+      (x.client ? '<button type="button" class="os-tab" data-tt="client">' + esc(x.client.name) + '</button>' : '') +
+      '<button type="button" class="os-tab" data-tt="add">' + '+ New task</button><button type="button" class="os-tab" data-tt="set">Settings</button></div><div data-tbody></div></div>');
+    d.dataset.kind = 'tasks';
+    this.tab = prefill ? 'add' : 'mine'; this.prefill = prefill || null;
+    d.querySelectorAll('[data-tt]').forEach(b => b.addEventListener('click', () => { this.tab = b.dataset.tt; this.paint(); }));
+    this.paint();
+    if (!this.at || Date.now() - this.at > 60000) this.refresh();
+    /* Opening the drawer counts as seeing the new ones. */
+    setTimeout(() => { this.list.forEach(t => this.seen.add(String(t.id))); try{ localStorage.setItem('osTasksSeen', JSON.stringify(Array.from(this.seen).slice(-800))); }catch(e){} this.paintBadge(); }, 2500);
+  },
+  paint(){
+    const d = Drawer.el; if (!d || d.dataset.kind !== 'tasks') return;
+    d.querySelectorAll('[data-tt]').forEach(b => b.classList.toggle('on', b.dataset.tt === this.tab));
+    const body = d.querySelector('[data-tbody]');
+    if (this.tab === 'set') return this.paintSettings(body);
+    if (!Bridge.available() || this.err === 'nobridge') return this.paintSetup(body);
+    if (this.tab === 'add') return this.paintAdd(body);
+    const x = this.ctx();
+    let rows = this.list.slice();
+    if (this.tab === 'client' && x.client){ const n = norm(x.client.name); rows = rows.filter(t => norm(t.title + ' ' + (t.project || '') + ' ' + (t.list || '')).indexOf(n) > -1); }
+    rows.sort((a, b) => (a.due || '9') < (b.due || '9') ? -1 : 1);
+    const today = new Date().toISOString().slice(0, 10);
+    body.innerHTML = (this.err ? '<div class="os-note warn" style="margin-bottom:10px">' + esc(this.err) + '</div>' : '') +
+      (rows.length ? '<div class="os-tl">' + rows.map(t => '<div class="os-t' + (this.seen.has(String(t.id)) ? '' : ' new') + '" data-id="' + esc(t.id) + '">' +
+        '<button type="button" class="os-chk" title="Complete in Basecamp" aria-label="Complete"></button><div class="os-t-b"><b>' + esc(t.title) + '</b><small>' +
+        (t.project ? '<span>' + esc(t.project) + '</span>' : '') + (t.list ? '<span>· ' + esc(t.list) + '</span>' : '') +
+        (t.due ? '<span class="' + (t.due < today ? 'late' : '') + '">· due ' + esc(new Date(t.due + 'T12:00:00').toLocaleDateString('en-CA', {month: 'short', day: 'numeric'})) + '</span>' : '') +
+        (t.column ? '<span>· ' + esc(t.column) + '</span>' : '') + '</small></div>' +
+        (t.url ? '<a class="os-t-open" href="' + esc(t.url) + '" target="_blank" rel="noopener" title="Open in Basecamp">' + ICON.ext + '</a>' : '') + '</div>').join('') + '</div>'
+        : '<div class="os-empty" style="margin:10px 0;padding:30px 20px"><div class="ic">' + ICON.tasks + '</div><h3>' + (this.at ? 'All clear' : 'Loading your tasks…') + '</h3><p>' +
+          (this.at ? (this.tab === 'client' ? 'No open tasks mention this client.' : 'Nothing assigned to you in Basecamp right now.') : 'Asking Basecamp through Tidyboard.') + '</p></div>') +
+      '<div style="margin-top:12px;display:flex;gap:8px;align-items:center"><button type="button" class="os-btn" data-tr>' + ICON.sync + 'Refresh</button><span class="os-sync-line"><i></i>' + (this.at ? 'Updated ' + new Date(this.at).toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'}) : '') + '</span></div>';
+    body.querySelector('[data-tr]').addEventListener('click', () => this.refresh());
+    body.querySelectorAll('.os-chk').forEach(ch => ch.addEventListener('click', async () => {
+      const row = ch.closest('.os-t'), id = row.dataset.id, t = this.list.find(x => String(x.id) === id);
+      ch.classList.add('on'); FX.done(ch);
+      try{
+        await Bridge.call('completeTodo', {todoId: t.id, projectId: t.projectId});
+        row.classList.add('done'); setTimeout(() => { this.list = this.list.filter(x => x !== t); this.paint(); this.paintBadge(); }, 360);
+        FX.toast('Done in Basecamp: ' + t.title, 'ok');
+      }catch(e){ ch.classList.remove('on'); FX.toast(e.message, 'del'); }
+    }));
+  },
+  async paintAdd(body){
+    const x = this.ctx(), p = this.prefill || {};
+    body.innerHTML = '<div class="os-form"><label>Task</label><input class="os-in" data-f="title" maxlength="240" value="' + esc(p.title || (x.client ? x.client.name + ' — ' : '')) + '">' +
+      '<label>Notes</label><textarea data-f="notes" placeholder="Optional">' + esc(p.notes || '') + '</textarea>' +
+      '<div class="os-row"><div><label>Basecamp project</label><select class="os-sel" data-f="project"><option value="">Loading…</option></select></div><div><label>To-do list</label><select class="os-sel" data-f="list"></select></div></div>' +
+      '<div class="os-row"><div><label>Due</label><input class="os-in" type="date" data-f="due" value="' + esc(p.due || '') + '"></div><div><label>Put on Tidyboard</label><select class="os-sel" data-f="board"><option value="">My board, default column</option><option value="none">Don’t add to a board</option></select></div></div>' +
+      '<div class="os-note">Assigned to you. Tagged <b>' + esc(x.label) + '</b>' + (x.client ? ' and <b>' + esc(x.client.name) + '</b>' : '') + ' so it shows up on this client in every section.</div>' +
+      '<button type="button" class="os-btn go" data-add>' + ICON.plus + 'Add to Basecamp</button></div>';
+    const ps = body.querySelector('[data-f="project"]'), ls = body.querySelector('[data-f="list"]');
+    try{
+      if (!this.projects) this.projects = await Bridge.call('projects');
+      const want = x.client ? norm(x.client.name) : '';
+      const last = settings().lastProject || '';
+      ps.innerHTML = this.projects.map(pr => '<option value="' + esc(pr.id) + '">' + esc(pr.name) + '</option>').join('');
+      const match = this.projects.find(pr => want && norm(pr.name).indexOf(want) > -1) || this.projects.find(pr => String(pr.id) === String(last));
+      if (match) ps.value = match.id;
+      const fillLists = () => { const pr = this.projects.find(q => String(q.id) === ps.value) || {lists: []}; ls.innerHTML = (pr.lists || []).map(l => '<option value="' + esc(l.id) + '">' + esc(l.name) + '</option>').join(''); };
+      ps.addEventListener('change', fillLists); fillLists();
+    }catch(e){ ps.innerHTML = '<option value="">' + esc(e.message) + '</option>'; }
+    body.querySelector('[data-add]').addEventListener('click', async ev => {
+      const btn = ev.currentTarget, get = k => (body.querySelector('[data-f="' + k + '"]') || {}).value || '';
+      const title = get('title').trim(); if (!title){ FX.toast('Give the task a name first', 'del'); return; }
+      if (!get('project') || !get('list')){ FX.toast('Pick a Basecamp project and list', 'del'); return; }
+      btn.disabled = true; btn.innerHTML = 'Adding…';
+      const tag = '[EDGE · ' + x.label + (x.client ? ' · ' + x.client.name : '') + ']';
+      try{
+        const t = await Bridge.call('createTodo', {projectId: get('project'), listId: get('list'), title, notes: (get('notes') ? get('notes') + '\n\n' : '') + tag, due: get('due') || null, assignMe: true, board: get('board') !== 'none'});
+        setSetting('lastProject', get('project'));
+        if (t) this.list.unshift(t);
+        FX.done(btn, 'Added to Basecamp' + (get('board') !== 'none' ? ' and your Tidyboard' : ''));
+        this.prefill = null; this.tab = 'mine'; this.paint(); this.paintBadge();
+      }catch(e){ btn.disabled = false; btn.innerHTML = ICON.plus + 'Add to Basecamp'; FX.toast(e.message, 'del'); }
+    });
+  },
+  paintSetup(body){
+    body.innerHTML = '<div class="os-empty" style="margin:6px 0 14px;padding:30px 22px"><div class="ic">' + ICON.tasks + '</div><h3>Connect Tidyboard</h3>' +
+      '<p>Tasks come from Basecamp through the Tidyboard extension, using the Basecamp login already in this Chrome. No passwords or tokens are stored here.</p></div>' +
+      '<div class="os-note"><b>Needs Tidyboard 2.1 or newer.</b> That version adds a small, safe bridge: it only answers this site (seo.edgemarketing.ca), only reads your own to-dos, projects and boards, and only creates or completes a to-do when you click here. Once it’s installed, open any Basecamp page once, then come back. This page connects by itself.</div>' +
+      '<div style="margin-top:12px"><button type="button" class="os-btn" data-tt2="set">Paste the extension ID instead</button></div>';
+    body.querySelector('[data-tt2]').addEventListener('click', () => { this.tab = 'set'; this.paint(); });
+  },
+  paintSettings(body){
+    body.innerHTML = '<div class="os-form"><label>Tidyboard extension ID</label><input class="os-in" data-f="id" placeholder="32 letters, from chrome://extensions" value="' + esc(Bridge.id) + '">' +
+      '<label>Robert’s board: person and column to follow for SEO clients</label><div class="os-row"><input class="os-in" data-f="person" value="' + esc(Board.person()) + '"><input class="os-in" data-f="col" value="' + esc(Board.column()) + '"></div>' +
+      '<div class="os-note">The SEO client list follows the cards in that column. A client whose card leaves it moves to <b>Inactive / Archived</b>; when the card comes back, so do they.</div>' +
+      '<button type="button" class="os-btn go" data-save>Save</button><span class="os-sync-line" style="margin-top:4px"><i style="background:' + (Bridge.available() ? 'var(--os-good)' : 'var(--os-warn)') + '"></i>' + (Bridge.available() ? 'Tidyboard connected' + (Bridge.hello ? ' (it said hello)' : '') : 'Not connected yet') + '</span></div>';
+    body.querySelector('[data-save]').addEventListener('click', ev => {
+      const id = body.querySelector('[data-f="id"]').value.trim();
+      if (id && !/^[a-p]{32}$/.test(id)){ FX.toast('That doesn’t look like an extension ID', 'del'); return; }
+      Bridge.id = id; setSetting('tidyboardId', id);
+      setSetting('boardPerson', body.querySelector('[data-f="person"]').value.trim() || 'Robert');
+      setSetting('boardColumn', body.querySelector('[data-f="col"]').value.trim() || 'SEO Clients');
+      FX.done(ev.currentTarget, 'Saved'); this.refresh();
+    });
+  }
+};
+window.EDGE_tasks = {open: p => Tasks.open(p), refresh: () => Tasks.refresh()};
+
+/* ======================================================================
+   ROBERT'S BOARD → SEO client list
+   ====================================================================== */
+const ARCH = 'Inactive / Archived';
+const isArchived = c => { const f = (state.seoFolders || []).find(x => x && x.id === c.folderId); return !!(f && /inactive|archiv/i.test(f.name)); };
+const Board = {
+  person: () => settings().boardPerson || 'Robert',
+  column: () => settings().boardColumn || 'SEO Clients',
+  archFolder(){
+    let f = (state.seoFolders || []).find(x => x && /inactive|archiv/i.test(x.name));
+    if (!f){ f = {id: (typeof uid === 'function' ? uid() : 'f' + Date.now().toString(36)), name: ARCH, collapsed: true, sortOrder: 1e6}; state.seoFolders = (state.seoFolders || []).concat([f]); }
+    return f;
+  },
+  match(cards, c){
+    const n = norm(c.name), d = normDomain(c.website).split('.')[0];
+    return cards.find(t => { const tn = norm(t.title); return tn && (tn === n || tn.indexOf(n) === 0 || n.indexOf(tn) === 0 || (d && d.length > 3 && tn.replace(/ /g, '').indexOf(d) > -1)); });
+  },
+  async sync(loud){
+    const btn = $('osBoardSync');
+    if (!Bridge.available()){ if (loud){ Tasks.open(); Tasks.tab = 'set'; Tasks.paint(); FX.toast('Connect Tidyboard first', 'sync'); } return; }
+    btn && btn.classList.add('spin');
+    try{
+      const cards = await Bridge.call('boardColumn', {person: this.person(), column: this.column()});
+      if (!Array.isArray(cards)) throw new Error('Tidyboard didn’t find that column.');
+      if (!cards.length) throw new Error('The "' + this.column() + '" column on ' + this.person() + '’s board is empty. Nothing changed, to be safe.');
+      const arch = this.archFolder(), moved = [], back = [];
+      seoClients().forEach(c => {
+        const on = !!this.match(cards, c), parked = isArchived(c);
+        if (!on && !parked){ c.boardPrevFolder = c.folderId || ''; c.boardPrevStatus = c.status || 'Active'; c.folderId = arch.id; c.status = 'Paused'; c.archivedAt = Date.now(); c.archivedBy = 'tidyboard'; moved.push(c.name); }
+        else if (on && parked && c.archivedBy === 'tidyboard'){ c.folderId = c.boardPrevFolder || ''; c.status = c.boardPrevStatus || 'Active'; delete c.archivedAt; delete c.archivedBy; back.push(c.name); }
+      });
+      const missing = cards.filter(t => !seoClients().some(c => this.match([t], c)));
+      setSetting('boardSyncAt', Date.now());
+      if (moved.length || back.length){ try{ save(); renderSeoAll(); }catch(e){} }
+      if (loud || moved.length || back.length){
+        const parts = [];
+        if (moved.length) parts.push(moved.length + ' moved to Inactive / Archived');
+        if (back.length) parts.push(back.length + ' back to active');
+        FX.toast(parts.length ? 'Robert’s board: ' + parts.join(', ') : 'SEO clients match Robert’s board', moved.length ? 'sync' : 'ok');
+        if (back.length) FX.confetti(null, 80, 30);
+      }
+      if (loud && missing.length) this.offerAdd(missing, moved, back);
+    }catch(e){ if (loud) FX.toast(e.message, 'del'); }
+    btn && btn.classList.remove('spin');
+  },
+  offerAdd(missing, moved, back){
+    const d = Drawer.open(dHead('Robert’s board', 'Cards in "' + esc(this.column()) + '" with no SEO client yet') + '<div class="os-db">' +
+      (moved.length ? '<div class="os-note" style="margin-bottom:10px"><b>Archived:</b> ' + esc(moved.join(', ')) + '</div>' : '') +
+      (back.length ? '<div class="os-note" style="margin-bottom:10px"><b>Back to active:</b> ' + esc(back.join(', ')) + '</div>' : '') +
+      '<div class="os-tl">' + missing.map((t, i) => '<div class="os-t"><div class="os-t-b"><b>' + esc(t.title) + '</b><small>On the board, not in the SEO list</small></div><button type="button" class="os-btn" data-addc="' + i + '">' + ICON.plus + 'Add client</button></div>').join('') + '</div></div>');
+    d.querySelectorAll('[data-addc]').forEach(b => b.addEventListener('click', () => {
+      const t = missing[+b.dataset.addc];
+      Drawer.close();
+      /* The guided "New client" flow (edge-ui.js) when it's there; otherwise the plain add. */
+      try{ if (window.edgeNewClient) window.edgeNewClient(t.title); else { const btn = $('seoAddClientBtn') || $('seoEmptyAddBtn'); if (btn) btn.click(); } }catch(e){}
+    }));
+  }
+};
+
+/* ======================================================================
+   CHANNELS: Google Ads, Meta Ads, Facebook, Instagram, LinkedIn (read only)
+   ====================================================================== */
+const SOURCES = {
+  google_ads: {l: 'Google Ads', c: '#4285F4'}, meta_ads: {l: 'Meta Ads', c: '#1877F2'},
+  facebook: {l: 'Facebook', c: '#1877F2'}, instagram: {l: 'Instagram', c: '#E1306C'}, linkedin: {l: 'LinkedIn', c: '#0A66C2'}
+};
+const Channels = {
+  map: {}, loaded: false, unsub: null,
+  key: (src, id) => src + '_' + String(id).replace(/[^\w-]/g, ''),
+  col(){ return (typeof fbDb !== 'undefined' && fbDb && typeof fbUid !== 'undefined' && fbUid) ? fbDb.collection('users').doc(fbUid).collection('edgeChannels') : null; },
+  start(){
+    try{ const cache = JSON.parse(localStorage.getItem('osChannels') || '{}'); if (cache && typeof cache === 'object') this.map = cache; }catch(e){}
+    const tryCol = () => {
+      const col = this.col(); if (!col){ setTimeout(tryCol, 1500); return; }
+      if (this.unsub) return;
+      this.unsub = col.onSnapshot(snap => {
+        const m = {};
+        snap.forEach(doc => { try{ const d = doc.data(); m[doc.id] = Object.assign(JSON.parse(d.payload || '{}'), {source: d.source, _at: d.at, _by: d.by}); }catch(e){} });
+        const changed = JSON.stringify(Object.keys(m).map(k => [k, m[k]._at])) !== JSON.stringify(Object.keys(this.map).map(k => [k, this.map[k]._at]));
+        this.map = m; this.loaded = true;
+        try{ localStorage.setItem('osChannels', JSON.stringify(m).slice(0, 4e6)); }catch(e){}
+        if (changed){ if (section === 'ads') Ads.render(); paintBadges(); }
+      }, () => {});
+    };
+    tryCol();
+  },
+  list(src){ return Object.keys(this.map).map(k => this.map[k]).filter(a => a && a.source === src && !a.hidden); },
+  link(a){
+    const o = (settings().links || {})[this.key(a.source, a.id)];
+    if (o === 'none') return null;
+    if (o) return seoClients().find(c => c.id === o) || null;
+    const n = norm(a.clientName || a.name), d = normDomain(a.website || '');
+    return seoClients().find(c => (d && normDomain(c.website) === d)) || seoClients().find(c => norm(c.name) === n) ||
+      seoClients().find(c => { const cn = norm(c.name); return cn.length > 3 && (n.indexOf(cn) > -1 || cn.indexOf(n) > -1); }) || null;
+  },
+  setLink(a, clientId){ const L = Object.assign({}, settings().links || {}); L[this.key(a.source, a.id)] = clientId || 'none'; setSetting('links', L); },
+  forClient(c){
+    const out = {};
+    Object.keys(SOURCES).forEach(src => {
+      const acc = this.list(src).filter(a => { const l = this.link(a); return l && l.id === c.id; });
+      if (acc.length) out[src] = acc.map(a => ({id: a.id, name: a.name, currency: a.currency, months: a.months || {}, daily: (a.daily || []).slice(-400)}));
+    });
+    return out;
+  },
+  latestMonth(src){
+    let m = '';
+    this.list(src).forEach(a => Object.keys(a.months || {}).forEach(k => { if (k > m) m = k; }));
+    return m || ym(Date.now());
+  },
+  async ingest(payload){
+    if (!payload || !SOURCES[payload.source] || !Array.isArray(payload.accounts)) throw new Error('Expected {source, accounts:[...]}');
+    const col = this.col(); if (!col) throw new Error('Not signed in to the cloud yet.');
+    const by = payload.collectedBy || meName(), at = Date.now();
+    let n = 0;
+    for (const a of payload.accounts){
+      if (!a || a.id == null || !a.name) continue;
+      const key = this.key(payload.source, a.id), prev = this.map[key] || {};
+      /* New months add to old ones; a month read again replaces itself. */
+      const months = Object.assign({}, prev.months || {}, a.months || {});
+      const daily = {}; (prev.daily || []).concat(a.daily || []).forEach(r => { if (Array.isArray(r) && r[0]) daily[r[0]] = r; });
+      const rec = Object.assign({}, prev, a, {months, daily: Object.keys(daily).sort().slice(-500).map(k => daily[k]), source: payload.source});
+      delete rec._at; delete rec._by;
+      const str = JSON.stringify(rec);
+      if (str.length > 900000) throw new Error(a.name + ' is too big to store; send fewer days.');
+      await col.doc(key).set({source: payload.source, id: String(a.id), name: String(a.name).slice(0, 200), payload: str, at, by});
+      this.map[key] = Object.assign(rec, {_at: at, _by: by});
+      n++;
+    }
+    if (section === 'ads') Ads.render();
+    paintBadges();
+    FX.toast(n + ' ' + SOURCES[payload.source].l + ' account' + (n === 1 ? '' : 's') + ' synced', 'sync');
+    return {ok: true, saved: n};
+  }
+};
+window.EDGE_channelsFor = c => Promise.resolve(c ? Channels.forClient(c) : {});
+/* What Claude calls after reading a dashboard in Chrome. */
+window.EDGE_ingest = p => Channels.ingest(p);
+
+/* ---------- what needs attention (read only: these are flags for a person, never changes) ---------- */
+const Attention = {
+  of(a){
+    const out = [], m = Channels.latestMonth(a.source), pm = prevYm(m), cur = (a.months || {})[m] || {}, prev = (a.months || {})[pm] || {};
+    const c = Channels.link(a);
+    (a.alerts || []).forEach(x => out.push({lvl: 'bad', t: String(x)}));
+    if (/suspend|cancel|closed/i.test(a.status || '')) out.push({lvl: 'bad', t: 'Account ' + String(a.status).toLowerCase()});
+    if (!num(cur.spend) && c && !isArchived(c) && !/pause/i.test(c.status || '')) out.push({lvl: 'warn', t: 'No spend in ' + monthName(m)});
+    if (num(cur.spend) > 100 && !num(cur.conversions)) out.push({lvl: 'bad', t: money(cur.spend) + ' spent, no conversions'});
+    if (num(cur.conversions) && num(prev.conversions)){
+      const cpa = cur.spend / cur.conversions, pcpa = prev.spend / prev.conversions;
+      if (pcpa && cpa > pcpa * 1.3) out.push({lvl: 'warn', t: 'Cost per conversion up ' + Math.round((cpa / pcpa - 1) * 100) + '% (' + money(cpa) + ')'});
+    }
+    if (num(prev.spend) > 50 && num(cur.spend) > num(prev.spend) * 1.4) out.push({lvl: 'warn', t: 'Spend up ' + Math.round((cur.spend / prev.spend - 1) * 100) + '% on last month'});
+    if (num(cur.conversions) && num(prev.conversions) > 4 && cur.conversions < prev.conversions * 0.6) out.push({lvl: 'bad', t: 'Conversions down ' + Math.round((1 - cur.conversions / prev.conversions) * 100) + '%'});
+    if (a.source === 'google_ads' && num(cur.impressions) > 1000 && pct(cur.clicks, cur.impressions) < 1.2) out.push({lvl: 'warn', t: 'Low CTR: ' + pct(cur.clicks, cur.impressions).toFixed(2) + '%'});
+    if (a.budgetLimited) out.push({lvl: 'warn', t: 'Limited by budget'});
+    return out;
+  },
+  level(list){ return list.some(x => x.lvl === 'bad') ? 'bad' : list.length ? 'warn' : ''; }
+};
+
+function paintBadges(){
+  const set = (k, n, warn) => { const b = document.querySelector('[data-badge="' + k + '"]'); if (b){ b.textContent = n ? String(n) : ''; b.classList.toggle('warn', !!warn); } };
+  const att = Channels.list('google_ads').concat(Channels.list('meta_ads')).filter(a => Attention.level(Attention.of(a)) === 'bad').length;
+  set('ads', att);
+  set('maint', window.EDGE_maint && EDGE_maint.due ? EDGE_maint.due().length : 0, true);
+  try{ paintHubMeta(); }catch(e){}
+}
+
+/* ======================================================================
+   GOOGLE ADS SECTION (and the Paid Social tab)
+   ====================================================================== */
+const spark = (vals, color) => {
+  vals = (vals || []).map(num); if (vals.length < 2) return '';
+  const mx = Math.max.apply(null, vals) || 1, w = 240, h = 34;
+  const pts = vals.map((v, i) => (i / (vals.length - 1) * w).toFixed(1) + ',' + (h - 3 - v / mx * (h - 6)).toFixed(1));
+  const id = 'g' + Math.random().toString(36).slice(2, 7);
+  return '<svg class="os-spark" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none"><defs><linearGradient id="' + id + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + color + '" stop-opacity=".28"/><stop offset="1" stop-color="' + color + '" stop-opacity="0"/></linearGradient></defs>' +
+    '<path d="M0,' + h + ' L' + pts.join(' L') + ' L' + w + ',' + h + ' Z" fill="url(#' + id + ')"/><polyline points="' + pts.join(' ') + '" fill="none" stroke="' + color + '" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>';
+};
+const Ads = {
+  tab: 'google_ads', filter: '', month: '',
+  render(){
+    ensureStage();
+    const st = $('adsStage'); if (!st) return;
+    const src = this.tab, accts = Channels.list(src);
+    const m = this.month && accts.some(a => (a.months || {})[this.month]) ? this.month : Channels.latestMonth(src), pm = prevYm(m);
+    const months = Array.from(new Set([].concat.apply([], accts.map(a => Object.keys(a.months || {}))))).sort().reverse().slice(0, 13);
+    const tot = (mm, k) => accts.reduce((t, a) => t + num(((a.months || {})[mm] || {})[k]), 0);
+    const kpi = (l, cur, prev, f, lower) => { const d = prev ? Math.round((cur - prev) / prev * 100) : null, good = d == null ? '' : (lower ? d < 0 : d > 0) ? 'up' : d === 0 ? '' : 'down';
+      return '<div class="os-kpi"><small>' + esc(l) + '</small><b>' + f(cur) + '</b><div class="d ' + good + '">' + (d == null ? '&nbsp;' : (d > 0 ? '▲ ' : d < 0 ? '▼ ' : '') + Math.abs(d) + '% vs ' + esc(monthName(pm).split(' ')[0])) + '</div></div>'; };
+    const sp = tot(m, 'spend'), cl = tot(m, 'clicks'), im = tot(m, 'impressions'), cv = tot(m, 'conversions');
+    const psp = tot(pm, 'spend'), pcl = tot(pm, 'clicks'), pim = tot(pm, 'impressions'), pcv = tot(pm, 'conversions');
+    const last = accts.reduce((t, a) => Math.max(t, a._at || 0), 0), lastBy = (accts.find(a => a._at === last) || {})._by || '';
+    const stale = last && Date.now() - last > 35 * 864e5;
+    const rows = accts.map(a => ({a, att: Attention.of(a), c: Channels.link(a), cur: (a.months || {})[m] || {}}))
+      .filter(r => !this.filter || norm(r.a.name + ' ' + (r.c ? r.c.name : '')).indexOf(norm(this.filter)) > -1)
+      .sort((x, y) => (Attention.level(y.att) === 'bad') - (Attention.level(x.att) === 'bad') || num(y.cur.spend) - num(x.cur.spend));
+    const attn = rows.filter(r => r.att.length);
+    st.innerHTML = '<div class="os-head"><div><h1>' + (src === 'google_ads' ? 'Google Ads' : 'Paid Social') + '</h1><p>' +
+      (src === 'google_ads' ? 'Every Google Ads account, read only: the month’s numbers, campaigns and the accounts that need a look.' : 'Facebook and Instagram ads (Meta Ads Manager), read only.') + '</p></div><span class="sp"></span>' +
+      '<span class="os-chip ro">Read only</span>' +
+      '<div class="os-tabs"><button type="button" class="os-tab' + (src === 'google_ads' ? ' on' : '') + '" data-src="google_ads"><i style="background:#4285F4"></i>Google Ads</button><button type="button" class="os-tab' + (src === 'meta_ads' ? ' on' : '') + '" data-src="meta_ads"><i style="background:#1877F2"></i>Paid Social</button></div>' +
+      (months.length ? '<select class="os-sel" data-month>' + months.map(x => '<option value="' + x + '"' + (x === m ? ' selected' : '') + '>' + esc(monthName(x)) + '</option>').join('') + '</select>' : '') + '</div>';
+    if (!accts.length){
+      st.innerHTML += '<div class="os-empty"><div class="ic">' + ICON.ads + '</div><h3>No ' + (src === 'google_ads' ? 'Google Ads' : 'Meta Ads') + ' data yet</h3>' +
+        '<p>This section never connects to an ad account directly and can’t change one. Once a month, Claude opens ' + (src === 'google_ads' ? 'Google Ads (every account under your manager account)' : 'Meta Ads Manager (every ad account the team can see)') + ' in Chrome, reads the numbers, campaigns and any warnings, and saves them here. Logos come from each client’s SEO record.</p>' +
+        '<p style="margin-top:10px"><span class="os-sync-line stale"><i></i>Waiting for the first read</span></p></div>';
+      this.wire(st); return;
+    }
+    st.innerHTML += '<div class="os-kpis">' + (src === 'google_ads'
+      ? kpi('Spend', sp, psp, money) + kpi('Clicks', cl, pcl, fmt) + kpi('Impressions', im, pim, fmt) + kpi('CTR', pct(cl, im), pct(pcl, pim), v => v.toFixed(2) + '%') + kpi('Conversions', cv, pcv, v => (Math.round(v * 10) / 10).toLocaleString()) + kpi('Cost / conv.', cv ? sp / cv : 0, pcv ? psp / pcv : 0, money, true)
+      : kpi('Amount spent', sp, psp, money) + kpi('Reach', tot(m, 'reach'), tot(pm, 'reach'), fmt) + kpi('Impressions', im, pim, fmt) + kpi('Link clicks', cl, pcl, fmt) + kpi('Results', cv, pcv, fmt) + kpi('Cost / result', cv ? sp / cv : 0, pcv ? psp / pcv : 0, money, true)) + '</div>' +
+      '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><input class="os-in" data-q placeholder="Find an account or client" value="' + esc(this.filter) + '" style="width:260px"><span class="os-grow"></span>' +
+      '<span class="os-sync-line' + (stale ? ' stale' : '') + '"><i></i>Read from ' + (src === 'google_ads' ? 'Google Ads' : 'Ads Manager') + ' ' + (last ? new Date(last).toLocaleDateString('en-CA', {month: 'short', day: 'numeric'}) : '') + (lastBy ? ' by ' + esc(lastBy) : '') + (stale ? ' · due for a new read' : '') + '</span></div>' +
+      (attn.length ? '<div class="os-h2">Needs attention <span class="n">' + attn.length + '</span></div><div class="os-attn">' + attn.slice(0, 9).map(r => '<div class="os-attn-c ' + (Attention.level(r.att) === 'bad' ? '' : 'warn') + '" data-acct="' + esc(Channels.key(src, r.a.id)) + '">' +
+        logoHtml(r.c ? logoOf(r.c) : r.a.logo, r.a.name) + '<div style="min-width:0"><b>' + esc(r.c ? r.c.name : r.a.name) + '</b><ul>' + r.att.slice(0, 3).map(x => '<li>' + esc(x.t) + '</li>').join('') + '</ul></div></div>').join('') + '</div>' : '<div class="os-h2">Needs attention <span class="n">none this month 🎉</span></div>') +
+      '<div class="os-h2">All accounts <span class="n">' + rows.length + '</span></div><div class="os-grid">' + rows.map((r, i) => {
+        const a = r.a, cur = r.cur, lvl = Attention.level(r.att);
+        const trend = Object.keys(a.months || {}).sort().slice(-8).map(k => num(a.months[k][src === 'google_ads' ? 'conversions' : 'spend']));
+        return '<div class="os-acct" style="animation-delay:' + Math.min(i * 30, 600) + 'ms" data-acct="' + esc(Channels.key(src, a.id)) + '" tabindex="0">' +
+          '<div class="os-acct-h">' + logoHtml(r.c ? logoOf(r.c) : a.logo, a.name) + '<div class="os-acct-n"><b>' + esc(r.c ? r.c.name : a.name) + '</b><small>' + esc(src === 'google_ads' ? (a.id ? String(a.id).replace(/^(\d{3})(\d{3})(\d{4})$/, '$1-$2-$3') : '') : a.name) + '</small></div><span class="os-dot ' + (lvl || (num(cur.spend) ? '' : 'off')) + '"></span></div>' +
+          '<div class="os-acct-m"><div><small>Spend</small><b>' + money(cur.spend) + '</b></div><div><small>' + (src === 'google_ads' ? 'Conv.' : 'Results') + '</small><b>' + fmt(cur.conversions) + '</b></div><div><small>' + (src === 'google_ads' ? 'CPA' : 'CPR') + '</small><b>' + (num(cur.conversions) ? money(cur.spend / cur.conversions) : '—') + '</b></div></div>' +
+          spark(trend, lvl === 'bad' ? '#e0483c' : '#e87722') +
+          '<div class="os-acct-link">' + (r.c ? ICON.link.replace('<svg', '<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"') + 'Linked to <b>' + esc(r.c.name) + '</b>' : '<span style="color:var(--os-warn)">Not linked to a client yet</span>') + '</div></div>';
+      }).join('') + '</div>';
+    this.wire(st);
+  },
+  wire(st){
+    st.querySelectorAll('[data-src]').forEach(b => b.addEventListener('click', () => { this.tab = b.dataset.src; this.month = ''; this.render(); }));
+    const ms = st.querySelector('[data-month]'); if (ms) ms.addEventListener('change', () => { this.month = ms.value; this.render(); });
+    const q = st.querySelector('[data-q]'); if (q) q.addEventListener('input', () => { this.filter = q.value; clearTimeout(this._q); this._q = setTimeout(() => { const pos = q.selectionStart; this.render(); const q2 = $('adsStage').querySelector('[data-q]'); if (q2){ q2.focus(); try{ q2.setSelectionRange(pos, pos); }catch(e){} } }, 180); });
+    st.querySelectorAll('[data-acct]').forEach(el => { const open = () => this.detail(el.dataset.acct); el.addEventListener('click', open); el.addEventListener('keydown', e => { if (e.key === 'Enter') open(); }); });
+  },
+  detail(key){
+    const a = Channels.map[key]; if (!a) return;
+    const src = a.source, m = this.month || Channels.latestMonth(src), cur = (a.months || {})[m] || {}, c = Channels.link(a), att = Attention.of(a);
+    const camps = (cur.campaigns || []).slice().sort((x, y) => num(y.spend) - num(x.spend));
+    const months = Object.keys(a.months || {}).sort().reverse();
+    const d = Drawer.open(dHead(c ? c.name : a.name, esc(SOURCES[src].l) + ' · ' + esc(a.name) + (a.id ? ' · ' + esc(a.id) : '') + ' · read only') +
+      '<div class="os-db">' + (att.length ? '<div class="os-attn" style="grid-template-columns:1fr;margin-bottom:14px"><div class="os-attn-c ' + (Attention.level(att) === 'bad' ? '' : 'warn') + '" style="cursor:default"><div><b>Needs attention</b><ul>' + att.map(x => '<li>' + esc(x.t) + '</li>').join('') + '</ul></div></div></div>' : '') +
+      '<div class="os-h2" style="margin-top:0">Month by month</div><table class="os-table"><thead><tr><th>Month</th><th class="n">Spend</th><th class="n">' + (src === 'google_ads' ? 'Clicks' : 'Link clicks') + '</th><th class="n">Impr.</th><th class="n">' + (src === 'google_ads' ? 'Conv.' : 'Results') + '</th><th class="n">Cost / conv.</th></tr></thead><tbody>' +
+      months.map(k => { const x = a.months[k]; return '<tr><td>' + esc(monthName(k)) + '</td><td class="n">' + money(x.spend) + '</td><td class="n">' + fmt(x.clicks) + '</td><td class="n">' + fmt(x.impressions) + '</td><td class="n">' + fmt(x.conversions) + '</td><td class="n">' + (num(x.conversions) ? money(x.spend / x.conversions) : '—') + '</td></tr>'; }).join('') + '</tbody></table>' +
+      '<div class="os-h2">Campaigns · ' + esc(monthName(m)) + ' <span class="n">' + camps.length + '</span></div>' + (camps.length ? '<table class="os-table"><thead><tr><th>Campaign</th><th class="n">Spend</th><th class="n">Clicks</th><th class="n">Conv.</th><th class="n">Cost / conv.</th></tr></thead><tbody>' +
+        camps.map(cp => '<tr><td><b style="font-weight:600">' + esc(cp.name) + '</b><div style="font-size:11px;color:var(--os-ink3)">' + esc([cp.type, cp.status].filter(Boolean).join(' · ')) + '</div></td><td class="n">' + money(cp.spend) + '</td><td class="n">' + fmt(cp.clicks) + '</td><td class="n">' + fmt(cp.conversions) + '</td><td class="n">' + (num(cp.conversions) ? money(cp.spend / cp.conversions) : '—') + '</td></tr>').join('') + '</tbody></table>' : '<div class="os-note">No campaigns recorded for this month.</div>') +
+      '<div class="os-h2">Client</div><div class="os-form"><select class="os-sel" data-link><option value="">Not linked</option>' + seoClients().slice().sort((x, y) => String(x.name).localeCompare(String(y.name))).map(s => '<option value="' + esc(s.id) + '"' + (c && c.id === s.id ? ' selected' : '') + '>' + esc(s.name) + '</option>').join('') + '</select>' +
+      '<div class="os-note">Linking puts this account’s numbers in the client’s reports and uses the client’s logo here.</div></div></div>' +
+      '<div class="os-df"><button type="button" class="os-btn go" data-task>' + ICON.tasks + 'Add a task</button>' + (a.url ? '<a class="os-btn" href="' + esc(a.url) + '" target="_blank" rel="noopener">Open in ' + esc(SOURCES[src].l) + ' ' + ICON.ext + '</a>' : '') + '</div>', {wide: true});
+    d.querySelector('[data-link]').addEventListener('change', e => { Channels.setLink(a, e.target.value); FX.toast(e.target.value ? 'Linked to ' + e.target.selectedOptions[0].text : 'Unlinked', e.target.value ? 'ok' : 'del'); this.render(); });
+    d.querySelector('[data-task]').addEventListener('click', () => Tasks.open({title: (c ? c.name : a.name) + ' — Google Ads: ' + (att[0] ? att[0].t : 'review account'), notes: att.map(x => '• ' + x.t).join('\n')}));
+  }
+};
+renders.ads = () => Ads.render();
+
+/* ======================================================================
+   REPORTING
+   ====================================================================== */
+const TEMPLATE = [
+  {type: 'cover', size: 'xl', cols: 12, h: 560, cfg: {heading: 'Monthly marketing report'}},
+  {type: 'section', size: 'xl', cols: 12, h: 70, cfg: {heading: 'Website Traffic'}},
+  {type: 'traffic_kpis', size: 'xl', cols: 12}, {type: 'traffic_trend', size: 'l', cols: 8}, {type: 'gsc_devices', size: 's', cols: 4}, {type: 'traffic_channels', size: 'xl', cols: 12},
+  {type: 'section', size: 'xl', cols: 12, h: 70, cfg: {heading: 'Website Events & Leads'}},
+  {type: 'conv_kpi', size: 's', cols: 4}, {type: 'conv_by_event', size: 'm', cols: 8}, {type: 'conv_trend', size: 'xl', cols: 12}, {type: 'forms_kpi', size: 's', cols: 4}, {type: 'forms_latest', size: 'l', cols: 8},
+  {type: 'section', size: 'xl', cols: 12, h: 70, cfg: {heading: 'SEO'}},
+  {type: 'gsc_kpis', size: 'xl', cols: 12}, {type: 'kw_kpis', size: 'xl', cols: 12}, {type: 'kw_cards', size: 'xl', cols: 12}, {type: 'gsc_queries', size: 'l', cols: 6}, {type: 'gsc_pages', size: 'l', cols: 6}, {type: 'gbp_glance', size: 'l', cols: 12},
+  {type: 'section', size: 'xl', cols: 12, h: 70, cfg: {heading: 'AI Traffic'}},
+  {type: 'ai_kpis', size: 'xl', cols: 12}, {type: 'ai_visits', size: 'l', cols: 8}, {type: 'ai_assistants', size: 'm', cols: 4},
+  {type: 'section', size: 'xl', cols: 12, h: 70, cfg: {heading: 'Google Ads'}, only: 'google_ads'},
+  {type: 'gads_kpis', size: 'xl', cols: 12, h: 200, only: 'google_ads'}, {type: 'gads_trend', size: 'l', cols: 12, only: 'google_ads'}, {type: 'gads_campaigns', size: 'xl', cols: 12, only: 'google_ads'},
+  {type: 'section', size: 'xl', cols: 12, h: 70, cfg: {heading: 'Facebook & Instagram Ads'}, only: 'meta_ads'},
+  {type: 'meta_kpis', size: 'xl', cols: 12, h: 200, only: 'meta_ads'}, {type: 'meta_campaigns', size: 'xl', cols: 12, only: 'meta_ads'},
+  {type: 'section', size: 'xl', cols: 12, h: 70, cfg: {heading: 'Social Media'}, only: 'social'},
+  {type: 'social_kpis', size: 'xl', cols: 12, only: 'social'}, {type: 'social_posts', size: 'l', cols: 12, only: 'social'},
+  {type: 'insight_summary', size: 'l', cols: 12}
+];
+const Reporting = {
+  cfg(){ const s = settings(); return Object.assign({day: 1, hour: 8, from: 'EDGE Marketing & Design', replyTo: '', clients: {}, log: []}, s.reports || {}); },
+  setCfg(c){ setSetting('reports', c); },
+  scheduledCount(){ const c = this.cfg().clients || {}; return Object.keys(c).filter(k => c[k] && c[k].on && (c[k].to || []).length).length; },
+  enter(){
+    this.ensureTab();
+    const want = localPref('reportTab') || 'rhome';
+    setTimeout(() => {
+      const b = document.querySelector('#seoModes [data-seoview="' + want + '"]') || document.querySelector('#seoModes [data-seoview="rhome"]');
+      if (b) b.click();
+    }, 40);
+  },
+  ensureTab(){
+    const nav = $('seoModes'); if (!nav) return;
+    if (!nav.querySelector('[data-seoview="rhome"]')){
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'seo-mode'; b.dataset.seoview = 'rhome'; b.textContent = 'Overview & sending';
+      nav.insertBefore(b, nav.firstChild);
+    }
+    if (!$('seoview-rhome')){
+      const v = document.createElement('div'); v.className = 'seo-view'; v.id = 'seoview-rhome';
+      const anchor = $('seoview-dashboard'); anchor.parentNode.insertBefore(v, anchor);
+    }
+  },
+  show(on){
+    const v = $('seoview-rhome'); if (!v) return;
+    v.classList.toggle('on', on);
+    const b = document.querySelector('#seoModes [data-seoview="rhome"]'); if (b) b.classList.toggle('on', on);
+    if (on){
+      document.querySelectorAll('#seoStage .seo-view').forEach(x => { if (x !== v) x.classList.remove('on'); });
+      document.querySelectorAll('#seoModes .seo-mode').forEach(x => { if (x !== b) x.classList.remove('on'); });
+      this.render();
+    }
+  },
+  render(){
+    const v = $('seoview-rhome'); if (!v) return;
+    const cfg = this.cfg(), cs = seoClients().filter(c => !isArchived(c)).sort((a, b) => String(a.name).localeCompare(String(b.name)));
+    const c = activeClient(), RA = window.EdgeReportsApp;
+    const cc = c ? (cfg.clients[c.id] || {on: false, to: []}) : null;
+    const nextSend = (() => { const n = new Date(); const d = new Date(n.getFullYear(), n.getMonth() + (n.getDate() > cfg.day || (n.getDate() === cfg.day && n.getHours() >= cfg.hour) ? 1 : 0), cfg.day, cfg.hour); return d; })();
+    const ch = c ? Channels.forClient(c) : {};
+    const hasItems = c && RA ? RA.clientItems(c).length : 0;
+    const logRows = (cfg.log || []).filter(l => !c || l.clientId === c.id).slice(-8).reverse();
+    v.innerHTML = '<div class="os-rh-top"><div><h2 style="margin:0;font:700 22px var(--display,Poppins,Inter,sans-serif)">Reporting</h2><div style="color:var(--os-ink2);font-size:13px;margin-top:4px">Every client report in one place. Reports go out on the ' + ordinal(cfg.day) + ' of each month at ' + fmtHour(cfg.hour) + '.</div></div><span class="os-grow"></span>' +
+      '<span class="os-chip">' + this.scheduledCount() + ' scheduled</span><span class="os-chip">Next send ' + esc(nextSend.toLocaleDateString('en-CA', {month: 'short', day: 'numeric'})) + '</span></div>' +
+      (c ? '<div class="os-sched" id="osSched"><div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">' + logoHtml(logoOf(c), c.name) + '<div style="flex:1;min-width:0"><h3>' + esc(c.name) + '</h3><div style="color:var(--os-ink3);font-size:12.5px">' +
+        (RA && RA.isPublished(c) ? 'Report link live · published ' + new Date(RA.publishedAt(c)).toLocaleDateString('en-CA', {month: 'short', day: 'numeric'}) : 'Not published yet') + '</div></div>' +
+        '<button type="button" class="os-btn" data-tpl>' + (hasItems ? 'Rebuild' : 'Build') + ' monthly report</button><button type="button" class="os-btn" data-open>Open client report</button><button type="button" class="os-btn dark" data-pub>' + ICON.link + 'Publish &amp; copy link</button></div>' +
+        '<div class="os-steps">' +
+          step(hasItems, 'Monthly report', hasItems ? hasItems + ' widgets, AgencyAnalytics layout' : 'Build it from the template') +
+          step(!!(ch.google_ads || ch.meta_ads), 'Paid ads', [ch.google_ads ? 'Google Ads' : '', ch.meta_ads ? 'Meta Ads' : ''].filter(Boolean).join(' + ') || 'No ad account linked') +
+          step(!!(ch.facebook || ch.instagram || ch.linkedin), 'Social', ['facebook', 'instagram', 'linkedin'].filter(k => ch[k]).map(k => SOURCES[k].l).join(', ') || 'No social account linked') +
+          step(cc && cc.on && (cc.to || []).length, 'Scheduled send', cc && cc.on && (cc.to || []).length ? 'To ' + cc.to.join(', ') : 'Off') + '</div>' +
+        '<div class="os-row" style="margin-top:14px"><div class="os-form"><label>Send to (client emails, comma separated)</label><input class="os-in" data-to value="' + esc((cc.to || []).join(', ')) + '" placeholder="owner@client.ca"></div>' +
+        '<div class="os-form"><label>Copy (team, optional)</label><input class="os-in" data-cc value="' + esc((cc.cc || []).join(', ')) + '" placeholder="robert@edgemarketing.ca"></div></div>' +
+        '<div style="display:flex;gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap"><label style="display:inline-flex;gap:8px;align-items:center;font:600 13px var(--ui,Inter,sans-serif)"><input type="checkbox" data-on' + (cc.on ? ' checked' : '') + '> Send this report on the ' + ordinal(cfg.day) + ' of every month</label><span class="os-grow"></span>' +
+        '<button type="button" class="os-btn" data-test>' + ICON.mail + 'Send me a test</button><button type="button" class="os-btn go" data-savesched>Save</button></div>' +
+        (logRows.length ? '<div class="os-h2">Sent</div><table class="os-table"><thead><tr><th>When</th><th>To</th><th>Status</th></tr></thead><tbody>' + logRows.map(l => '<tr><td>' + esc(new Date(l.at).toLocaleString('en-CA', {month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'})) + '</td><td>' + esc((l.to || []).join(', ')) + '</td><td>' + '<span class="os-tag ' + (l.ok ? 'ok' : 'bad') + '">' + esc(l.status || (l.ok ? 'Delivered' : 'Failed')) + '</span></td></tr>').join('') + '</tbody></table>' : '') +
+        '</div>' : '') +
+      '<div class="os-sched"><h3>How monthly sending stays safe</h3><div class="os-steps">' +
+        '<div class="os-step"><b>Your own mailbox</b>Sent by Gmail from your Google Workspace account (tracker/report-mailer.gs), so SPF and DKIM for edgemarketing.ca already vouch for it.</div>' +
+        '<div class="os-step"><b>Checked first</b>The data is refreshed and every report re-published before anything is sent; a client with missing data is held back and you are told.</div>' +
+        '<div class="os-step"><b>Plain, personal email</b>One email per client with a short note and one link to the report. No attachments, trackers or link shorteners that spam filters dislike.</div>' +
+        '<div class="os-step"><b>Bounces caught</b>Undelivered or bounced emails are found the same day and marked Failed here, with a task in Basecamp.</div></div>' +
+        '<div class="os-row" style="margin-top:12px"><div class="os-form"><label>Send day and hour</label><div class="os-row"><select class="os-sel" data-day>' + [1, 2, 3, 4, 5].map(d => '<option' + (d === cfg.day ? ' selected' : '') + ' value="' + d + '">' + ordinal(d) + ' of the month</option>').join('') + '</select><select class="os-sel" data-hour>' + [7, 8, 9, 10, 11, 13, 14].map(h => '<option' + (h === cfg.hour ? ' selected' : '') + ' value="' + h + '">' + fmtHour(h) + '</option>').join('') + '</select></div></div>' +
+        '<div class="os-form"><label>Reply-to</label><input class="os-in" data-reply value="' + esc(cfg.replyTo || '') + '" placeholder="robert@edgemarketing.ca"></div></div>' +
+        '<div style="margin-top:10px"><button type="button" class="os-btn" data-saveglobal>Save sending settings</button></div></div>' +
+      '<div class="os-h2">All clients <span class="n">' + cs.length + '</span><span class="sp"></span><input class="os-in" data-rq placeholder="Find a client" style="width:220px;height:32px"></div><div class="os-rh-grid">' + cs.map((x, i) => {
+        const s = cfg.clients[x.id] || {}, pub = RA && RA.isPublished(x), chx = Channels.forClient(x);
+        return '<div class="os-rc' + (c && c.id === x.id ? ' on' : '') + '" data-cid="' + esc(x.id) + '" data-name="' + esc(norm(x.name)) + '" style="animation-delay:' + Math.min(i * 18, 500) + 'ms"><div class="os-rc-logo">' + (logoOf(x) ? '<img alt="" src="' + esc(logoOf(x)) + '" onerror="this.remove()">' : '<b>' + esc(initials(x.name)) + '</b>') + '</div><b>' + esc(x.name) + '</b><div class="os-rc-s">' +
+          '<span class="os-tag ' + (pub ? 'ok' : '') + '">' + (pub ? 'Live link' : 'Not shared') + '</span>' + (s.on && (s.to || []).length ? '<span class="os-tag brand">Monthly</span>' : '') +
+          (chx.google_ads ? '<span class="os-tag">Ads</span>' : '') + (chx.meta_ads ? '<span class="os-tag">Meta</span>' : '') + (chx.facebook || chx.instagram || chx.linkedin ? '<span class="os-tag">Social</span>' : '') + '</div></div>';
+      }).join('') + '</div>';
+    this.wire(v, c);
+  },
+  wire(v, c){
+    const cfg = this.cfg(), RA = window.EdgeReportsApp;
+    v.querySelectorAll('[data-cid]').forEach(el => el.addEventListener('click', () => {
+      state.activeSeoClientId = el.dataset.cid; try{ save(); renderSeoTree(); renderSeoCrumbs && renderSeoCrumbs(); }catch(e){}
+      this.render(); const s = $('osSched'); if (s){ FX.flash(s); s.scrollIntoView({behavior: RM() ? 'auto' : 'smooth', block: 'start'}); }
+    }));
+    const rq = v.querySelector('[data-rq]'); if (rq) rq.addEventListener('input', () => { const q = norm(rq.value); v.querySelectorAll('.os-rc').forEach(x => { x.style.display = !q || x.dataset.name.indexOf(q) > -1 ? '' : 'none'; }); });
+    const g = v.querySelector('[data-saveglobal]'); if (g) g.addEventListener('click', e => {
+      const n = this.cfg(); n.day = +v.querySelector('[data-day]').value; n.hour = +v.querySelector('[data-hour]').value; n.replyTo = v.querySelector('[data-reply]').value.trim();
+      this.setCfg(n); Mailer.push().then(() => FX.done(e.target, 'Sending settings saved'), err => FX.toast('Saved here. ' + err.message, 'sync')); this.render();
+    });
+    if (!c) return;
+    const emails = s => String(s || '').split(/[,;\s]+/).map(x => x.trim()).filter(x => /^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(x));
+    v.querySelector('[data-tpl]').addEventListener('click', e => {
+      if (!RA) return FX.toast('Reports are still loading', 'sync');
+      if (RA.clientItems(c).length && !confirm('Replace ' + c.name + '’s client report with the monthly template? Widgets you added by hand will be replaced.')) return;
+      const ch = Channels.forClient(c), social = !!(ch.facebook || ch.instagram || ch.linkedin);
+      const items = TEMPLATE.filter(t => !t.only || (t.only === 'social' ? social : ch[t.only])).filter(t => RA.W[t.type]).map(t => { const o = Object.assign({}, t); delete o.only; return o; });
+      RA.applyClient(c, items, c.name + ' — Monthly report');
+      FX.done(e.target, 'Monthly report built: ' + items.length + ' widgets'); this.render();
+    });
+    v.querySelector('[data-open]').addEventListener('click', () => { localPref('reportTab', 'rclient'); const b = document.querySelector('#seoModes [data-seoview="rclient"]'); if (b) b.click(); });
+    v.querySelector('[data-pub]').addEventListener('click', async e => {
+      const btn = e.currentTarget; if (!RA) return;
+      btn.disabled = true; btn.innerHTML = 'Publishing…'; FX.shimmer(btn, true);
+      try{ const url = await RA.publish(c); try{ await navigator.clipboard.writeText(url); }catch(err){} FX.done(btn, 'Report link copied'); }
+      catch(err){ FX.toast('Couldn’t publish: ' + err.message, 'del'); }
+      FX.shimmer(btn, false); this.render();
+    });
+    const saveSched = () => { const n = this.cfg(); n.clients = Object.assign({}, n.clients); n.clients[c.id] = {on: v.querySelector('[data-on]').checked, to: emails(v.querySelector('[data-to]').value), cc: emails(v.querySelector('[data-cc]').value)}; this.setCfg(n); return n.clients[c.id]; };
+    v.querySelector('[data-savesched]').addEventListener('click', async e => {
+      const s = saveSched();
+      if (s.on && !s.to.length){ FX.toast('Add at least one client email to schedule it', 'del'); return; }
+      if (s.on && RA && !RA.isPublished(c)){ try{ await RA.publish(c); }catch(err){} }
+      Mailer.push().then(() => FX.done(e.target, s.on ? 'Scheduled for the ' + ordinal(cfg.day) : 'Saved'), err => FX.toast('Saved here. The mailer will pick it up once connected: ' + err.message, 'sync'));
+      this.render();
+    });
+    v.querySelector('[data-test]').addEventListener('click', async e => {
+      saveSched(); const btn = e.currentTarget; btn.disabled = true;
+      try{ if (RA && !RA.isPublished(c)) await RA.publish(c); await Mailer.test(c); FX.done(btn, 'Test sent to ' + me()); }
+      catch(err){ FX.toast(err.message, 'del'); }
+      btn.disabled = false;
+    });
+  }
+};
+/* Before the 1st: re-publish every scheduled client's report with fresh numbers (the mailer checks for it). */
+Reporting.publishAll = async function (){
+  const cfg = this.cfg(), RA = window.EdgeReportsApp, out = [];
+  if (!RA) throw new Error('Reports not loaded');
+  for (const c of seoClients()){
+    const s = cfg.clients[c.id]; if (!s || !s.on || !(s.to || []).length) continue;
+    try{ await RA.publish(c); out.push({name: c.name, ok: true}); }catch(e){ out.push({name: c.name, ok: false, error: e.message}); }
+  }
+  try{ await Mailer.push(); }catch(e){}
+  return out;
+};
+const step = (ok, t, d) => '<div class="os-step' + (ok ? ' ok' : '') + '"><b>' + (ok ? '✓ ' : '') + esc(t) + '</b>' + esc(d) + '</div>';
+const ordinal = n => n + (n % 10 === 1 && n !== 11 ? 'st' : n % 10 === 2 && n !== 12 ? 'nd' : n % 10 === 3 && n !== 13 ? 'rd' : 'th');
+const fmtHour = h => (h % 12 || 12) + (h < 12 ? ' AM' : ' PM');
+
+/* The send itself runs in the tracker (Apps Script, your Workspace Gmail): tracker/report-mailer.gs. */
+const Mailer = {
+  tracker(){ const s = (state.settings && state.settings.aiTracker) || {}; return {url: s.url || '', key: s.key || ''}; },
+  async post(body){
+    const t = this.tracker(); if (!t.url || !t.key) throw new Error('Connect the AI Visibility Tracker first.');
+    const r = await fetch(t.url, {method: 'POST', body: JSON.stringify(Object.assign({key: t.key}, body))}).then(x => x.json());
+    if (r && r.error) throw new Error(r.error);
+    return r;
+  },
+  push(){
+    const cfg = Reporting.cfg(), RA = window.EdgeReportsApp;
+    const list = seoClients().filter(c => cfg.clients[c.id] && cfg.clients[c.id].on && (cfg.clients[c.id].to || []).length)
+      .map(c => ({id: c.id, name: c.name, to: cfg.clients[c.id].to, cc: cfg.clients[c.id].cc || [], url: RA ? RA.url(c) : ''}));
+    return this.post({action: 'reportSchedule', day: cfg.day, hour: cfg.hour, from: cfg.from, replyTo: cfg.replyTo, team: me(), clients: list});
+  },
+  test(c){ const RA = window.EdgeReportsApp; return this.post({action: 'reportTest', to: me(), name: c.name, url: RA ? RA.url(c) : ''}); },
+  async pullLog(){
+    try{
+      const r = await this.post({action: 'reportLog'});
+      if (r && Array.isArray(r.log)){ const n = Reporting.cfg(), next = r.log.slice(-300); if (JSON.stringify(n.log || []) !== JSON.stringify(next)){ n.log = next; Reporting.setCfg(n); } }
+    }catch(e){}
+  }
+};
+
+/* Reporting tab clicks: our Overview tab, and remembering which report tab was last open. */
+document.addEventListener('click', e => {
+  const b = e.target.closest && e.target.closest('#seoModes .seo-mode');
+  if (!b) return;
+  const id = b.dataset.seoview;
+  if (id === 'rhome'){ e.preventDefault(); e.stopImmediatePropagation(); Reporting.show(true); localPref('reportTab', 'rhome'); return; }
+  Reporting.show(false);
+  if (section === 'report' && /^(ai|rteam|rclient|dash:)/.test(id || '')) localPref('reportTab', id);
+}, true);
+
+/* ======================================================================
+   BOOT
+   ====================================================================== */
+function boot(){
+  ensureStage();
+  buildBar();
+  buildHub();
+  hookRouter();
+  Bridge.init();
+  Channels.start();
+  /* Land where you left off: the section, and in SEO the sub-tool. */
+  section = localPref('section') || (['gbp', 'serp', 'seo'].indexOf(state.seoModule) > -1 ? 'seo' : state.seoModule === 'maint' ? 'maint' : 'seo');
+  paintBar(); paintBadges();
+  /* Watch which module the app shows, so the bar follows whatever opened it. */
+  const obs = new MutationObserver(() => paintBar());
+  document.querySelectorAll('.tn-mod').forEach(b => obs.observe(b, {attributes: true, attributeFilter: ['class']}));
+  setTimeout(() => { Tasks.refresh(true); Mailer.pullLog(); }, 4000);
+  setInterval(() => Tasks.refresh(), 2 * 60 * 1000);
+  /* Robert's board: once a day, quietly. */
+  setTimeout(() => { if (Date.now() - (settings().boardSyncAt || 0) > 20 * 3600 * 1000) Board.sync(false); }, 9000);
+  setInterval(paintBadges, 60 * 1000);
+}
+window.EDGE_OS = {renders, go: (s, sub) => go(s, sub), section: () => section, fx: FX, channels: Channels, attention: Attention, board: Board, tasks: Tasks, reporting: Reporting, template: TEMPLATE};
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+})();

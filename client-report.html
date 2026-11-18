@@ -143,6 +143,10 @@ html:has(.rp-pw),html:has(.rp-pw) body{height:100%;overflow:hidden}
           pts: (Array.isArray(s.pts) ? s.pts : []).map(p => [num(p && p[0]), num(p && p[1]), num(p && p[2])])} : null;
         return {kw: String(k.kw || ''), last: st(k.last), prev: st(k.prev)};
       })}));
+    /* Paid ads and social media: numbers only, forced to numbers; text kept as text. */
+    const chanStored = (() => { const raw = parse(view.chan, null); if (!raw || typeof raw !== 'object') return null; const out = {};
+      const clean = v => Array.isArray(v) ? v.map(clean) : v && typeof v === 'object' ? Object.keys(v).slice(0, 400).reduce((o, k) => (o[k] = clean(v[k]), o), {}) : typeof v === 'number' ? (isFinite(v) ? v : 0) : String(v == null ? '' : v).slice(0, 500);
+      ['google_ads', 'meta_ads', 'facebook', 'instagram', 'linkedin'].forEach(k => { if (Array.isArray(raw[k])) out[k] = clean(raw[k]); }); return out; })();
     const brand = parse(view.brand, {}) || {};
     if (!/^#[0-9a-f]{3,8}$/i.test(String(brand.accent || ''))) brand.accent = '';
     brand.logoH = Math.max(20, Math.min(120, num(brand.logoH) || 44));
@@ -161,6 +165,7 @@ html:has(.rp-pw),html:has(.rp-pw) body{height:100%;overflow:hidden}
       ctx.get = name => {
         if (name === 'kw' && kwStored) return Promise.resolve(kwStored);
         if (name === 'gbp' && gbpStored) return Promise.resolve(gbpStored);
+        if (name === 'chan') return chanStored ? Promise.resolve(chanStored) : Promise.reject(new Error('Not available yet.'));
         if (name === 'kw' || name === 'gbp') return snap && snap[name] ? Promise.resolve(snap[name]) : Promise.reject(new Error('Not available yet.'));
         if (name === 'feed'){
           if (live.feed) return live.feed;
