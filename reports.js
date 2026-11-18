@@ -52,7 +52,7 @@ const BRAND = {ChatGPT: 'chatgpt.com', Perplexity: 'perplexity.ai', Gemini: 'gem
   'Meta AI': 'meta.ai', Grok: 'grok.com', DeepSeek: 'deepseek.com',
   ga4: 'analytics.google.com', gsc: 'search.google.com', google: 'google.com', gads: 'ads.google.com', bing: 'bing.com', gbp: 'business.google.com', maps: 'maps.google.com',
   facebook: 'facebook.com', instagram: 'instagram.com', linkedin: 'linkedin.com', youtube: 'youtube.com'};
-const BRAND_NAME = {ga4: 'Google Analytics', gsc: 'Search Console', google: 'Google', gads: 'Google Ads', bing: 'Bing', gbp: 'Business Profile', maps: 'Google Maps'};
+const BRAND_NAME = {ga4: 'Google Analytics', gsc: 'Search Console', google: 'Google', gads: 'Google Ads', bing: 'Bing', gbp: 'Business Profile', maps: 'Google Maps', facebook: 'Facebook', instagram: 'Instagram', linkedin: 'LinkedIn', youtube: 'YouTube'};
 const favUrl = (domain, sz) => 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(domain) + '&sz=' + (sz || 64);
 const brandCol = k => PLATFORMS.indexOf(k) > -1 ? pcol(k) : ({ga4: '#e37400', gsc: '#2a78d6', google: '#2a78d6', gads: '#1baf7a', bing: '#0b8fa3', gbp: '#2a78d6', maps: '#1baf7a'}[k] || '#8795a1');
 /* <img> of a brand mark; size in px. */
@@ -168,6 +168,10 @@ function styles(){
   st.id = 'rpStyles';
   st.textContent = `
 .rp{max-width:1280px;margin:0 auto;}
+.rp.rp-aia .rp-w.sec{background:none;border:0;border-bottom:.8px solid #EBEDF0;border-radius:0;padding:8px 2px 10px;box-shadow:none;}
+.rp.rp-aia .rp-w.sec .rp-sec-t{color:#222A30;font-family:inherit;font-weight:600;font-size:calc(20px * var(--s,1));letter-spacing:-.01em;}
+.rp.rp-aia .rp-w.sec .rp-sec-d{color:#8A949C;font-size:calc(12.5px * var(--t,1));}
+.rp.rp-aia .rp-w.sec .rp-drag{color:#8A949C;}
 .rp-soc{margin-bottom:14px}.rp-soc:last-child{margin-bottom:0}
 .rp-soc-h{display:flex;align-items:center;gap:8px;font:600 13.5px var(--ui,Inter,sans-serif);color:var(--a-ink,#1b222a);margin-bottom:8px}
 .rp-soc-h i{width:10px;height:10px;border-radius:3px;display:inline-block}.rp-soc-h .aiv-cap{font-weight:400;margin-left:4px}
@@ -243,6 +247,7 @@ body.rp-resizing{user-select:none;cursor:nwse-resize;}
 .rp-kwc .go{display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:11px;font-weight:600;color:var(--a-ink3);margin-top:auto;}
 .rp-kwc > a.rp-kwa:hover .go{color:var(--a-deep);}
 .rp-aa .rp-kwc > a.rp-kwa{border-radius:6px;border:.8px solid #EBEDF0;}
+.rp-aia .rp-kwc > a.rp-kwa{border-radius:6px;border:.8px solid #EBEDF0;}
 .rp-dist{display:flex;height:12px;border-radius:7px;overflow:hidden;background:var(--a-line2);margin-top:12px;}
 .rp-dist i{display:block;height:100%;}
 .rp-kpi-h{display:flex;align-items:center;justify-content:space-between;gap:6px;} .rp-kpi-h .rp-kpi-l{flex:1;min-width:0;}
@@ -382,12 +387,12 @@ body.rp-moving,body.rp-moving *{cursor:grabbing !important;user-select:none !imp
 .rp-sec-t{font-family:var(--display,Poppins,Inter,sans-serif);font-weight:600;font-size:calc(22px * var(--s,1));letter-spacing:-.01em;color:var(--a-ink);line-height:1.2;}
 .rp-sec-d{font-size:calc(13px * var(--t,1));color:var(--a-ink2);line-height:1.45;}
 /* Team report: a section reads as a heading on the page (orange rule, no card), not as another widget. */
-.rp:not(.rp-aa) .rp-w.sec{background:none;border:0;box-shadow:none;padding:6px 4px 6px 16px;animation:none;}
-.rp:not(.rp-aa) .rp-w.sec::before{display:block;left:0;right:auto;top:8px;bottom:8px;width:4px;height:auto;border-radius:4px;background:var(--a-brand);opacity:1;}
-.rp:not(.rp-aa) .rp-w.sec:hover{box-shadow:none;}
-.rp:not(.rp-aa) .rp-w.sec .rp-sec-t{font-size:calc(21px * var(--s,1));}
-.rp.editing:not(.rp-aa) .rp-w.sec{outline-offset:0;}
-.rp:not(.rp-aa) .rp-w.sec .rp-wh{position:absolute;right:4px;top:4px;margin:0;}
+.rp:not(.rp-aa):not(.rp-aia) .rp-w.sec{background:none;border:0;box-shadow:none;padding:6px 4px 6px 16px;animation:none;}
+.rp:not(.rp-aa):not(.rp-aia) .rp-w.sec::before{display:block;left:0;right:auto;top:8px;bottom:8px;width:4px;height:auto;border-radius:4px;background:var(--a-brand);opacity:1;}
+.rp:not(.rp-aa):not(.rp-aia) .rp-w.sec:hover{box-shadow:none;}
+.rp:not(.rp-aa):not(.rp-aia) .rp-w.sec .rp-sec-t{font-size:calc(21px * var(--s,1));}
+.rp.editing:not(.rp-aa):not(.rp-aia) .rp-w.sec{outline-offset:0;}
+.rp:not(.rp-aa):not(.rp-aia) .rp-w.sec .rp-wh{position:absolute;right:4px;top:4px;margin:0;}
 
 /* ---------- full screen ---------- */
 .rp-fsroot{position:fixed !important;inset:0;z-index:9000;overflow:auto;background:var(--paper,#f3f6f8);padding:18px 22px 40px;box-sizing:border-box;display:block !important;}
@@ -404,62 +409,119 @@ body.rp-fs-on{overflow:hidden;}
 .rp-aa .rp-head{background:#fff;border:.8px solid #EBEDF0;border-radius:6px;padding:14px 18px;margin-bottom:16px;align-items:center;}
 .rp-aa .rp-head.rp-banner{background:#fff;}
 .rp-aa .rp-title{font-family:inherit;font-size:20px;font-weight:600;color:#222A30;}
+.rp-aia .rp-title{font-family:inherit;font-size:20px;font-weight:600;color:#222A30;}
 .rp-aa .rp-sub{color:#8A949C;font-size:12.5px;}
+.rp-aia .rp-sub{color:#8A949C;font-size:12.5px;}
 .rp-aa .aiv-btn{font-family:inherit;font-weight:500;border-radius:5px;border-color:#E4E4E7;color:#3F3F46;}
+.rp-aia .aiv-btn{font-family:inherit;font-weight:500;border-radius:5px;border-color:#E4E4E7;color:#3F3F46;}
 .rp-aa .aiv-btn:hover{border-color:#171614;color:#171614;}
+.rp-aia .aiv-btn:hover{border-color:#171614;color:#171614;}
 .rp-aa .aiv-btn.go{background:#171614;border-color:#171614;color:#fff;}
+.rp-aia .aiv-btn.go{background:#171614;border-color:#171614;color:#fff;}
 .rp-aa .aiv-btn.go:hover{background:#000;color:#fff;}
+.rp-aia .aiv-btn.go:hover{background:#000;color:#fff;}
 .rp-aa .rp-w{background:#fff;border:.8px solid #EBEDF0;border-radius:6px;box-shadow:none;padding:14px 16px 16px;animation:none;}
+.rp-aia .rp-w{background:#fff;border:.8px solid #EBEDF0;border-radius:6px;box-shadow:none;padding:14px 16px 16px;animation:none;}
 .rp-aa .rp-w:hover{box-shadow:none;}
+.rp-aia .rp-w:hover{box-shadow:none;}
 .rp-aa .rp-w::before{display:none;}
+.rp-aia .rp-w::before{display:none;}
 .rp-aa .rp-wic{display:none;}
+.rp-aia .rp-wic{display:none;}
 .rp-aa .rp-src{display:none;}
+.rp-aia .rp-src{display:none;}
 .rp-aa .rp-aalogo{display:inline-flex;align-items:center;margin-right:2px;}
+.rp-aia .rp-aalogo{display:inline-flex;align-items:center;margin-right:2px;}
 .rp-aa .rp-wh{margin-bottom:12px;align-items:center;}
+.rp-aia .rp-wh{margin-bottom:12px;align-items:center;}
 .rp-aa .rp-wh h3{font-family:inherit;font-size:calc(14px * var(--t,1));font-weight:400;color:#555;letter-spacing:.01em;display:flex;align-items:center;gap:8px;}
+.rp-aia .rp-wh h3{font-family:inherit;font-size:calc(14px * var(--t,1));font-weight:400;color:#555;letter-spacing:.01em;display:flex;align-items:center;gap:8px;}
 .rp-aa .rp-wh p{display:none;}
+.rp-aia .rp-wh p{display:none;}
 .rp-aa .rp-wtot{margin-left:auto;font-weight:700;color:#555;font-size:calc(14px * var(--t,1));}
+.rp-aia .rp-wtot{margin-left:auto;font-weight:700;color:#555;font-size:calc(14px * var(--t,1));}
 .rp-aa .rp-big{font-family:inherit;font-weight:700;color:#555;font-size:calc(34px * var(--s,1));letter-spacing:-.01em;}
+.rp-aia .rp-big{font-family:inherit;font-weight:700;color:#555;font-size:calc(34px * var(--s,1));letter-spacing:-.01em;}
 .rp-aa .aiv-delta{background:none !important;padding:0;font-weight:600;font-size:calc(12.5px * var(--t,1)) !important;}
+.rp-aia .aiv-delta{background:none !important;padding:0;font-weight:600;font-size:calc(12.5px * var(--t,1)) !important;}
 .rp-aa .aiv-delta.up{color:#2E8540;} .rp-aa .aiv-delta.down{color:#C0392B;} .rp-aa .aiv-delta.flat{color:#8A949C;}
+.rp-aia .aiv-delta.up{color:#2E8540;} .rp-aa .aiv-delta.down{color:#C0392B;} .rp-aa .aiv-delta.flat{color:#8A949C;}
 .rp-aa .rp-kpis{gap:12px;}
+.rp-aia .rp-kpis{gap:12px;}
 .rp-aa .rp-kpi{border:.8px solid #EBEDF0;border-radius:6px;padding:12px 14px 14px;text-align:center;display:flex;flex-direction:column;align-items:center;background:#fff;}
+.rp-aia .rp-kpi{border:.8px solid #EBEDF0;border-radius:6px;padding:12px 14px 14px;text-align:center;display:flex;flex-direction:column;align-items:center;background:#fff;}
 .rp-aa .rp-kpi-h{align-self:stretch;}
+.rp-aia .rp-kpi-h{align-self:stretch;}
 .rp-aa .rp-kpi-l{font-size:calc(14px * var(--t,1));font-weight:400;letter-spacing:.01em;text-transform:none;color:#555;text-align:left;}
+.rp-aia .rp-kpi-l{font-size:calc(14px * var(--t,1));font-weight:400;letter-spacing:.01em;text-transform:none;color:#555;text-align:left;}
 .rp-aa .rp-kpi-v{font-family:inherit;font-weight:700;color:#555;font-size:calc(40px * var(--s,1));line-height:1;margin:calc(16px * var(--s,1)) 0 8px;justify-content:center;flex-direction:column;align-items:center;gap:6px;}
+.rp-aia .rp-kpi-v{font-family:inherit;font-weight:700;color:#555;font-size:calc(40px * var(--s,1));line-height:1;margin:calc(16px * var(--s,1)) 0 8px;justify-content:center;flex-direction:column;align-items:center;gap:6px;}
 .rp-aa .rp-kpi-n{color:#8A949C;font-size:calc(12px * var(--t,1));}
+.rp-aia .rp-kpi-n{color:#8A949C;font-size:calc(12px * var(--t,1));}
 .rp-aa .rp-kpi svg:not(.rp-gl){width:100%;}
+.rp-aia .rp-kpi svg:not(.rp-gl){width:100%;}
 .rp-aa .rp-legend{color:#55606A;}
+.rp-aia .rp-legend{color:#55606A;}
 .rp-aa .rp-legend i{border-radius:50%;}
+.rp-aia .rp-legend i{border-radius:50%;}
 .rp-aa .rp-legend b{color:#222A30;font-weight:600;}
+.rp-aia .rp-legend b{color:#222A30;font-weight:600;}
 .rp-aa .aiv-donut text:first-of-type{font-family:inherit !important;font-weight:700 !important;fill:#555 !important;}
+.rp-aia .aiv-donut text:first-of-type{font-family:inherit !important;font-weight:700 !important;fill:#555 !important;}
 .rp-aa .aiv-table{font-size:calc(13px * var(--t,1));}
+.rp-aia .aiv-table{font-size:calc(13px * var(--t,1));}
 .rp-aa .aiv-table th{text-transform:none;letter-spacing:0;font-weight:500;font-size:calc(12px * var(--t,1));color:#8A949C;border-bottom:.8px solid #EBEDF0;padding:0 10px 8px 0;}
+.rp-aia .aiv-table th{text-transform:none;letter-spacing:0;font-weight:500;font-size:calc(12px * var(--t,1));color:#8A949C;border-bottom:.8px solid #EBEDF0;padding:0 10px 8px 0;}
 .rp-aa .aiv-table td{border-bottom:.8px solid #F2F3F5;color:#222A30;padding:9px 10px 9px 0;}
+.rp-aia .aiv-table td{border-bottom:.8px solid #F2F3F5;color:#222A30;padding:9px 10px 9px 0;}
 .rp-aa .aiv-table td.num{font-weight:600;color:#555;}
+.rp-aia .aiv-table td.num{font-weight:600;color:#555;}
 .rp-aa .aiv-table tbody tr:hover td{background:#FAFAFA;}
+.rp-aia .aiv-table tbody tr:hover td{background:#FAFAFA;}
 .rp-aa .aiv-bar{height:10px;background:#E4E4E7;border-radius:999px;}
+.rp-aia .aiv-bar{height:10px;background:#E4E4E7;border-radius:999px;}
 .rp-aa .aiv-bar i{background:#171614 !important;border-radius:999px;min-width:4px;}
+.rp-aia .aiv-bar i{background:#171614 !important;border-radius:999px;min-width:4px;}
 .rp-aa .aiv-chart .gr{stroke:#F4F4F5;}
+.rp-aia .aiv-chart .gr{stroke:#F4F4F5;}
 .rp-aa .aiv-chart .ax{fill:#666;}
+.rp-aia .aiv-chart .ax{fill:#666;}
 .rp-aa .aiv-tip{background:#fff;color:#222A30;border:.8px solid #EBEDF0;box-shadow:0 6px 20px -8px rgba(0,0,0,.25);}
+.rp-aia .aiv-tip{background:#fff;color:#222A30;border:.8px solid #EBEDF0;box-shadow:0 6px 20px -8px rgba(0,0,0,.25);}
 .rp-aa .aiv-tip b{color:#8A949C;}
+.rp-aia .aiv-tip b{color:#8A949C;}
 .rp-aa .rp-kwc > div{border-radius:6px;border:.8px solid #EBEDF0;}
+.rp-aia .rp-kwc > div{border-radius:6px;border:.8px solid #EBEDF0;}
 .rp-aa .rp-kwc .big{font-family:inherit;font-weight:700;color:#555;}
+.rp-aia .rp-kwc .big{font-family:inherit;font-weight:700;color:#555;}
 .rp-aa .rp-text{color:#55606A;}
+.rp-aia .rp-text{color:#55606A;}
 .rp-aa .rp-text h2{font-family:inherit;color:#222A30;}
+.rp-aia .rp-text h2{font-family:inherit;color:#222A30;}
 .rp-aa .rp-w.sec{background:#171614;border-color:#171614;padding:10px 16px;}
+.rp-aia .rp-w.sec{background:#171614;border-color:#171614;padding:10px 16px;}
 .rp-aa .rp-w.sec .rp-sec-t{color:#fff;font-family:inherit;font-weight:500;font-size:calc(28px * var(--s,1));}
+.rp-aia .rp-w.sec .rp-sec-t{color:#fff;font-family:inherit;font-weight:500;font-size:calc(28px * var(--s,1));}
 .rp-aa .rp-w.sec .rp-sec-d{color:#C9CDD2;font-size:calc(13px * var(--t,1));}
+.rp-aia .rp-w.sec .rp-sec-d{color:#C9CDD2;font-size:calc(13px * var(--t,1));}
 .rp-aa .rp-w.sec .rp-wh{position:absolute;right:8px;top:8px;margin:0;}
+.rp-aia .rp-w.sec .rp-wh{position:absolute;right:8px;top:8px;margin:0;}
 .rp-aa .rp-w.sec .rp-drag{color:#fff;}
+.rp-aia .rp-w.sec .rp-drag{color:#fff;}
 .rp-aa .aiv-pill{border-radius:4px;}
+.rp-aia .aiv-pill{border-radius:4px;}
 .rp-aa .rp-rank{border-radius:4px;}
+.rp-aia .rp-rank{border-radius:4px;}
 .rp-aa .aiv-note{border-left-color:#171614;border-radius:6px;}
+.rp-aia .aiv-note{border-left-color:#171614;border-radius:6px;}
 .rp-aa .rp-empty{border-radius:6px;}
+.rp-aia .rp-empty{border-radius:6px;}
 .rp-aa .rp-ph{border-radius:6px;border-color:#171614;background:rgba(23,22,20,.04);}
+.rp-aia .rp-ph{border-radius:6px;border-color:#171614;background:rgba(23,22,20,.04);}
 .rp-aa .rp-chwrap .aia-toggles{margin:0 0 10px;}
+.rp-aia .rp-chwrap .aia-toggles{margin:0 0 10px;}
 .rp-aa .rp-ib{border-radius:5px;}
+.rp-aia .rp-ib{border-radius:5px;}
 .rp-ib[data-wshare]{display:inline-flex;align-items:center;gap:4px;white-space:nowrap;}
 .rp-bare .rp-grid{margin-top:0;}
 .rp-fsroot .rp.rp-aa{min-height:100%;}
@@ -481,6 +543,7 @@ body.rp-fs-on{overflow:hidden;}
 .rp-aa .rp-aahead .rp-tools .aiv-btn.go{background:#171614;color:#fff;}
 .rp-aa .rp-aahead .rp-tsp{flex:1;}
 .rp-aa .rp-pdfbtn{padding:8px 14px;}
+.rp-aia .rp-pdfbtn{padding:8px 14px;}
 @media (max-width:760px){.rp-aa .rp-head.rp-aahead{padding:20px 18px 0;} .rp-aa .rp-aahead .rp-tools{margin:0 -18px;padding:10px 18px;} .rp-aa .rp-aahead .rp-title{font-size:21px;} .rp-aa .rp-aahead .rp-tsp{display:none;}}
 /* While the PDF is drawn */
 .rp-printing .rp-w{animation:none !important;transition:none !important;}
@@ -3955,7 +4018,7 @@ const WIC = {gsc_health: 'flag', insight_summary: 'text', insight_wins: 'up', go
   kw_cards: 'grid', kw_table: 'table', kw_movers: 'up', kw_dist: 'donut', gbp_grids: 'grid', embed: 'globe',
   ai_kpis: 'bolt', ai_summary: 'text', ai_growth: 'up', ai_quality: 'target', ai_monthly: 'bars', aio_trend: 'line', aio_gaps: 'target', aio_competitors: 'users', aio_pages: 'page', aio_history: 'table',
   easyleads_forms: 'table', el_kpi: 'table', el_channels: 'donut', el_trend: 'line', el_forms: 'bars', el_location: 'pin', el_inbox: 'table', forms_catalog: 'page'};
-const WSRC = {forms: [], people: [], easyleads_forms: [], el_kpi: [], el_channels: [], el_trend: [], el_forms: [], el_location: [], el_inbox: [], forms_catalog: [], forms_kpi: [], forms_latest: [], forms_heatmap: [], forms_rate: ['ga4'], ai_share: ['ChatGPT', 'ga4'], insight_summary: ['ga4', 'gsc', 'google'], insight_wins: ['ga4', 'gsc'], insight_scorecard: ['ga4', 'gsc', 'ChatGPT'], insight_compare: ['ga4', 'gsc'], insight_forecast: ['ga4'], insight_weekday: ['ga4'], goal_tracker: ['ga4', 'gsc'], conv_ai: ['ga4', 'ChatGPT', 'Perplexity'], ai_vs_channels: ['ChatGPT', 'google'], gai_organic: ['google', 'ga4'], aio: ['google'], kw_kpis: ['google'], embed: [], ai_kpis: ['ChatGPT', 'google'], ai_summary: ['ChatGPT', 'google'], ai_monthly: ['ChatGPT', 'google'], aio_trend: ['google'], aio_gaps: ['google'], aio_competitors: ['google'], aio_pages: ['google'], aio_history: ['google']};
+const WSRC = {gads_kpis: ['gads'], gads_trend: ['gads'], gads_campaigns: ['gads'], meta_kpis: ['facebook', 'instagram'], meta_campaigns: ['facebook', 'instagram'], social_kpis: ['facebook', 'instagram', 'linkedin'], social_posts: ['facebook', 'instagram', 'linkedin'], forms: [], people: [], easyleads_forms: [], el_kpi: [], el_channels: [], el_trend: [], el_forms: [], el_location: [], el_inbox: [], forms_catalog: [], forms_kpi: [], forms_latest: [], forms_heatmap: [], forms_rate: ['ga4'], ai_share: ['ChatGPT', 'ga4'], insight_summary: ['ga4', 'gsc', 'google'], insight_wins: ['ga4', 'gsc'], insight_scorecard: ['ga4', 'gsc', 'ChatGPT'], insight_compare: ['ga4', 'gsc'], insight_forecast: ['ga4'], insight_weekday: ['ga4'], goal_tracker: ['ga4', 'gsc'], conv_ai: ['ga4', 'ChatGPT', 'Perplexity'], ai_vs_channels: ['ChatGPT', 'google'], gai_organic: ['google', 'ga4'], aio: ['google'], kw_kpis: ['google'], embed: [], ai_kpis: ['ChatGPT', 'google'], ai_summary: ['ChatGPT', 'google'], ai_monthly: ['ChatGPT', 'google'], aio_trend: ['google'], aio_gaps: ['google'], aio_competitors: ['google'], aio_pages: ['google'], aio_history: ['google']};
 const metaOf = type => {
   const def = W[type] || {}, g = GMETA[def.g] || GMETA.content;
   return {src: WSRC[type] || g.src, lbl: type === 'embed' ? '' : type === 'forms_catalog' ? 'Website + Easyleads' : /^(el_|easyleads)/.test(type) ? 'Easyleads' : /^(forms|people)/.test(type) ? 'Website forms' : g.lbl, ic: WIC[type] || g.ic, tint: g.tint};
@@ -4115,7 +4178,7 @@ function renderBoard(root, o){
         (o.editable ? '<div class="rp-tools">' + editBtns + tlBtn + fsBtn + '<span class="rp-tsp"></span>' + (o.actionsHtml || '') + '</div>' : '') + '</div>'
     : '<div class="rp-head' + (brand.banner ? ' rp-banner' : '') + '"><div>' + brandHtml(o) + (o.whoHtml || '') + '<h2 class="rp-title">' + esc(o.title || '') + '</h2>' + (sub ? '<div class="rp-sub">' + sub + '</div>' : '') + '</div>' +
         '<div class="rp-bar">' + seg + editBtns + tlBtn + fsBtn + (o.actionsHtml || '') + '</div></div>';
-  root.innerHTML = '<div class="aiv rp' + (aa ? ' rp-aa' : '') + (editing ? ' editing' : '') + '"' + (brand.accent && /^#[0-9a-f]{3,8}$/i.test(brand.accent) && !aa ? ' style="--a-brand:' + esc(brand.accent) + ';--a-deep:' + esc(brand.accent) + ';--a-wash:color-mix(in srgb,' + esc(brand.accent) + ' 10%,#fff)"' : '') + '>' +
+  root.innerHTML = '<div class="aiv rp' + (aa ? ' rp-aa' : ' rp-aia') + (editing ? ' editing' : '') + '"' + (brand.accent && /^#[0-9a-f]{3,8}$/i.test(brand.accent) && !aa ? ' style="--a-brand:' + esc(brand.accent) + ';--a-deep:' + esc(brand.accent) + ';--a-wash:color-mix(in srgb,' + esc(brand.accent) + ' 10%,#fff)"' : '') + '>' +
     head + '<div data-panel></div>' + (o.topHtml || '') +
     '<div class="rp-grid' + (free ? ' free' : '') + '" data-grid></div></div>';
   const rp = root.querySelector('.rp'), grid = root.querySelector('[data-grid]');
@@ -4695,6 +4758,8 @@ const catTabsOf = k => {
 };
 let catTab = (() => { try{ return localStorage.getItem('edge-cat-tab') || 'star'; }catch(e){ return 'star'; } })();
 function openCatalog(o, done){
+  /* The Reporting section's AgencyAnalytics-style widget library (edge-aa.js) when it's loaded. */
+  if (window.EDGE_widgetPicker && !o.legacyCatalog) return window.EDGE_widgetPicker.open(o, done);
   const back = document.createElement('div');
   back.className = 'rp-cat-back';
   const inBoard = new Set(o.items.map(i => i.type));
@@ -5357,6 +5422,9 @@ function draw(){
     });
     if (panelOpen.rteam === 'brand' && editingState.rteam){ const b = v.querySelector('[data-brand]'); if (b) b.click(); }
     panelOpen.rteam = '';
+  } else if (window.EDGE_aaBuilder && !window.EDGE_aaBuilder.off){
+    /* Reporting: AgencyAnalytics' report editor (edge-aa.js). Same widgets, same saved layout, same share link. */
+    window.EDGE_aaBuilder.draw(v, c, ctx, R);
   } else {
     const pub = R.client.publishedAt;
     renderBoard(v, Object.assign({mode: 'client', title: R.client.title || ((c.name || ctx.domain) + ' — Report'), sub: pub ? 'Shared · updates automatically' : 'Not shared yet', items: R.client.items, period: clientPeriod(R), ctx,
@@ -5790,7 +5858,10 @@ async function regenerate(v, c){
 }
 /* For the Reporting section (edge-os.js): build the AgencyAnalytics-style monthly report, publish it, read its link. */
 window.EdgeReportsApp = {
-  W,
+  W, G, metaOf, logo, glyph, defH, SIZE_COLS, GAP, PERIODS, rangeOf, newItem, renderBoard, ctxFor, reportsOf, logosFor, clientPeriods, validPeriod,
+  persistClient: c => { persist(c, 'client'); autoPublish(c); },
+  share: (v, c) => share(v, c), regenerate: (v, c) => regenerate(v, c), openTemplates: c => openTemplates(c), brandPanel: (host, o) => brandPanel(host, o), datePanel: (host, c, R) => datePanel(host, c, R),
+  redraw: () => { try{ draw(); }catch(e){} },
   clientItems: c => reportsOf(c).client.items.slice(),
   isPublished: c => !!reportsOf(c).client.publishedAt,
   publishedAt: c => reportsOf(c).client.publishedAt || 0,

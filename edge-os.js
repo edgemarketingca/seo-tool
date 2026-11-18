@@ -50,6 +50,7 @@ const settings = () => (state.settings && state.settings.edgeOs) || {};
 const setSetting = (k, v) => { const cur = settings(); if (JSON.stringify(cur[k]) === JSON.stringify(v)) return; const s = Object.assign({}, cur); s[k] = v; state.settings = state.settings || {}; state.settings.edgeOs = s; try{ save(); }catch(e){} };
 /* Where you are (section, sub-tool, report tab) is this browser's own business: kept locally, never synced. */
 const localPref = (k, v) => { try{ if (v === undefined) return localStorage.getItem('osPref:' + k) || ''; localStorage.setItem('osPref:' + k, v); }catch(e){ return ''; } };
+const seoApi = () => (window.EDGE && EDGE.seo) || {renderAll(){}, renderTree(){}, logo: () => ''};
 const seoClients = () => (state.seoClients || []).filter(Boolean);
 const activeClient = () => seoClients().find(c => c.id === state.activeSeoClientId) || null;
 const logoOf = c => { if (!c) return ''; if (c.logoUrl) return c.logoUrl; const d = normDomain(c.website); return d.indexOf('.') > -1 ? 'https://www.google.com/s2/favicons?sz=128&domain=' + encodeURIComponent(d) : ''; };
@@ -168,6 +169,7 @@ function paintBar(){
   const mod = (window.EDGE && EDGE.current && EDGE.current()) || state.seoModule;
   document.querySelectorAll('.os-sub-b').forEach(b => b.classList.toggle('on', b.dataset.sub === mod));
   ['seo', 'ads', 'maint', 'report'].forEach(k => document.body.classList.toggle('os-sec-' + k, k === section));
+  if (section !== 'report') document.body.classList.remove('aab-on');
   requestAnimationFrame(movePill);
 }
 
@@ -222,14 +224,15 @@ function buildHub(){
     report: ['Client reports, sent for you', 'AgencyAnalytics-style monthly reports for every client: traffic, SEO, AI, ads and social. Share links, and a scheduled send on the 1st of each month.']
   };
   grid.innerHTML = SECTIONS.map(s => '<button class="hub-card" data-osgo="' + s.k + '" type="button"><span class="hub-key">' + s.key + '</span><span class="hub-ico">' + s.ic + '</span>' +
-    '<p class="hub-sub">' + esc(desc[s.k][0]) + '</p><h3 class="hub-title">' + esc(s.l) + '</h3><p class="hub-desc">' + esc(desc[s.k][1]) + '</p><span class="hub-meta" data-hubmeta="' + s.k + '"></span>' +
+    '<p class="hub-sub">' + esc(desc[s.k][0]) + '</p><h3 class="hub-title">' + esc(s.l) + '</h3><p class="hub-desc">' + esc(desc[s.k][1]) + '</p><span class="hub-meta os-hubmeta" data-hubmeta="' + s.k + '"></span>' +
     '<span class="hub-go">Open ' + esc(s.l) + ' <svg viewBox="0 0 24 24"><path d="M5 12h13M13 6l6 6-6 6"/></svg></span></button>').join('');
   grid.addEventListener('click', e => { const c = e.target.closest('[data-osgo]'); if (c){ try{ EDGE_showHub(false); }catch(err){} go(c.dataset.osgo); } });
   const kbd = document.querySelector('.hub-kbd'); if (kbd) kbd.innerHTML = '<span>Press</span><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd><span>to jump straight in · <kbd>Alt</kbd>+<kbd>H</kbd> returns here from anywhere</span>';
 }
 function paintHubMeta(){
   const chip = (v, l) => '<span class="hub-chip"><b>' + esc(String(v)) + '</b> ' + esc(l) + '</span>';
-  const set = (k, html) => { const el = document.querySelector('[data-hubmeta="' + k + '"]'); if (el) el.innerHTML = html; };
+  /* Only touch the DOM when the text really changed: a repaint replays the count-up and reads as a blink. */
+  const set = (k, html) => { const el = document.querySelector('[data-hubmeta="' + k + '"]'); if (el && el._osHtml !== html){ el._osHtml = html; el.innerHTML = html; } };
   const cs = seoClients(), active = cs.filter(c => !isArchived(c));
   set('seo', chip(active.length, 'active clients') + chip((state.clients || []).reduce((t, c) => t + ((c.gbps || []).length), 0), 'profiles'));
   const g = Channels.list('google_ads'), att = g.filter(a => Attention.of(a).length);
@@ -487,7 +490,7 @@ const Board = {
       });
       const missing = cards.filter(t => !seoClients().some(c => this.match([t], c)));
       setSetting('boardSyncAt', Date.now());
-      if (moved.length || back.length){ try{ save(); renderSeoAll(); }catch(e){} }
+      if (moved.length || back.length){ try{ save(); seoApi().renderAll(); }catch(e){} }
       if (loud || moved.length || back.length){
         const parts = [];
         if (moved.length) parts.push(moved.length + ' moved to Inactive / Archived');
@@ -805,7 +808,7 @@ const Reporting = {
   wire(v, c){
     const cfg = this.cfg(), RA = window.EdgeReportsApp;
     v.querySelectorAll('[data-cid]').forEach(el => el.addEventListener('click', () => {
-      state.activeSeoClientId = el.dataset.cid; try{ save(); renderSeoTree(); renderSeoCrumbs && renderSeoCrumbs(); }catch(e){}
+      state.activeSeoClientId = el.dataset.cid; try{ save(); seoApi().renderTree(); }catch(e){}
       this.render(); const s = $('osSched'); if (s){ FX.flash(s); s.scrollIntoView({behavior: RM() ? 'auto' : 'smooth', block: 'start'}); }
     }));
     const rq = v.querySelector('[data-rq]'); if (rq) rq.addEventListener('input', () => { const q = norm(rq.value); v.querySelectorAll('.os-rc').forEach(x => { x.style.display = !q || x.dataset.name.indexOf(q) > -1 ? '' : 'none'; }); });
@@ -897,6 +900,84 @@ document.addEventListener('click', e => {
 }, true);
 
 /* ======================================================================
+   ONE CLIENT LIST: GBP Tracker shows the same clients as SEO, in the same order,
+   with the same logos. Each SEO client opens its Business Profiles; one without a
+   profile yet gets "Add a profile". Profiles not tied to an SEO client sit under
+   "Other profiles" at the bottom, so nothing is ever hidden.
+   ====================================================================== */
+const gbpLinks = () => settings().gbpLinks || {};
+function gbpFor(sc){
+  const L = gbpLinks(), id = L[sc.id];
+  if (id === 'none') return null;
+  if (id){ const g = (state.clients || []).find(x => x.id === id); if (g) return g; }
+  const n = norm(sc.name);
+  return (state.clients || []).find(g => norm(g.name) === n) ||
+    (state.clients || []).find(g => { const gn = norm(g.name); return gn.length > 3 && n.length > 3 && (gn.indexOf(n) === 0 || n.indexOf(gn) === 0); }) || null;
+}
+function unifyGbpTree(){
+  const tree = $('clientTree'); if (!tree) return;
+  const filter = (($('clientSearch') || {}).value || '').toLowerCase().trim();
+  const shown = (state.clients || []).filter(c => !filter || c.name.toLowerCase().includes(filter) || (c.gbps || []).some(g => ((g.name || '') + ' ' + (g.bizName || '')).toLowerCase().includes(filter)));
+  const wraps = Array.from(tree.querySelectorAll(':scope > .tree-client'));
+  if (wraps.length !== shown.length) return;
+  const byId = {}; shown.forEach((c, i) => { byId[c.id] = wraps[i]; wraps[i].dataset.gid = c.id; });
+  const used = new Set();
+  const frag = document.createDocumentFragment();
+  seoClients().filter(c => !isArchived(c)).forEach(sc => {
+    const g = gbpFor(sc);
+    if (g && byId[g.id] && !used.has(g.id)){
+      used.add(g.id);
+      const w = byId[g.id], row = w.querySelector('.tree-row');
+      if (row && !row.querySelector('.os-glogo') && !!seoApi().logo){ const lg = document.createElement('span'); lg.className = 'seo-tree-logo seo-logo os-glogo'; lg.innerHTML = seoApi().logo(sc); row.insertBefore(lg, row.querySelector('.tree-name')); }
+      frag.appendChild(w);
+    } else if (!g && (!filter || String(sc.name).toLowerCase().includes(filter))){
+      const w = document.createElement('div'); w.className = 'tree-client os-nogbp';
+      w.innerHTML = '<div class="tree-row"><span class="seo-tree-logo seo-logo os-glogo">' + seoApi().logo(sc) + '</span><span class="tree-name">' + esc(sc.name) + '</span><button type="button" class="os-gadd" title="Add a Business Profile for ' + esc(sc.name) + '">+ Profile</button></div>';
+      w.querySelector('.tree-row').addEventListener('click', () => addGbpFor(sc));
+      frag.appendChild(w);
+    }
+  });
+  const rest = shown.filter(c => !used.has(c.id));
+  tree.innerHTML = '';
+  tree.appendChild(frag);
+  if (rest.length){
+    const h = document.createElement('div'); h.className = 'os-gother'; h.innerHTML = '<span>Other profiles</span><em>' + rest.length + '</em>';
+    tree.appendChild(h);
+    rest.forEach(c => tree.appendChild(byId[c.id]));
+  }
+}
+async function addGbpFor(sc){
+  if (!confirm('Add a Google Business Profile for ' + sc.name + '?')) return;
+  const g = blankGbp('Main location');
+  const c = {id: uid(), name: sc.name, gbps: [g], compareScans: []};
+  state.clients.push(c);
+  const L = Object.assign({}, gbpLinks()); L[sc.id] = c.id; setSetting('gbpLinks', L);
+  state.activeClientId = c.id; state.activeGbpId = g.id; state.view = 'focus';
+  save(); renderAll();
+  try{ openStep(1); }catch(e){}
+  FX.toast('Profile added for ' + sc.name + ': fill in its details', 'add');
+}
+function hookGbpTree(){
+  if (typeof renderTree !== 'function' || window.__osTree) return;
+  window.__osTree = true;
+  const orig = renderTree;
+  window.renderTree = function (){ const r = orig.apply(this, arguments); try{ unifyGbpTree(); }catch(e){ console.warn('unify', e); } return r; };
+  const cs = $('clientSearch'); if (cs) cs.addEventListener('input', () => { try{ unifyGbpTree(); }catch(e){} });
+  try{ unifyGbpTree(); }catch(e){}
+}
+
+/* Live SERP has no side menu: its two views are the tabs at the top, and recent searches
+   sit under the search form, readable. */
+function serpLayout(){
+  const rec = $('serpRecents'), view = $('view-checker'); if (!rec || !view || $('osSerpRecent')) return;
+  const card = document.createElement('div'); card.id = 'osSerpRecent'; card.className = 'os-serp-recent';
+  card.innerHTML = '<div class="os-serp-rh"><b>Recent searches</b><span class="os-grow"></span></div>';
+  const clr = $('serpClearRecents'); if (clr){ clr.className = 'os-serp-clear'; clr.textContent = 'Clear'; card.firstChild.appendChild(clr); }
+  card.appendChild(rec);
+  (view.querySelector('.tool-wrap') || view).appendChild(card);
+}
+
+/* ======================================================================
    BOOT
    ====================================================================== */
 function boot(){
@@ -906,6 +987,8 @@ function boot(){
   hookRouter();
   Bridge.init();
   Channels.start();
+  hookGbpTree();
+  serpLayout();
   /* Land where you left off: the section, and in SEO the sub-tool. */
   section = localPref('section') || (['gbp', 'serp', 'seo'].indexOf(state.seoModule) > -1 ? 'seo' : state.seoModule === 'maint' ? 'maint' : 'seo');
   paintBar(); paintBadges();
@@ -917,6 +1000,10 @@ function boot(){
   /* Robert's board: once a day, quietly. */
   setTimeout(() => { if (Date.now() - (settings().boardSyncAt || 0) > 20 * 3600 * 1000) Board.sync(false); }, 9000);
   setInterval(paintBadges, 60 * 1000);
+  /* reports.js redraws the tab strip now and then: keep "Overview & sending" on it. */
+  const sm = $('seoModes');
+  if (sm) new MutationObserver(() => { if (!sm.querySelector('[data-seoview="rhome"]')) Reporting.ensureTab(); }).observe(sm, {childList: true});
+  Reporting.ensureTab();
 }
 window.EDGE_OS = {renders, go: (s, sub) => go(s, sub), section: () => section, fx: FX, channels: Channels, attention: Attention, board: Board, tasks: Tasks, reporting: Reporting, template: TEMPLATE};
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();

@@ -269,3 +269,35 @@ body.os-on .topnav{flex-wrap:wrap;row-gap:8px;}
   .os-sec span.l{display:none;}
   .os-row{grid-template-columns:1fr;}
 }
+
+/* ---------------------------------------------------------------- Live SERP: no side menu */
+#serpRail{display:none !important;}
+#serpStage{grid-column:1/-1 !important;}
+#serpStage .mod-intro p{white-space:normal !important;overflow:visible !important;text-overflow:clip !important;max-width:none !important;}
+#serpStage .mod-intro{max-width:980px;}
+#serpStage .tool-wrap{max-width:980px;}
+.os-serp-recent{margin-top:22px;background:#fff;border:1px solid var(--os-line);border-radius:16px;padding:14px 16px;}
+.os-serp-rh{display:flex;align-items:center;gap:8px;margin-bottom:8px;font:600 14px var(--ui,Inter,sans-serif);color:var(--os-ink);}
+.os-serp-clear{border:1px solid var(--os-line);background:#fff;border-radius:8px;height:28px;padding:0 10px;font:600 12px var(--ui,Inter,sans-serif);color:var(--os-ink2);cursor:pointer;}
+.os-serp-clear:hover{color:var(--os-ink);border-color:#d5dadf;}
+.os-serp-recent #serpRecents{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:6px;max-height:none;overflow:visible;}
+.os-serp-recent .recent-row{display:flex;align-items:flex-start;gap:9px;padding:9px 10px;border-radius:10px;border:1px solid #f0f2f4;cursor:pointer;opacity:1 !important;transition:background .15s,border-color .15s;}
+.os-serp-recent .recent-row:hover{background:var(--os-wash);border-color:#ffd8b8;}
+.os-serp-recent .recent-row .dot{width:8px;height:8px;border-radius:50%;background:var(--os-brand);margin-top:5px;flex:none;}
+.os-serp-recent .recent-row .rq{display:flex;flex-direction:column;min-width:0;}
+.os-serp-recent .recent-row b{font:600 13px var(--ui,Inter,sans-serif) !important;color:var(--os-ink) !important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:1 !important;}
+.os-serp-recent .recent-row .rq span{font:500 11.5px var(--ui,Inter,sans-serif) !important;color:var(--os-ink3) !important;opacity:1 !important;}
+.os-serp-recent .rail-empty{color:var(--os-ink2);font-size:13px;}
+
+/* ---------------------------------------------------------------- GBP Tracker: the shared client list */
+#clientTree .os-glogo{width:26px;height:26px;flex:none;margin-right:2px;}
+#clientTree .tree-client > .tree-row .caret{display:none;}
+#clientTree .os-nogbp .tree-row{opacity:.92;}
+#clientTree .os-nogbp .tree-name{color:var(--os-ink2);}
+.os-gadd{margin-left:auto;border:1px dashed #d8dde2;background:#fff;border-radius:8px;height:24px;padding:0 8px;font:600 11px var(--ui,Inter,sans-serif);color:var(--os-ink3);cursor:pointer;opacity:0;transition:opacity .15s;}
+#clientTree .tree-row:hover .os-gadd{opacity:1;}
+.os-gadd:hover{border-color:var(--os-brand);color:var(--os-brand-deep);}
+.os-gother{display:flex;align-items:center;gap:8px;margin:16px 8px 6px;font:700 10.5px var(--ui,Inter,sans-serif);letter-spacing:.08em;text-transform:uppercase;color:var(--os-ink3);}
+.os-gother em{font-style:normal;background:#eef0f3;border-radius:9px;padding:1px 7px;font-size:10.5px;}
+#gbpRail .rail-brand h1{font-size:0 !important;} #gbpRail .rail-brand h1::after{content:"Clients";font-size:18px;}
+#seoRail .rail-brand h1{font-size:0 !important;} #seoRail .rail-brand h1::after{content:"Clients";font-size:18px;}
