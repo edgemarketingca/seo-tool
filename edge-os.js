@@ -52,6 +52,7 @@ const setSetting = (k, v) => { const cur = settings(); if (JSON.stringify(cur[k]
 const localPref = (k, v) => { try{ if (v === undefined) return localStorage.getItem('osPref:' + k) || ''; localStorage.setItem('osPref:' + k, v); }catch(e){ return ''; } };
 const seoApi = () => (window.EDGE && EDGE.seo) || {renderAll(){}, renderTree(){}, logo: () => ''};
 const seoClients = () => (state.seoClients || []).filter(Boolean);
+const seoOnly = () => seoClients().filter(c => !isAdsOnly(c));
 const activeClient = () => seoClients().find(c => c.id === state.activeSeoClientId) || null;
 const logoOf = c => { if (!c) return ''; if (c.logoUrl) return c.logoUrl; const d = normDomain(c.website); return d.indexOf('.') > -1 ? 'https://www.google.com/s2/favicons?sz=128&domain=' + encodeURIComponent(d) : ''; };
 const initials = n => String(n || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
@@ -218,7 +219,7 @@ function hookRouter(){
    ====================================================================== */
 const PILLAR = {seo: '#E87721', ads: '#004851', maint: '#5E7A70', report: '#6F6DB5'};
 function seoStats(){
-  const cs = seoClients().filter(c => !isArchived(c));
+  const cs = seoOnly().filter(c => !isArchived(c));
   const d = {top3: 0, top10: 0, beyond: 0, none: 0}, moves = [];
   let kws = 0;
   cs.forEach(c => (c.keywords || []).forEach(k => {
@@ -226,10 +227,11 @@ function seoStats(){
     let best = null, prev = null;
     (k.locations || []).forEach(l => { if (l.rank != null && (best == null || l.rank < best)){ best = l.rank; prev = l.prevRank; } });
     if (best == null) d.none++; else if (best <= 3) d.top3++; else if (best <= 10) d.top10++; else d.beyond++;
-    if (best != null && prev != null && prev !== best) moves.push({c, k: k.keyword || k.term || k.q || '', from: prev, to: best, gain: prev - best});
+    if (best != null && prev != null && prev !== best) moves.push({c, k: k.text || k.keyword || '', from: prev, to: best, gain: prev - best});
   }));
   moves.sort((x, y) => y.gain - x.gain);
-  return {clients: cs.length, kws, d, up: moves.filter(m => m.gain > 0).slice(0, 3), upCount: moves.filter(m => m.gain > 0).length, downCount: moves.filter(m => m.gain < 0).length};
+  const seen = new Set(), best = moves.filter(m => m.gain > 0 && !seen.has(m.c.id) && seen.add(m.c.id));
+  return {best,clients: cs.length, kws, d, up: moves.filter(m => m.gain > 0).slice(0, 3), upCount: moves.filter(m => m.gain > 0).length, downCount: moves.filter(m => m.gain < 0).length};
 }
 function adsStats(){
   const all = Channels.list('google_ads').concat(Channels.list('meta_ads'));
@@ -259,7 +261,9 @@ function hubHtml(){
   const seg = (n, cls, l) => n ? '<i class="' + cls + '" style="flex:' + n + '" title="' + l + ': ' + n + '"></i>' : '';
   const mp = M.total ? M.done / M.total : 0, C = 2 * Math.PI * 46;
   const mx = Math.max.apply(null, A.series.concat([1]));
-  const bars = A.series.map((v, i) => '<i style="height:' + Math.max(4, Math.round(v / mx * 100)) + '%;animation-delay:' + (i * 60) + 'ms" title="' + esc(monthName(prevYmN(A.m, 5 - i))) + ': ' + money(v) + '"></i>').join('');
+  const first = A.series.findIndex(v => v > 0);
+  const bars = A.series.map((v, i) => ({v, i})).filter(x => first > -1 && x.i >= first).map((x, j, arr) => { const mm = prevYmN(A.m, 5 - x.i);
+    return '<span class="osh-bar' + (j === arr.length - 1 ? ' now' : '') + '" title="' + esc(monthName(mm)) + ': ' + money(x.v) + '"><em>' + esc(money(x.v)) + '</em><i style="height:' + Math.max(4, Math.round(x.v / mx * 100)) + '%;animation-delay:' + (j * 80) + 'ms"></i><small>' + esc(monthName(mm).slice(0, 3)) + '</small></span>'; }).join('');
   const dl = A.prev ? Math.round((A.spend - A.prev) / A.prev * 100) : null;
   const today = new Date().toLocaleDateString('en-CA', {weekday: 'long', month: 'long', day: 'numeric'});
   return '<div class="osh-hero"><div class="osh-orb a"></div><div class="osh-orb b"></div><div class="osh-hl"><span class="osh-eye">EDGE Workspace · ' + esc(today) + '</span>' +
@@ -272,7 +276,7 @@ function hubHtml(){
         '<div class="osh-seo"><div class="osh-big">' + count(S.kws) + '<span>keywords tracked across ' + S.clients + ' clients</span></div>' +
         '<div class="osh-mix">' + seg(S.d.top3, 'a', 'Top 3') + seg(S.d.top10, 'b', '4 to 10') + seg(S.d.beyond, 'c', '11+') + seg(S.d.none, 'd', 'Not ranking') + '</div>' +
         '<div class="osh-leg"><span><i class="a"></i>Top 3 <b>' + S.d.top3 + '</b></span><span><i class="b"></i>4–10 <b>' + S.d.top10 + '</b></span><span><i class="c"></i>11+ <b>' + S.d.beyond + '</b></span><span><i class="d"></i>Not yet <b>' + S.d.none + '</b></span></div>' +
-        (S.up.length ? '<div class="osh-moves"><small>Climbing</small>' + S.up.map(m => '<span>' + logoHtml(logoOf(m.c), m.c.name) + '<em>' + esc(m.c.name) + '</em><b>▲ ' + m.from + ' → ' + m.to + '</b></span>').join('') + '</div>' : '') + '</div>' +
+        (S.best.length ? '<div class="osh-moves"><small>Climbing this month</small>' + S.best.slice(0, 3).map(m => '<span>' + logoHtml(logoOf(m.c), m.c.name) + '<em>' + esc(m.c.name) + (m.k ? '<i>' + esc(m.k) + '</i>' : '') + '</em><b>▲ ' + m.from + ' → ' + m.to + '</b></span>').join('') + '</div>' : '') + '</div>' +
         '<span class="osh-go">Open SEO <svg viewBox="0 0 24 24"><path d="M5 12h13M13 6l6 6-6 6"/></svg></span></button>' +
       /* Google Ads: deep teal, the spend by month */
       '<button type="button" class="osh-t ads" data-osgo="ads" style="--p:' + PILLAR.ads + '"><span class="osh-k">2</span><div class="osh-th"><span class="osh-ic">' + ICON.ads + '</span><div><small>Marketing · read only</small><h3>Google Ads</h3></div></div>' +
@@ -540,6 +544,10 @@ window.EDGE_tasks = {open: p => Tasks.open(p), refresh: () => Tasks.refresh()};
    ROBERT'S BOARD → SEO client list
    ====================================================================== */
 const ARCH = 'Inactive / Archived';
+/* Google Ads-only clients live in their own folder: shown in Google Ads and Reporting, never in SEO. */
+const ADS_FOLDER = 'Google Ads clients';
+const adsFolder = () => (state.seoFolders || []).find(f => f && f.name === ADS_FOLDER) || null;
+const isAdsOnly = c => { const f = adsFolder(); return !!(f && c && c.folderId === f.id); };
 const isArchived = c => { const f = (state.seoFolders || []).find(x => x && x.id === c.folderId); return !!(f && /inactive|archiv/i.test(f.name)); };
 const Board = {
   person: () => settings().boardPerson || 'Robert',
@@ -562,12 +570,12 @@ const Board = {
       if (!Array.isArray(cards)) throw new Error('Tidyboard didn’t find that column.');
       if (!cards.length) throw new Error('The "' + this.column() + '" column on ' + this.person() + '’s board is empty. Nothing changed, to be safe.');
       const arch = this.archFolder(), moved = [], back = [];
-      seoClients().forEach(c => {
+      seoOnly().forEach(c => {
         const on = !!this.match(cards, c), parked = isArchived(c);
         if (!on && !parked){ c.boardPrevFolder = c.folderId || ''; c.boardPrevStatus = c.status || 'Active'; c.folderId = arch.id; c.status = 'Paused'; c.archivedAt = Date.now(); c.archivedBy = 'tidyboard'; moved.push(c.name); }
         else if (on && parked && c.archivedBy === 'tidyboard'){ c.folderId = c.boardPrevFolder || ''; c.status = c.boardPrevStatus || 'Active'; delete c.archivedAt; delete c.archivedBy; back.push(c.name); }
       });
-      const missing = cards.filter(t => !seoClients().some(c => this.match([t], c)));
+      const missing = cards.filter(t => !seoOnly().some(c => this.match([t], c)));
       setSetting('boardSyncAt', Date.now());
       if (moved.length || back.length){ try{ save(); seoApi().renderAll(); }catch(e){} }
       if (loud || moved.length || back.length){
@@ -669,6 +677,19 @@ const Channels = {
     FX.toast(n + ' ' + SOURCES[payload.source].l + ' account' + (n === 1 ? '' : 's') + ' synced', 'sync');
     return {ok: true, saved: n};
   }
+};
+/* An ad account with no client yet gets one in the Google Ads clients folder, then is linked to it. */
+Channels.addAdsClient = function (a, logoUrl){
+  const api = seoApi(); if (!api.blank) throw new Error('Client records are not ready yet.');
+  let f = adsFolder();
+  if (!f){ f = {id: (typeof uid === 'function' ? uid() : 'f' + Date.now().toString(36)), name: ADS_FOLDER, collapsed: false, sortOrder: 9e5}; state.seoFolders = (state.seoFolders || []).concat([f]); }
+  const c = api.blank(a.clientName || a.name);
+  c.folderId = f.id; c.notes = 'Google Ads client (account ' + a.id + ')';
+  if (logoUrl) c.logoUrl = logoUrl;
+  state.seoClients.push(c);
+  this.setLink(a, c.id);
+  try{ save(); }catch(e){}
+  return c;
 };
 window.EDGE_channelsFor = c => Promise.resolve(c ? Channels.forClient(c) : {});
 /* What Claude calls after reading a dashboard in Chrome. */
@@ -1002,7 +1023,7 @@ function unifyGbpTree(){
   const byId = {}; shown.forEach((c, i) => { byId[c.id] = wraps[i]; wraps[i].dataset.gid = c.id; });
   const used = new Set();
   const frag = document.createDocumentFragment();
-  seoClients().filter(c => !isArchived(c)).forEach(sc => {
+  seoOnly().filter(c => !isArchived(c)).forEach(sc => {
     const g = gbpFor(sc);
     if (g && byId[g.id] && !used.has(g.id)){
       used.add(g.id);
@@ -1079,10 +1100,24 @@ function boot(){
   /* Robert's board: once a day, quietly. */
   setTimeout(() => { if (Date.now() - (settings().boardSyncAt || 0) > 20 * 3600 * 1000) Board.sync(false); }, 9000);
   setInterval(paintBadges, 60 * 1000);
+  /* Home is the first thing you see after signing in. */
+  const shell = $('appShell'), login = $('loginScreen');
+  const land = () => {
+    if (!shell || shell.classList.contains('hidden')) return;
+    let done = ''; try{ done = sessionStorage.getItem('osLanded') || ''; }catch(e){}
+    if (done) return;
+    try{ sessionStorage.setItem('osLanded', '1'); }catch(e){}
+    try{ EDGE_showHub(true); }catch(e){}
+  };
+  if (shell){ new MutationObserver(land).observe(shell, {attributes: true, attributeFilter: ['class']}); setTimeout(land, 300); }
+  if (login) new MutationObserver(() => { if (login.offsetParent !== null || getComputedStyle(login).display !== 'none'){ try{ sessionStorage.removeItem('osLanded'); }catch(e){} } }).observe(login, {attributes: true, attributeFilter: ['class', 'style']});
   /* reports.js redraws the tab strip now and then: keep "Overview & sending" on it. */
   const sm = $('seoModes');
   if (sm) new MutationObserver(() => { if (!sm.querySelector('[data-seoview="rhome"]')) Reporting.ensureTab(); }).observe(sm, {childList: true});
   Reporting.ensureTab();
+  const tree = $('seoClientTree');
+  const markAds = () => { tree.querySelectorAll('.rail-folder').forEach(w => { const n = w.querySelector('.folder-name'); w.classList.toggle('os-adsfolder', !!(n && n.textContent === ADS_FOLDER)); }); };
+  if (tree){ new MutationObserver(markAds).observe(tree, {childList: true}); markAds(); }
 }
 window.EDGE_OS = {renders, go: (s, sub) => go(s, sub), section: () => section, fx: FX, channels: Channels, attention: Attention, board: Board, tasks: Tasks, reporting: Reporting, template: TEMPLATE};
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();

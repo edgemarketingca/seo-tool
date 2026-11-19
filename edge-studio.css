@@ -1,0 +1,131 @@
+/* ==========================================================================
+   EDGE STUDIO: the finish across the whole workspace.
+   One palette (EDGE's own), one type family (Geist), floating white cards on a
+   mist floor, glass headers, and each pillar recolouring every accent:
+   SEO orange · Google Ads teal · Web Maintenance sage · Reporting lavender.
+   html body.os-on:not(.report-mode):not(.embed-mode) is the app's live-theme scope (beats the older themes on specificity).
+   ========================================================================== */
+html body.os-on:not(.report-mode):not(.embed-mode){
+  --ui:"Geist","Inter",-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;
+  --display:"Geist","Inter",-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;
+  --c-bg:#F4F7F7; --c-bg-2:#EDF2F2; --c-card:#FFFFFF; --c-soft:#F7FAFA; --c-hover:#EFF5F5;
+  --c-line:#E2E9E9; --c-line-2:#EDF2F2;
+  --c-ink:#1D2A31; --c-ink-2:#4E5D66; --c-ink-3:#87959C;
+  --c-r:14px; --c-r-lg:20px; --c-r-sm:10px;
+  --c-sh-1:0 1px 2px rgba(0,40,46,.05);
+  --c-sh-2:0 1px 2px rgba(0,40,46,.04),0 14px 32px -22px rgba(0,40,46,.32);
+  --c-sh-3:0 2px 6px rgba(0,40,46,.06),0 40px 80px -36px rgba(0,40,46,.42);
+  --a-rail:#FAFCFC; --a-sel:#FFFFFF;
+  --paper:#F4F7F7; --card-2:#F7FAFA;
+  --r-xl:20px; --r-lg:16px; --r-md:12px; --r-sm:9px;
+  --sh-1:var(--c-sh-1); --sh-2:var(--c-sh-2); --sh-3:var(--c-sh-3);
+  --st-ease:cubic-bezier(.2,.8,.2,1);
+  font-family:var(--ui);
+  -webkit-font-smoothing:antialiased;
+  font-feature-settings:"ss01","cv11";
+}
+/* pillar accents: every orange button, ring and active state takes the section's colour */
+html body.os-on:not(.report-mode):not(.embed-mode).os-sec-ads{--c-accent:#0B6B76;--c-accent-hi:#12808C;--c-accent-deep:#004851;--c-accent-wash:#E8F6F7;--c-accent-ring:rgba(11,107,118,.18);--brand:#0B6B76;--brand-hi:#12808C;--brand-deep:#004851;--brand-wash:#E8F6F7;}
+html body.os-on:not(.report-mode):not(.embed-mode).os-sec-maint{--c-accent:#5E7A70;--c-accent-hi:#6F8C81;--c-accent-deep:#3F5650;--c-accent-wash:#EEF3F1;--c-accent-ring:rgba(94,122,112,.2);--brand:#5E7A70;--brand-hi:#6F8C81;--brand-deep:#3F5650;--brand-wash:#EEF3F1;}
+html body.os-on:not(.report-mode):not(.embed-mode).os-sec-report{--c-accent:#6F6DB5;--c-accent-hi:#8280C4;--c-accent-deep:#4F4D9A;--c-accent-wash:#F1F0FA;--c-accent-ring:rgba(111,109,181,.2);--brand:#6F6DB5;--brand-hi:#8280C4;--brand-deep:#4F4D9A;--brand-wash:#F1F0FA;}
+html body.os-on:not(.report-mode):not(.embed-mode).os-sec-seo{--c-accent:#E87721;--c-accent-hi:#F08A3A;--c-accent-deep:#B8570F;--c-accent-wash:#FFF4EA;--c-accent-ring:rgba(232,119,33,.18);}
+
+/* ---------------------------------------------------------------- floor */
+html body.os-on:not(.report-mode):not(.embed-mode) .stage{background:radial-gradient(1100px 380px at 100% -8%,color-mix(in srgb,var(--c-accent) 7%,transparent),transparent 70%),radial-gradient(800px 300px at 0% 0%,rgba(168,230,238,.18),transparent 70%),var(--c-bg) !important;}
+html body.os-on:not(.report-mode):not(.embed-mode) .stage .panels{background:transparent !important;}
+html body.os-on:not(.report-mode):not(.embed-mode) .stage .panels > *{animation:stIn .5s var(--st-ease) both;}
+html body.os-on:not(.report-mode):not(.embed-mode) .seo-view.on,html body.os-on:not(.report-mode):not(.embed-mode) #seoview-rhome.on{animation:stIn .45s var(--st-ease) both;}
+@keyframes stIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* ---------------------------------------------------------------- top bar */
+body.os-on .topnav{background:rgba(255,255,255,.84) !important;-webkit-backdrop-filter:blur(18px) saturate(1.5);backdrop-filter:blur(18px) saturate(1.5);border-bottom:1px solid rgba(0,72,81,.06) !important;}
+body.os-on .os-secs{background:#F1F5F5;border-color:rgba(0,72,81,.06);}
+body.os-on .os-sec{font-family:var(--ui);letter-spacing:-.01em;}
+body.os-on .os-sec:not(.on):hover{color:var(--pillar,#E87721);}
+body.os-on .os-tasks-btn{font-family:var(--ui);border-radius:12px;}
+
+/* ---------------------------------------------------------------- stage header: glass, segmented tabs */
+html body.os-on:not(.report-mode):not(.embed-mode) .stage > .topbar{position:sticky;top:0;z-index:30;background:rgba(244,247,247,.78) !important;-webkit-backdrop-filter:blur(16px) saturate(1.4);backdrop-filter:blur(16px) saturate(1.4);border-bottom:1px solid rgba(0,72,81,.06) !important;}
+html body.os-on:not(.report-mode):not(.embed-mode) .stage > .topbar .crumbs .c-main,html body.os-on:not(.report-mode):not(.embed-mode) .stage > .topbar .crumbs b{font-family:var(--ui);font-weight:700;letter-spacing:-.025em;}
+html body.os-on:not(.report-mode):not(.embed-mode) .topbar .modes{background:rgba(255,255,255,.75);border:1px solid var(--c-line);border-radius:13px;padding:3px;gap:2px;box-shadow:var(--c-sh-1);}
+html body.os-on:not(.report-mode):not(.embed-mode) .topbar .modes > button{border-radius:10px !important;font-family:var(--ui);font-weight:550;letter-spacing:-.005em;transition:color .2s,background .2s,box-shadow .25s;}
+html body.os-on:not(.report-mode):not(.embed-mode) .topbar .modes > button.on{background:#fff !important;color:var(--c-accent-deep) !important;box-shadow:0 1px 2px rgba(0,40,46,.08),0 6px 14px -8px rgba(0,40,46,.28) !important;}
+html body.os-on:not(.report-mode):not(.embed-mode) .topbar .modes > button:not(.on):hover{color:var(--c-ink) !important;background:rgba(255,255,255,.7) !important;}
+html body.os-on:not(.report-mode):not(.embed-mode) .topbar .rfsh,html body.os-on:not(.report-mode):not(.embed-mode) .topbar .btn-save-now{border-radius:11px;transition:transform .15s var(--st-ease),box-shadow .2s;}
+html body.os-on:not(.report-mode):not(.embed-mode) .topbar .rfsh:active,html body.os-on:not(.report-mode):not(.embed-mode) .topbar .btn-save-now:active{transform:scale(.96);}
+
+/* ---------------------------------------------------------------- rails: a calm list with a pillar marker */
+html body.os-on:not(.report-mode):not(.embed-mode) .rail{background:linear-gradient(180deg,#FCFDFD 0%,#F6F9F9 100%) !important;border-right:1px solid rgba(0,72,81,.07) !important;}
+html body.os-on:not(.report-mode):not(.embed-mode) .rail .rail-brand h1{font-family:var(--ui);letter-spacing:-.03em;}
+html body.os-on:not(.report-mode):not(.embed-mode) .rail .tree-row{border-radius:12px !important;transition:background .2s,transform .25s var(--st-ease),box-shadow .25s;position:relative;}
+html body.os-on:not(.report-mode):not(.embed-mode) .rail .tree-row:hover{background:rgba(255,255,255,.9) !important;transform:translateX(2px);}
+html body.os-on:not(.report-mode):not(.embed-mode) .rail .tree-row.on,html body.os-on:not(.report-mode):not(.embed-mode) .rail .tree-client.on > .tree-row{background:#fff !important;box-shadow:0 1px 2px rgba(0,40,46,.06),0 8px 20px -14px rgba(0,40,46,.35) !important;}
+html body.os-on:not(.report-mode):not(.embed-mode) .rail .tree-row.on::before{content:"";position:absolute;left:-6px;top:9px;bottom:9px;width:3px;border-radius:3px;background:var(--c-accent);}
+html body.os-on:not(.report-mode):not(.embed-mode) .rail .seo-tree-logo,html body.os-on:not(.report-mode):not(.embed-mode) .rail .os-glogo{border-radius:9px !important;box-shadow:0 0 0 1px rgba(0,72,81,.08);}
+html body.os-on:not(.report-mode):not(.embed-mode) .rail input[type=search],html body.os-on:not(.report-mode):not(.embed-mode) .rail .rail-search input{border-radius:12px !important;background:#fff !important;}
+html body.os-on:not(.report-mode):not(.embed-mode) .rail .rail-foot{background:linear-gradient(180deg,rgba(246,249,249,0),#F2F6F6 40%) !important;border-top:1px solid rgba(0,72,81,.06) !important;}
+html body.os-on:not(.report-mode):not(.embed-mode) .rail .rail-foot .btn{border-radius:11px;background:rgba(255,255,255,.8);}
+html body.os-on:not(.report-mode):not(.embed-mode) .folder-row{border-radius:10px;}
+
+/* ---------------------------------------------------------------- cards */
+html body.os-on:not(.report-mode):not(.embed-mode) .card,html body.os-on:not(.report-mode):not(.embed-mode) .tbl-card,html body.os-on:not(.report-mode):not(.embed-mode) .map-card,html body.os-on:not(.report-mode):not(.embed-mode) .seo-panel,html body.os-on:not(.report-mode):not(.embed-mode) .mt-panel,html body.os-on:not(.report-mode):not(.embed-mode) .cmp-block,html body.os-on:not(.report-mode):not(.embed-mode) .so-card,html body.os-on:not(.report-mode):not(.embed-mode) .seo-lg-card,html body.os-on:not(.report-mode):not(.embed-mode) .os-sched,html body.os-on:not(.report-mode):not(.embed-mode) .os-acct,html body.os-on:not(.report-mode):not(.embed-mode) .os-kpi,html body.os-on:not(.report-mode):not(.embed-mode) .os-serp-recent{
+  border-radius:20px !important;border-color:rgba(0,72,81,.08) !important;box-shadow:var(--c-sh-2) !important;}
+html body.os-on:not(.report-mode):not(.embed-mode) .seo-panel-h{font-family:var(--ui);letter-spacing:-.015em;}
+html body.os-on:not(.report-mode):not(.embed-mode) .seo-panel-h svg,html body.os-on:not(.report-mode):not(.embed-mode) .seo-panel-h .ico{color:var(--c-accent);}
+html body.os-on:not(.report-mode):not(.embed-mode) .card:hover,html body.os-on:not(.report-mode):not(.embed-mode) .seo-panel:hover{box-shadow:0 1px 2px rgba(0,40,46,.04),0 22px 44px -28px rgba(0,40,46,.4) !important;}
+html body.os-on:not(.report-mode):not(.embed-mode) .card,html body.os-on:not(.report-mode):not(.embed-mode) .seo-panel{transition:box-shadow .3s var(--st-ease);}
+
+/* client hero (SEO dashboard): the banner row gets the pillar glow and a fine grid */
+html body.os-on:not(.report-mode):not(.embed-mode) #seoDashboardView .seo-dash-head-row{position:relative;overflow:hidden;
+  background:radial-gradient(640px 260px at 100% 0%,color-mix(in srgb,var(--c-accent) 13%,transparent),transparent 70%),linear-gradient(180deg,#fff,#FBFDFD) !important;}
+html body.os-on:not(.report-mode):not(.embed-mode) #seoDashboardView .seo-dash-head-row::after{content:"";position:absolute;inset:0;pointer-events:none;background-image:linear-gradient(rgba(0,72,81,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(0,72,81,.05) 1px,transparent 1px);background-size:28px 28px;
+  -webkit-mask-image:linear-gradient(100deg,transparent 50%,#000 100%);mask-image:linear-gradient(100deg,transparent 50%,#000 100%);}
+html body.os-on:not(.report-mode):not(.embed-mode) #seoDashboardView .seo-dash-head-row > *{position:relative;z-index:1;}
+html body.os-on:not(.report-mode):not(.embed-mode) #seoDashboardView .seo-profile-head{background:transparent !important;border:0 !important;box-shadow:none !important;}
+html body.os-on:not(.report-mode):not(.embed-mode) #seoProfileHead h2,html body.os-on:not(.report-mode):not(.embed-mode) .seo-profile-head .seo-ph-name{font-family:var(--ui);letter-spacing:-.035em;}
+
+/* ---------------------------------------------------------------- buttons */
+html body.os-on:not(.report-mode):not(.embed-mode) .btn{border-radius:12px;font-family:var(--ui);font-weight:550;letter-spacing:-.005em;transition:transform .15s var(--st-ease),box-shadow .25s,background .2s,border-color .2s,color .2s;}
+html body.os-on:not(.report-mode):not(.embed-mode) .btn:active{transform:scale(.97);}
+html body.os-on:not(.report-mode):not(.embed-mode) .btn:not(.btn-go):not(.btn-dark):hover{border-color:color-mix(in srgb,var(--c-accent) 35%,var(--c-line));color:var(--c-ink);box-shadow:0 6px 16px -12px rgba(0,40,46,.45);}
+html body.os-on:not(.report-mode):not(.embed-mode) .btn.btn-go{background:linear-gradient(135deg,var(--c-accent),var(--c-accent-hi)) !important;border-color:transparent !important;color:#fff !important;
+  box-shadow:0 1px 0 rgba(255,255,255,.25) inset,0 10px 22px -12px color-mix(in srgb,var(--c-accent) 85%,transparent) !important;}
+html body.os-on:not(.report-mode):not(.embed-mode) .btn.btn-go:hover{filter:brightness(1.04);box-shadow:0 1px 0 rgba(255,255,255,.25) inset,0 14px 28px -12px color-mix(in srgb,var(--c-accent) 90%,transparent) !important;}
+html body.os-on:not(.report-mode):not(.embed-mode) .btn.btn-dark{background:#1D2A31 !important;border-color:#1D2A31 !important;}
+
+/* ---------------------------------------------------------------- inputs */
+html body.os-on:not(.report-mode):not(.embed-mode) .stage input[type=text],html body.os-on:not(.report-mode):not(.embed-mode) .stage input[type=search],html body.os-on:not(.report-mode):not(.embed-mode) .stage input[type=url],html body.os-on:not(.report-mode):not(.embed-mode) .stage input[type=email],html body.os-on:not(.report-mode):not(.embed-mode) .stage input[type=number],html body.os-on:not(.report-mode):not(.embed-mode) .stage input:not([type]),html body.os-on:not(.report-mode):not(.embed-mode) .stage select,html body.os-on:not(.report-mode):not(.embed-mode) .stage textarea{
+  border-radius:12px;border-color:var(--c-line);transition:border-color .2s,box-shadow .2s,background .2s;font-family:var(--ui);}
+html body.os-on:not(.report-mode):not(.embed-mode) .stage input:focus,html body.os-on:not(.report-mode):not(.embed-mode) .stage select:focus,html body.os-on:not(.report-mode):not(.embed-mode) .stage textarea:focus{border-color:var(--c-accent) !important;box-shadow:0 0 0 4px var(--c-accent-ring) !important;outline:none;}
+
+/* ---------------------------------------------------------------- the one-line intros: quiet hints */
+html body.os-on:not(.report-mode):not(.embed-mode) .mod-intro{border-radius:16px !important;background:rgba(255,255,255,.6) !important;border:1px solid rgba(0,72,81,.07) !important;box-shadow:none !important;}
+html body.os-on:not(.report-mode):not(.embed-mode) .mod-intro p{color:var(--c-ink-2) !important;}
+
+/* ---------------------------------------------------------------- tables, chips, toggles */
+html body.os-on:not(.report-mode):not(.embed-mode) table th{font-family:var(--ui);letter-spacing:.04em;}
+html body.os-on:not(.report-mode):not(.embed-mode) .chip,html body.os-on:not(.report-mode):not(.embed-mode) .pill,html body.os-on:not(.report-mode):not(.embed-mode) .tag{border-radius:999px;}
+html body.os-on:not(.report-mode):not(.embed-mode) input[type=checkbox],html body.os-on:not(.report-mode):not(.embed-mode) input[type=radio]{accent-color:var(--c-accent);}
+html body.os-on:not(.report-mode):not(.embed-mode) ::selection{background:color-mix(in srgb,var(--c-accent) 22%,transparent);}
+
+/* ---------------------------------------------------------------- modals and menus */
+html body.os-on:not(.report-mode):not(.embed-mode) .modal{border-radius:24px !important;box-shadow:var(--c-sh-3) !important;}
+html body.os-on:not(.report-mode):not(.embed-mode) .modal-back,html body.os-on:not(.report-mode):not(.embed-mode) .modal-scrim{-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);}
+
+/* ---------------------------------------------------------------- scrollbars */
+html body.os-on:not(.report-mode):not(.embed-mode) ::-webkit-scrollbar{width:10px;height:10px;}
+html body.os-on:not(.report-mode):not(.embed-mode) ::-webkit-scrollbar-thumb{background:rgba(0,72,81,.14);border-radius:10px;border:3px solid transparent;background-clip:content-box;}
+html body.os-on:not(.report-mode):not(.embed-mode) ::-webkit-scrollbar-thumb:hover{background:rgba(0,72,81,.26);background-clip:content-box;}
+html body.os-on:not(.report-mode):not(.embed-mode) ::-webkit-scrollbar-track{background:transparent;}
+
+/* ---------------------------------------------------------------- home tweaks */
+.osh-moves em i{display:block;font-style:normal;font-weight:400;font-size:11.5px;color:rgba(51,62,71,.55);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.osh-bars{gap:14px;height:132px;align-items:stretch;justify-content:center;}
+.osh-bar{flex:1;max-width:72px;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:6px;min-width:0;}
+.osh-bar i{width:100%;flex:none;border-radius:10px 10px 4px 4px;background:linear-gradient(180deg,#A8E6EE,rgba(168,230,238,.25));transform-origin:bottom;animation:oshRise .8s cubic-bezier(.2,.8,.2,1) both;}
+.osh-bar.now i{background:linear-gradient(180deg,#FFB677,#E87721);}
+.osh-bar em{font-style:normal;font-size:11px;font-weight:600;color:rgba(255,255,255,.75);white-space:nowrap;}
+.osh-bar small{font-size:11px;color:rgba(255,255,255,.5);}
+.osh-ring b{display:flex !important;align-items:baseline;justify-content:center;place-items:unset !important;padding-top:34px;}
+.osh-ring b span{margin-left:1px;}
+@media (prefers-reduced-motion:reduce){html body.os-on:not(.report-mode):not(.embed-mode) .stage .panels > *,html body.os-on:not(.report-mode):not(.embed-mode) .seo-view.on{animation:none !important;}}

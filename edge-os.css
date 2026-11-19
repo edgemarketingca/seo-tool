@@ -302,8 +302,7 @@ body.os-on .topnav{flex-wrap:wrap;row-gap:8px;}
 #gbpRail .rail-brand h1{font-size:0 !important;} #gbpRail .rail-brand h1::after{content:"Clients";font-size:18px;}
 #seoRail .rail-brand h1{font-size:0 !important;} #seoRail .rail-brand h1::after{content:"Clients";font-size:18px;}
 
-/* ==========================================================================
-   HOME: command centre (EDGE palette: slate #333E47, teal #004851, aqua #A8E6EE,
+/* ===================================================================   HOME: command centre (EDGE palette: slate #333E47, teal #004851, aqua #A8E6EE,
    orange #E87721, mist #F1F5F5, lavender #9594C9, sage #869791)
    ========================================================================== */
 body.os-hub #hubScreen .hub-hero, body.os-hub #hubScreen #hubGrid, body.os-hub #hubScreen .hub-kbd{display:none !important;}
@@ -460,3 +459,6 @@ body.os-sec-report .os-btn.go{background:linear-gradient(135deg,#6F6DB5,#9594C9)
 .osh .osh-t.ads h3,.osh .osh-t.ads .osh-big b{color:#fff !important;}
 .osh .osh-t h3{color:#333E47;} .osh .osh-t.ads h3{color:#fff !important;}
 #adsStage .os-head select.os-sel{background:#fff !important;color:#004851 !important;border-color:transparent !important;font-weight:600;}
+=======
+/* Google Ads-only clients: not part of SEO */
+body.os-sec-seo #seoClientTree .os-adsfolder{display:none !important;}
