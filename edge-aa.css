@@ -15,6 +15,7 @@ body.aab-on #seoStage .mod-intro{display:none !important;}
 .aab-client{display:inline-flex;align-items:center;gap:7px;color:var(--ink2);font-size:13px;padding-left:12px;border-left:1px solid var(--ln);white-space:nowrap;}
 .aab-client img{width:18px;height:18px;object-fit:contain;border-radius:3px;}
 .aab-client em{font-style:normal;font-size:11px;font-weight:500;color:#2563EB;background:#E8F0FE;border-radius:4px;padding:2px 6px;}
+.aab-client em.team{color:#4F4D9A;background:#F1F0FA;}
 .aab-tc{display:flex;gap:22px;height:52px;}
 .aab-tc button{border:0;background:none;font:inherit;font-weight:500;color:var(--ink3);cursor:pointer;border-bottom:2px solid transparent;padding:0 2px;height:52px;}
 .aab-tc button.on{color:var(--ink);border-bottom-color:var(--ink);}
@@ -134,3 +135,70 @@ body.aab-on #seoStage .mod-intro{display:none !important;}
 .aab-pp-off{margin-top:14px;background:#FFF8E6;border:1px solid #F6E2A6;border-radius:6px;padding:8px 10px;font-size:12px;color:#7A5A00;}
 @media (max-width:900px){.aab-body{grid-template-columns:1fr;}.aab-pages{position:static;max-height:none;border-right:0;border-bottom:1px solid var(--ln);}.aab-zoom{display:none;}.aab-top{grid-template-columns:1fr;height:auto;padding:8px 12px;}}
 @media (prefers-reduced-motion: reduce){.aab-menu,.aab-pick{animation:none;}.aab-plus{transition:none;}}
+
+/* ==========================================================================
+   AI VISIBILITY SIZE: the workspace editor (team + client report) draws every
+   widget the way the AI Visibility report does: big standalone number cards,
+   14px quiet titles, roomy cards. Scoped to .aab, so published links keep
+   exactly the look they have today.
+   ========================================================================== */
+.aab .aab-sheet{max-width:1240px;padding:26px 30px 34px;}
+.aab .rp{font-family:Geist,"Helvetica Neue",Helvetica,Arial,sans-serif;color:#555;}
+.aab .rp-grid.free > .rp-w{padding:20px 22px;border:1px solid #EBEDF0;border-radius:8px;background:#fff;box-shadow:none;}
+.aab .rp-grid.free > .rp-w:hover{box-shadow:0 1px 2px rgba(16,24,40,.04),0 12px 28px -18px rgba(16,24,40,.28);}
+.aab .rp-wh{margin-bottom:16px;min-height:22px;}
+.aab .rp-wt h3,.aab .rp-wt h3 *{font:400 14px/1.35 Geist,"Helvetica Neue",Arial,sans-serif !important;color:#555 !important;letter-spacing:0 !important;}
+.aab .rp-wt .rp-wic,.aab .rp-wt .rp-src,.aab .rp-wt p{display:none !important;}
+/* tools appear on hover, like AgencyAnalytics */
+.aab .rp-w .rp-acts{opacity:0;transform:translateY(-2px);transition:opacity .18s,transform .18s;}
+.aab .rp-w:hover .rp-acts,.aab .rp-w:focus-within .rp-acts{opacity:1;transform:none;}
+.aab .rp-acts .rp-ib{font:500 12px Geist,Arial,sans-serif;color:#555;background:#fff;border:1px solid #EBEDF0;border-radius:6px;height:28px;padding:0 9px;}
+.aab .rp-acts .rp-ib:hover{background:#F4F4F5;}
+.aab .rp-acts select{font:500 12px Geist,Arial,sans-serif;}
+
+/* Number rows: no box around the box. Each number is its own big card. */
+.aab .rp-grid.free > .rp-w:has(> [data-body] > .rp-kpis:only-child){padding:0;border:0;background:transparent;box-shadow:none;}
+.aab .rp-grid.free > .rp-w:has(> [data-body] > .rp-kpis:only-child) > .rp-wh{position:absolute;top:8px;right:8px;z-index:4;margin:0;min-height:0;}
+.aab .rp-grid.free > .rp-w:has(> [data-body] > .rp-kpis:only-child) > .rp-wh .rp-wt{display:none;}
+.aab .rp-w .rp-kpis{display:grid !important;grid-template-columns:repeat(auto-fit,minmax(250px,1fr)) !important;gap:16px !important;}
+.aab .rp-kpi{container-type:inline-size;display:flex;flex-direction:column;align-items:stretch;text-align:center;min-height:210px;padding:20px 22px 18px;border:1px solid #EBEDF0;border-radius:8px;background:#fff;
+  transition:box-shadow .25s ease,transform .25s cubic-bezier(.2,.8,.2,1);}
+.aab .rp-kpi:hover{box-shadow:0 1px 2px rgba(16,24,40,.04),0 14px 30px -18px rgba(16,24,40,.3);transform:translateY(-1px);}
+.aab .rp-kpi-h{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.aab .rp-kpi-l{font:400 14px Geist,Arial,sans-serif !important;color:#555 !important;letter-spacing:0 !important;text-transform:none !important;text-align:left;}
+.aab .rp-kpi-h svg.rp-gl{width:18px !important;height:18px !important;}
+.aab .rp-kpi-v{flex:1;display:flex !important;flex-direction:column;align-items:center;justify-content:center;gap:12px;margin:14px 0 6px !important;
+  font:700 clamp(40px,15cqw,64px)/1 Geist,"Helvetica Neue",Arial,sans-serif !important;color:#555 !important;letter-spacing:-.02em;white-space:nowrap;}
+.aab .rp-kpi-v .aiv-delta{font:600 14px Geist,Arial,sans-serif !important;letter-spacing:0;}
+.aab .rp-kpi-n{font-size:13px !important;color:#8A949C !important;min-height:0;}
+.aab .rp-kpi svg:not(.rp-gl){height:44px !important;margin-top:10px;}
+/* Big single numbers elsewhere */
+.aab .rp-big{font:700 clamp(40px,6vw,64px)/1 Geist,Arial,sans-serif !important;color:#555 !important;letter-spacing:-.02em;}
+/* Tables, legends and lists at report size */
+.aab .rp-w table{font-size:14px;color:#555;}
+.aab .rp-w th{font-size:12px !important;color:#A1A1AA !important;font-weight:500 !important;letter-spacing:0 !important;text-transform:none !important;}
+.aab .rp-w td{padding-top:12px !important;padding-bottom:12px !important;}
+.aab .rp-legend{font-size:14px;}
+.aab .rp-err{font-size:14px;color:#8A949C;padding:28px 10px;}
+/* Page titles: centred, big, no rule (AgencyAnalytics' page heading) */
+.aab .rp-grid.free > .rp-w.sec{border:0;background:transparent;padding:0;}
+.aab .rp-w.sec .rp-sec{display:flex !important;flex-direction:column;align-items:center !important;justify-content:center !important;text-align:center !important;border:0 !important;padding:18px 0 4px !important;}
+.aab .rp-w.sec{border-bottom:0 !important;}
+.aab .rp-w.sec::after,.aab .rp-w.sec .rp-sec::after{display:none !important;}
+.aab .rp-w.sec .rp-sec-t{font:700 34px/1.1 Geist,Arial,sans-serif !important;color:#555 !important;letter-spacing:-.02em;text-align:center;}
+.aab .rp-w.sec .rp-sec-d{font-size:14px;color:#8A949C;text-align:center;margin-top:6px;}
+
+.aab .rp-w .rp-kpi-v{font-size:clamp(30px,15cqw,64px) !important;}
+/* Keyword scorecards at report size */
+.aab .rp-kwc b,.aab .rp-kwcard b{font-size:28px;}
+.aab .rp.rp-aa .rp-w.sec{display:block !important;}
+.aab .rp.rp-aa .rp-w.sec > .rp-wh{position:absolute;top:6px;right:6px;margin:0;z-index:3;}
+.aab .rp.rp-aa .rp-w.sec > [data-body]{width:100%;height:100%;}
+.aab .rp.rp-aa .rp-w.sec > .rp-wh{opacity:0;transition:opacity .15s;} .aab .rp.rp-aa .rp-w.sec:hover > .rp-wh{opacity:1;}
+
+/* Client report: its saved layout is what the published link shows, so the editor never changes
+   heights by itself here. Number rows stay on one line and the numbers scale to the card instead. */
+.aab.client .rp-w .rp-kpis{grid-template-columns:none !important;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);height:100%;}
+.aab.client .rp-kpi{min-height:0;height:100%;padding:16px 18px 14px;}
+.aab.client .rp-w .rp-kpi-v{font-size:clamp(22px,14cqw,72px) !important;margin:8px 0 4px !important;}
+.aab.client .rp-grid.free > .rp-w:has(> [data-body] > .rp-kpis:only-child) > [data-body]{height:100%;}

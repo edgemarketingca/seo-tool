@@ -2,7 +2,7 @@
    EDGE OS: one tool, four sections, everything connected.
 
      SEO               Clients · GBP Tracker · Live SERP (the three existing tools, one section).
-                       The client list follows Robert's "SEO Clients" column on Tidyboard:
+                       The client list follows Robert's "SEO Clients" column on Baseboard:
                        a client taken off his board moves to Inactive / Archived, and back
                        again when the card returns.
      Google Ads        Read only. Every Google Ads account with its logo, the month's numbers,
@@ -13,14 +13,14 @@
      Web Maintenance   The monthly WordPress care desk (maintenance.js): red until done, what got
                        done and by whom, and its reminders on the 1st. Its due count shows on the
                        section button, and "Add to Basecamp" turns the month's list into a task.
-     Reporting         The only place reports appear: AI Visibility, Team report, Client report
+     Reporting         Two tabs only: Team report and Client report, both in the AgencyAnalytics editor
                        and embedded dashboards, plus a Reporting home with every client's report
                        status, the AgencyAnalytics-style monthly template, share links and the
                        monthly send schedule (sent by tracker/report-mailer.gs).
 
    The EDGE brain is the shared record behind all four: one client list (state.seoClients),
    channel accounts linked to those clients, and Basecamp tasks tied to a client and a section.
-   Tasks go through the Tidyboard extension (your own Basecamp login; no tokens here).
+   Tasks go through the Baseboard extension (your own Basecamp login; no tokens here).
 
    Storage: client edits and settings ride the workspace's own sync (state, save()). Channel data
    is bigger, so it lives in its own Firestore documents: users/{uid}/edgeChannels/{source}_{id}.
@@ -142,10 +142,10 @@ function buildBar(){
     '<button type="button" class="os-sec" role="tab" data-sec="' + s.k + '" title="' + esc(s.l) + ' (Alt+' + s.key + ')">' + s.ic + '<span class="l">' + esc(s.l) + '</span><span class="os-badge" data-badge="' + s.k + '"></span></button>').join('');
   const sub = document.createElement('div'); sub.className = 'os-sub'; sub.id = 'osSub';
   sub.innerHTML = SEO_SUBS.map(s => '<button type="button" class="os-sub-b" data-sub="' + s.k + '" title="' + esc(s.l) + '">' + s.ic + '<span class="l">' + esc(s.l) + '</span></button>').join('') +
-    '<button type="button" class="os-sub-act" id="osBoardSync" title="Match the SEO client list to the SEO Clients column on Robert’s Tidyboard">' + ICON.sync + '<span class="l">Robert’s board</span></button>';
+    '<button type="button" class="os-sub-act" id="osBoardSync" title="Match the SEO client list to the SEO Clients column on Robert’s Baseboard">' + ICON.sync + '<span class="l">Robert’s board</span></button>';
   const grow = document.createElement('div'); grow.className = 'os-grow';
   const tasks = document.createElement('button'); tasks.type = 'button'; tasks.className = 'os-tasks-btn'; tasks.id = 'osTasksBtn';
-  tasks.title = 'Your Basecamp tasks, through Tidyboard (T)';
+  tasks.title = 'Your Basecamp tasks, through Baseboard (T)';
   tasks.innerHTML = ICON.tasks + '<span class="l">Tasks</span><span class="os-badge" id="osTasksBadge"></span>';
   const mods = $('tnMods');
   mods.parentNode.insertBefore(secs, mods.nextSibling);
@@ -279,7 +279,7 @@ function hubHtml(){
         (S.best.length ? '<div class="osh-moves"><small>Climbing this month</small>' + S.best.slice(0, 3).map(m => '<span>' + logoHtml(logoOf(m.c), m.c.name) + '<em>' + esc(m.c.name) + (m.k ? '<i>' + esc(m.k) + '</i>' : '') + '</em><b>▲ ' + m.from + ' → ' + m.to + '</b></span>').join('') + '</div>' : '') + '</div>' +
         '<span class="osh-go">Open SEO <svg viewBox="0 0 24 24"><path d="M5 12h13M13 6l6 6-6 6"/></svg></span></button>' +
       /* Google Ads: deep teal, the spend by month */
-      '<button type="button" class="osh-t ads" data-osgo="ads" style="--p:' + PILLAR.ads + '"><span class="osh-k">2</span><div class="osh-th"><span class="osh-ic">' + ICON.ads + '</span><div><small>Marketing · read only</small><h3>Google Ads</h3></div></div>' +
+      '<button type="button" class="osh-t ads" data-osgo="ads" style="--p:' + PILLAR.ads + '"><span class="osh-k">2</span><div class="osh-th"><span class="osh-ic">' + chIcon('google_ads', 26) + '</span><div><small>Marketing · read only</small><h3>Google Ads</h3></div></div>' +
         '<div class="osh-big">' + count(A.spend, 'money') + '<span>spent in ' + esc(monthName(A.m)) + (dl != null ? ' · <b class="' + (dl > 0 ? 'up' : 'down') + '">' + (dl > 0 ? '▲' : '▼') + ' ' + Math.abs(dl) + '%</b>' : '') + '</span></div>' +
         '<div class="osh-bars">' + bars + '</div>' +
         '<div class="osh-foot">' + (A.logos.length ? '<span class="osh-stack">' + A.logos.map(c => logoHtml(logoOf(c), c.name)).join('') + '</span>' : '') + '<span>' + A.n + ' accounts</span>' + (A.attn ? '<span class="osh-warn">' + A.attn + ' need attention</span>' : '') + '</div>' +
@@ -372,7 +372,7 @@ const dHead = (title, sub) => '<div class="os-dh"><div style="flex:1;min-width:0
 
 /* ======================================================================
    TIDYBOARD BRIDGE → Basecamp
-   The Tidyboard extension (v2.1+) answers messages from seo.edgemarketing.ca using the
+   The Baseboard extension (v2.1+) answers messages from seo.edgemarketing.ca using the
    Basecamp login already in Chrome. Its id arrives with a hello the extension posts to this
    page; it can also be pasted once in Tasks → Settings.
    Messages: {action:'ping'|'me'|'myTodos'|'projects'|'createTodo'|'completeTodo'|'boardColumn'|'addToBoard', ...}
@@ -391,15 +391,15 @@ const Bridge = {
   available(){ return !!(this.id && window.chrome && chrome.runtime && chrome.runtime.sendMessage); },
   call(action, payload){
     return new Promise((res, rej) => {
-      if (!this.available()) return rej(new Error('Tidyboard isn’t connected to this page yet.'));
+      if (!this.available()) return rej(new Error('Baseboard isn’t connected to this page yet.'));
       let done = false;
-      const t = setTimeout(() => { if (!done){ done = true; rej(new Error('Tidyboard didn’t answer. Is Chrome signed in to Basecamp?')); } }, 20000);
+      const t = setTimeout(() => { if (!done){ done = true; rej(new Error('Baseboard didn’t answer. Is Chrome signed in to Basecamp?')); } }, 20000);
       try{
         chrome.runtime.sendMessage(this.id, Object.assign({edge: 1, action}, payload || {}), r => {
           if (done) return; done = true; clearTimeout(t);
           const le = chrome.runtime.lastError;
-          if (le) return rej(new Error(le.message || 'Tidyboard is not installed or not updated.'));
-          if (!r || r.error) return rej(new Error((r && r.error) || 'No answer from Tidyboard.'));
+          if (le) return rej(new Error(le.message || 'Baseboard is not installed or not updated.'));
+          if (!r || r.error) return rej(new Error((r && r.error) || 'No answer from Baseboard.'));
           res(r.data);
         });
       }catch(e){ done = true; clearTimeout(t); rej(e); }
@@ -469,7 +469,7 @@ const Tasks = {
         (t.column ? '<span>· ' + esc(t.column) + '</span>' : '') + '</small></div>' +
         (t.url ? '<a class="os-t-open" href="' + esc(t.url) + '" target="_blank" rel="noopener" title="Open in Basecamp">' + ICON.ext + '</a>' : '') + '</div>').join('') + '</div>'
         : '<div class="os-empty" style="margin:10px 0;padding:30px 20px"><div class="ic">' + ICON.tasks + '</div><h3>' + (this.at ? 'All clear' : 'Loading your tasks…') + '</h3><p>' +
-          (this.at ? (this.tab === 'client' ? 'No open tasks mention this client.' : 'Nothing assigned to you in Basecamp right now.') : 'Asking Basecamp through Tidyboard.') + '</p></div>') +
+          (this.at ? (this.tab === 'client' ? 'No open tasks mention this client.' : 'Nothing assigned to you in Basecamp right now.') : 'Asking Basecamp through Baseboard.') + '</p></div>') +
       '<div style="margin-top:12px;display:flex;gap:8px;align-items:center"><button type="button" class="os-btn" data-tr>' + ICON.sync + 'Refresh</button><span class="os-sync-line"><i></i>' + (this.at ? 'Updated ' + new Date(this.at).toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'}) : '') + '</span></div>';
     body.querySelector('[data-tr]').addEventListener('click', () => this.refresh());
     body.querySelectorAll('.os-chk').forEach(ch => ch.addEventListener('click', async () => {
@@ -487,7 +487,7 @@ const Tasks = {
     body.innerHTML = '<div class="os-form"><label>Task</label><input class="os-in" data-f="title" maxlength="240" value="' + esc(p.title || (x.client ? x.client.name + ' — ' : '')) + '">' +
       '<label>Notes</label><textarea data-f="notes" placeholder="Optional">' + esc(p.notes || '') + '</textarea>' +
       '<div class="os-row"><div><label>Basecamp project</label><select class="os-sel" data-f="project"><option value="">Loading…</option></select></div><div><label>To-do list</label><select class="os-sel" data-f="list"></select></div></div>' +
-      '<div class="os-row"><div><label>Due</label><input class="os-in" type="date" data-f="due" value="' + esc(p.due || '') + '"></div><div><label>Put on Tidyboard</label><select class="os-sel" data-f="board"><option value="">My board, default column</option><option value="none">Don’t add to a board</option></select></div></div>' +
+      '<div class="os-row"><div><label>Due</label><input class="os-in" type="date" data-f="due" value="' + esc(p.due || '') + '"></div><div><label>Put on Baseboard</label><select class="os-sel" data-f="board"><option value="">My board, default column</option><option value="none">Don’t add to a board</option></select></div></div>' +
       '<div class="os-note">Assigned to you. Tagged <b>' + esc(x.label) + '</b>' + (x.client ? ' and <b>' + esc(x.client.name) + '</b>' : '') + ' so it shows up on this client in every section.</div>' +
       '<button type="button" class="os-btn go" data-add>' + ICON.plus + 'Add to Basecamp</button></div>';
     const ps = body.querySelector('[data-f="project"]'), ls = body.querySelector('[data-f="list"]');
@@ -511,23 +511,23 @@ const Tasks = {
         const t = await Bridge.call('createTodo', {projectId: get('project'), listId: get('list'), title, notes: (get('notes') ? get('notes') + '\n\n' : '') + tag, due: get('due') || null, assignMe: true, board: get('board') !== 'none'});
         setSetting('lastProject', get('project'));
         if (t) this.list.unshift(t);
-        FX.done(btn, 'Added to Basecamp' + (get('board') !== 'none' ? ' and your Tidyboard' : ''));
+        FX.done(btn, 'Added to Basecamp' + (get('board') !== 'none' ? ' and your Baseboard' : ''));
         this.prefill = null; this.tab = 'mine'; this.paint(); this.paintBadge();
       }catch(e){ btn.disabled = false; btn.innerHTML = ICON.plus + 'Add to Basecamp'; FX.toast(e.message, 'del'); }
     });
   },
   paintSetup(body){
-    body.innerHTML = '<div class="os-empty" style="margin:6px 0 14px;padding:30px 22px"><div class="ic">' + ICON.tasks + '</div><h3>Connect Tidyboard</h3>' +
-      '<p>Tasks come from Basecamp through the Tidyboard extension, using the Basecamp login already in this Chrome. No passwords or tokens are stored here.</p></div>' +
-      '<div class="os-note"><b>Needs Tidyboard 2.1 or newer.</b> That version adds a small, safe bridge: it only answers this site (seo.edgemarketing.ca), only reads your own to-dos, projects and boards, and only creates or completes a to-do when you click here. Once it’s installed, open any Basecamp page once, then come back. This page connects by itself.</div>' +
+    body.innerHTML = '<div class="os-empty" style="margin:6px 0 14px;padding:30px 22px"><div class="ic">' + ICON.tasks + '</div><h3>Connect Baseboard</h3>' +
+      '<p>Tasks come from Basecamp through the Baseboard extension, using the Basecamp login already in this Chrome. No passwords or tokens are stored here.</p></div>' +
+      '<div class="os-note"><b>Needs Baseboard 2.1 or newer.</b> That version adds a small, safe bridge: it only answers this site (seo.edgemarketing.ca), only reads your own to-dos, projects and boards, and only creates or completes a to-do when you click here. Once it’s installed, open any Basecamp page once, then come back. This page connects by itself.</div>' +
       '<div style="margin-top:12px"><button type="button" class="os-btn" data-tt2="set">Paste the extension ID instead</button></div>';
     body.querySelector('[data-tt2]').addEventListener('click', () => { this.tab = 'set'; this.paint(); });
   },
   paintSettings(body){
-    body.innerHTML = '<div class="os-form"><label>Tidyboard extension ID</label><input class="os-in" data-f="id" placeholder="32 letters, from chrome://extensions" value="' + esc(Bridge.id) + '">' +
+    body.innerHTML = '<div class="os-form"><label>Baseboard extension ID</label><input class="os-in" data-f="id" placeholder="32 letters, from chrome://extensions" value="' + esc(Bridge.id) + '">' +
       '<label>Robert’s board: person and column to follow for SEO clients</label><div class="os-row"><input class="os-in" data-f="person" value="' + esc(Board.person()) + '"><input class="os-in" data-f="col" value="' + esc(Board.column()) + '"></div>' +
       '<div class="os-note">The SEO client list follows the cards in that column. A client whose card leaves it moves to <b>Inactive / Archived</b>; when the card comes back, so do they.</div>' +
-      '<button type="button" class="os-btn go" data-save>Save</button><span class="os-sync-line" style="margin-top:4px"><i style="background:' + (Bridge.available() ? 'var(--os-good)' : 'var(--os-warn)') + '"></i>' + (Bridge.available() ? 'Tidyboard connected' + (Bridge.hello ? ' (it said hello)' : '') : 'Not connected yet') + '</span></div>';
+      '<button type="button" class="os-btn go" data-save>Save</button><span class="os-sync-line" style="margin-top:4px"><i style="background:' + (Bridge.available() ? 'var(--os-good)' : 'var(--os-warn)') + '"></i>' + (Bridge.available() ? 'Baseboard connected' + (Bridge.hello ? ' (it said hello)' : '') : 'Not connected yet') + '</span></div>';
     body.querySelector('[data-save]').addEventListener('click', ev => {
       const id = body.querySelector('[data-f="id"]').value.trim();
       if (id && !/^[a-p]{32}$/.test(id)){ FX.toast('That doesn’t look like an extension ID', 'del'); return; }
@@ -563,11 +563,11 @@ const Board = {
   },
   async sync(loud){
     const btn = $('osBoardSync');
-    if (!Bridge.available()){ if (loud){ Tasks.open(); Tasks.tab = 'set'; Tasks.paint(); FX.toast('Connect Tidyboard first', 'sync'); } return; }
+    if (!Bridge.available()){ if (loud){ Tasks.open(); Tasks.tab = 'set'; Tasks.paint(); FX.toast('Connect Baseboard first', 'sync'); } return; }
     btn && btn.classList.add('spin');
     try{
       const cards = await Bridge.call('boardColumn', {person: this.person(), column: this.column()});
-      if (!Array.isArray(cards)) throw new Error('Tidyboard didn’t find that column.');
+      if (!Array.isArray(cards)) throw new Error('Baseboard didn’t find that column.');
       if (!cards.length) throw new Error('The "' + this.column() + '" column on ' + this.person() + '’s board is empty. Nothing changed, to be safe.');
       const arch = this.archFolder(), moved = [], back = [];
       seoOnly().forEach(c => {
@@ -609,6 +609,14 @@ const Board = {
 const SOURCES = {
   google_ads: {l: 'Google Ads', c: '#4285F4'}, meta_ads: {l: 'Meta Ads', c: '#1877F2'},
   facebook: {l: 'Facebook', c: '#1877F2'}, instagram: {l: 'Instagram', c: '#E1306C'}, linkedin: {l: 'LinkedIn', c: '#0A66C2'}
+};
+/* Channel icons: each platform's own site icon (as analytics tools show sources), with a coloured letter if it can't load. */
+const CH_DOM = {google_ads: 'ads.google.com', meta_ads: 'facebook.com', facebook: 'facebook.com', instagram: 'instagram.com', linkedin: 'linkedin.com', google: 'google.com', gbp: 'business.google.com', ga4: 'analytics.google.com', gsc: 'search.google.com'};
+const chIcon = (src, size, cls) => {
+  size = size || 18; const S = SOURCES[src] || {l: src, c: '#8795a1'};
+  const d = CH_DOM[src];
+  return '<span class="os-chi' + (cls ? ' ' + cls : '') + '" title="' + esc(S.l) + '" style="width:' + size + 'px;height:' + size + 'px;--chc:' + S.c + '"><b style="font-size:' + Math.round(size * .55) + 'px">' + esc(String(S.l).charAt(0)) + '</b>' +
+    (d ? '<img alt="" src="https://www.google.com/s2/favicons?domain=' + d + '&sz=64" width="' + size + '" height="' + size + '" referrerpolicy="no-referrer" onload="this.classList.add(\'ok\')" onerror="this.remove()">' : '') + '</span>';
 };
 const Channels = {
   map: {}, loaded: false, unsub: null,
@@ -746,7 +754,7 @@ const Ads = {
     const months = Array.from(new Set([].concat.apply([], accts.map(a => Object.keys(a.months || {}))))).sort().reverse().slice(0, 13);
     const tot = (mm, k) => accts.reduce((t, a) => t + num(((a.months || {})[mm] || {})[k]), 0);
     const kpi = (l, cur, prev, f, lower) => { const d = prev ? Math.round((cur - prev) / prev * 100) : null, good = d == null ? '' : (lower ? d < 0 : d > 0) ? 'up' : d === 0 ? '' : 'down';
-      return '<div class="os-kpi"><small>' + esc(l) + '</small><b>' + f(cur) + '</b><div class="d ' + good + '">' + (d == null ? '&nbsp;' : (d > 0 ? '▲ ' : d < 0 ? '▼ ' : '') + Math.abs(d) + '% vs ' + esc(monthName(pm).split(' ')[0])) + '</div></div>'; };
+      return '<div class="os-kpi"><small>' + chIcon(src === 'google_ads' ? 'google_ads' : 'facebook', 14) + esc(l) + '</small><b>' + f(cur) + '</b><div class="d ' + good + '">' + (d == null ? '&nbsp;' : (d > 0 ? '▲ ' : d < 0 ? '▼ ' : '') + Math.abs(d) + '% vs ' + esc(monthName(pm).split(' ')[0])) + '</div></div>'; };
     const sp = tot(m, 'spend'), cl = tot(m, 'clicks'), im = tot(m, 'impressions'), cv = tot(m, 'conversions');
     const psp = tot(pm, 'spend'), pcl = tot(pm, 'clicks'), pim = tot(pm, 'impressions'), pcv = tot(pm, 'conversions');
     const last = accts.reduce((t, a) => Math.max(t, a._at || 0), 0), lastBy = (accts.find(a => a._at === last) || {})._by || '';
@@ -755,10 +763,10 @@ const Ads = {
       .filter(r => !this.filter || norm(r.a.name + ' ' + (r.c ? r.c.name : '')).indexOf(norm(this.filter)) > -1)
       .sort((x, y) => (Attention.level(y.att) === 'bad') - (Attention.level(x.att) === 'bad') || num(y.cur.spend) - num(x.cur.spend));
     const attn = rows.filter(r => r.att.length);
-    st.innerHTML = '<div class="os-head"><div><h1>' + (src === 'google_ads' ? 'Google Ads' : 'Paid Social') + '</h1><p>' +
+    st.innerHTML = '<div class="os-head"><div><h1 class="os-h1ic">' + (src === 'google_ads' ? chIcon('google_ads', 34, 'ring') + 'Google Ads' : '<span class="os-icpair">' + chIcon('facebook', 30, 'ring') + chIcon('instagram', 30, 'ring') + '</span>Paid Social') + '</h1><p>' +
       (src === 'google_ads' ? 'Every Google Ads account, read only: the month’s numbers, campaigns and the accounts that need a look.' : 'Facebook and Instagram ads (Meta Ads Manager), read only.') + '</p></div><span class="sp"></span>' +
       '<span class="os-chip ro">Read only</span>' +
-      '<div class="os-tabs"><button type="button" class="os-tab' + (src === 'google_ads' ? ' on' : '') + '" data-src="google_ads"><i style="background:#4285F4"></i>Google Ads</button><button type="button" class="os-tab' + (src === 'meta_ads' ? ' on' : '') + '" data-src="meta_ads"><i style="background:#1877F2"></i>Paid Social</button></div>' +
+      '<div class="os-tabs"><button type="button" class="os-tab' + (src === 'google_ads' ? ' on' : '') + '" data-src="google_ads">' + chIcon('google_ads', 16) + 'Google Ads</button><button type="button" class="os-tab' + (src === 'meta_ads' ? ' on' : '') + '" data-src="meta_ads">' + chIcon('facebook', 16) + chIcon('instagram', 16) + 'Paid Social</button></div>' +
       (months.length ? '<select class="os-sel" data-month>' + months.map(x => '<option value="' + x + '"' + (x === m ? ' selected' : '') + '>' + esc(monthName(x)) + '</option>').join('') + '</select>' : '') + '</div>';
     if (!accts.length){
       st.innerHTML += '<div class="os-empty"><div class="ic">' + ICON.ads + '</div><h3>No ' + (src === 'google_ads' ? 'Google Ads' : 'Meta Ads') + ' data yet</h3>' +
@@ -777,7 +785,7 @@ const Ads = {
         const a = r.a, cur = r.cur, lvl = Attention.level(r.att);
         const trend = Object.keys(a.months || {}).sort().slice(-8).map(k => num(a.months[k][src === 'google_ads' ? 'conversions' : 'spend']));
         return '<div class="os-acct" style="animation-delay:' + Math.min(i * 30, 600) + 'ms" data-acct="' + esc(Channels.key(src, a.id)) + '" tabindex="0">' +
-          '<div class="os-acct-h">' + logoHtml(r.c ? logoOf(r.c) : a.logo, a.name) + '<div class="os-acct-n"><b>' + esc(r.c ? r.c.name : a.name) + '</b><small>' + esc(src === 'google_ads' ? (a.id ? String(a.id).replace(/^(\d{3})(\d{3})(\d{4})$/, '$1-$2-$3') : '') : a.name) + '</small></div><span class="os-dot ' + (lvl || (num(cur.spend) ? '' : 'off')) + '"></span></div>' +
+          '<div class="os-acct-h"><span class="os-acct-lg">' + logoHtml(r.c ? logoOf(r.c) : a.logo, a.name) + chIcon(src === 'google_ads' ? 'google_ads' : 'facebook', 16, 'badge') + '</span>' + '<div class="os-acct-n"><b>' + esc(r.c ? r.c.name : a.name) + '</b><small>' + esc(src === 'google_ads' ? (a.id ? String(a.id).replace(/^(\d{3})(\d{3})(\d{4})$/, '$1-$2-$3') : '') : a.name) + '</small></div><span class="os-dot ' + (lvl || (num(cur.spend) ? '' : 'off')) + '"></span></div>' +
           '<div class="os-acct-m"><div><small>Spend</small><b>' + money(cur.spend) + '</b></div><div><small>' + (src === 'google_ads' ? 'Conv.' : 'Results') + '</small><b>' + fmt(cur.conversions) + '</b></div><div><small>' + (src === 'google_ads' ? 'CPA' : 'CPR') + '</small><b>' + (num(cur.conversions) ? money(cur.spend / cur.conversions) : '—') + '</b></div></div>' +
           spark(trend, lvl === 'bad' ? '#e0483c' : '#e87722') +
           '<div class="os-acct-link">' + (r.c ? ICON.link.replace('<svg', '<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"') + 'Linked to <b>' + esc(r.c.name) + '</b>' : '<span style="color:var(--os-warn)">Not linked to a client yet</span>') + '</div></div>';
@@ -831,41 +839,90 @@ const TEMPLATE = [
   {type: 'social_kpis', size: 'xl', cols: 12, only: 'social'}, {type: 'social_posts', size: 'l', cols: 12, only: 'social'},
   {type: 'insight_summary', size: 'l', cols: 12}
 ];
+/* Reporting has no client list on the left: one client switcher in the header instead. */
+const Picker = {
+  el: null, pop: null,
+  list(){ return seoClients().filter(c => !isArchived(c)).sort((a, b) => String(a.name).localeCompare(String(b.name))); },
+  mount(){
+    const bar = document.querySelector('#seoStage > .topbar'); if (!bar) return;
+    if (!this.el || !this.el.isConnected){
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'os-rpick'; b.setAttribute('aria-haspopup', 'listbox');
+      bar.insertBefore(b, bar.firstChild); this.el = b;
+      b.addEventListener('click', e => { e.stopPropagation(); this.pop ? this.close() : this.open(); });
+      const cr = $('seoCrumbs'); if (cr) new MutationObserver(() => this.paint()).observe(cr, {childList: true, subtree: true, characterData: true});
+    }
+    this.paint();
+  },
+  paint(){
+    if (!this.el) return;
+    const c = activeClient(), ch = c ? Channels.forClient(c) : {};
+    const icons = ['google_ads', 'meta_ads', 'facebook', 'instagram', 'linkedin'].filter(k => ch[k]).map(k => chIcon(k, 16)).join('');
+    this.el.innerHTML = (c ? logoHtml(logoOf(c), c.name) : '<span class="os-logo mono">?</span>') + '<span class="os-rpick-t"><small>Reporting for</small><b>' + esc(c ? c.name : 'Choose a client') + '</b></span>' +
+      (icons ? '<span class="os-rpick-ch">' + icons + '</span>' : '') + '<svg class="car" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>';
+  },
+  open(){
+    this.close();
+    const RA = window.EdgeReportsApp, cfg = Reporting.cfg(), cur = activeClient();
+    const p = document.createElement('div'); p.className = 'os-rpop'; p.setAttribute('role', 'listbox');
+    p.innerHTML = '<div class="os-rpop-s"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" placeholder="Find a client" data-q></div><div class="os-rpop-l">' +
+      this.list().map(c => {
+        const ch = Channels.forClient(c), pub = RA && RA.isPublished(c), sc = cfg.clients[c.id] || {};
+        const ic = ['google_ads', 'meta_ads', 'facebook', 'instagram', 'linkedin'].filter(k => ch[k]).map(k => chIcon(k, 16)).join('');
+        return '<button type="button" role="option" class="os-rpop-i' + (cur && cur.id === c.id ? ' on' : '') + '" data-cid="' + esc(c.id) + '" data-n="' + esc(norm(c.name)) + '">' + logoHtml(logoOf(c), c.name) +
+          '<span class="t"><b>' + esc(c.name) + '</b><small>' + (pub ? '<i class="live"></i>Live link' : 'Not shared yet') + (sc.on && (sc.to || []).length ? ' · Monthly email' : '') + (isAdsOnly(c) ? ' · Ads client' : '') + '</small></span><span class="ic">' + ic + '</span></button>';
+      }).join('') + '</div>';
+    document.body.appendChild(p); this.pop = p;
+    const r = this.el.getBoundingClientRect(); p.style.left = r.left + 'px'; p.style.top = (r.bottom + 8) + 'px';
+    requestAnimationFrame(() => p.classList.add('on'));
+    const q = p.querySelector('[data-q]'); setTimeout(() => q.focus(), 30);
+    q.addEventListener('input', () => { const v = norm(q.value); p.querySelectorAll('.os-rpop-i').forEach(x => { x.style.display = !v || x.dataset.n.indexOf(v) > -1 ? '' : 'none'; }); });
+    q.addEventListener('keydown', e => { if (e.key === 'Enter'){ const f = [...p.querySelectorAll('.os-rpop-i')].find(x => x.style.display !== 'none'); if (f) f.click(); } if (e.key === 'Escape') this.close(); });
+    p.querySelectorAll('[data-cid]').forEach(b => b.addEventListener('click', () => this.pick(b.dataset.cid)));
+    setTimeout(() => document.addEventListener('mousedown', this._away = e => { if (!p.contains(e.target) && !this.el.contains(e.target)) this.close(); }, true), 0);
+  },
+  close(){ if (this.pop){ this.pop.remove(); this.pop = null; } if (this._away){ document.removeEventListener('mousedown', this._away, true); this._away = null; } },
+  pick(id){
+    this.close();
+    if (state.activeSeoClientId !== id){ state.activeSeoClientId = id; try{ save(); }catch(e){} try{ seoApi().renderTree(); }catch(e){} }
+    this.paint();
+    const want = localPref('reportTab') === 'rteam' ? 'rteam' : 'rclient';
+    const b = document.querySelector('#seoModes [data-seoview="' + want + '"]'); if (b) b.click();
+    try{ window.EdgeReportsApp && EdgeReportsApp.redraw(); }catch(e){}
+  }
+};
 const Reporting = {
   cfg(){ const s = settings(); return Object.assign({day: 1, hour: 8, from: 'EDGE Marketing & Design', replyTo: '', clients: {}, log: []}, s.reports || {}); },
   setCfg(c){ setSetting('reports', c); },
   scheduledCount(){ const c = this.cfg().clients || {}; return Object.keys(c).filter(k => c[k] && c[k].on && (c[k].to || []).length).length; },
   enter(){
-    this.ensureTab();
-    const want = localPref('reportTab') || 'rhome';
+    Picker.mount();
+    let want = localPref('reportTab'); if (!/^(rteam|rclient)$/.test(want || '')) want = 'rclient';
     setTimeout(() => {
-      const b = document.querySelector('#seoModes [data-seoview="' + want + '"]') || document.querySelector('#seoModes [data-seoview="rhome"]');
+      const b = document.querySelector('#seoModes [data-seoview="' + want + '"]') || document.querySelector('#seoModes [data-seoview="rclient"]');
       if (b) b.click();
     }, 40);
   },
-  ensureTab(){
-    const nav = $('seoModes'); if (!nav) return;
-    if (!nav.querySelector('[data-seoview="rhome"]')){
-      const b = document.createElement('button'); b.type = 'button'; b.className = 'seo-mode'; b.dataset.seoview = 'rhome'; b.textContent = 'Overview & sending';
-      nav.insertBefore(b, nav.firstChild);
-    }
-    if (!$('seoview-rhome')){
-      const v = document.createElement('div'); v.className = 'seo-view'; v.id = 'seoview-rhome';
-      const anchor = $('seoview-dashboard'); anchor.parentNode.insertBefore(v, anchor);
-    }
+  ensureTab(){},
+  show(){},
+  /* The monthly template, built from the channels this client actually has. */
+  buildTemplate(c, quiet){
+    const RA = window.EdgeReportsApp; if (!RA || !c) return 0;
+    if (!quiet && RA.clientItems(c).length && !confirm('Replace ' + c.name + '’s client report with the monthly template? Widgets you added by hand will be replaced.')) return 0;
+    const ch = Channels.forClient(c), social = !!(ch.facebook || ch.instagram || ch.linkedin);
+    const items = TEMPLATE.filter(t => !t.only || (t.only === 'social' ? social : ch[t.only])).filter(t => RA.W[t.type]).map(t => { const o = Object.assign({}, t); delete o.only; return o; });
+    try{ window.EDGE_aaBuilder && EDGE_aaBuilder.fitNext(); }catch(e){}
+    RA.applyClient(c, items, c.name + ' — Monthly report');
+    return items.length;
   },
-  show(on){
-    const v = $('seoview-rhome'); if (!v) return;
-    v.classList.toggle('on', on);
-    const b = document.querySelector('#seoModes [data-seoview="rhome"]'); if (b) b.classList.toggle('on', on);
-    if (on){
-      document.querySelectorAll('#seoStage .seo-view').forEach(x => { if (x !== v) x.classList.remove('on'); });
-      document.querySelectorAll('#seoModes .seo-mode').forEach(x => { if (x !== b) x.classList.remove('on'); });
-      this.render();
-    }
+  /* Schedule: the client's monthly email and the sending rules, in a drawer over the editor. */
+  drawer(c){
+    c = c || activeClient(); if (!c) return;
+    const d = Drawer.open(dHead('Monthly email', esc(c.name) + ' · sent from your own Gmail on the ' + ordinal(this.cfg().day) + ' of each month') + '<div class="os-db" data-schedhost></div>', {wide: true});
+    this._host = d.querySelector('[data-schedhost]');
+    this.render();
   },
   render(){
-    const v = $('seoview-rhome'); if (!v) return;
+    const v = this._host && this._host.isConnected ? this._host : null; if (!v) return;
     const cfg = this.cfg(), cs = seoClients().filter(c => !isArchived(c)).sort((a, b) => String(a.name).localeCompare(String(b.name)));
     const c = activeClient(), RA = window.EdgeReportsApp;
     const cc = c ? (cfg.clients[c.id] || {on: false, to: []}) : null;
@@ -873,8 +930,7 @@ const Reporting = {
     const ch = c ? Channels.forClient(c) : {};
     const hasItems = c && RA ? RA.clientItems(c).length : 0;
     const logRows = (cfg.log || []).filter(l => !c || l.clientId === c.id).slice(-8).reverse();
-    v.innerHTML = '<div class="os-rh-top"><div><h2 style="margin:0;font:700 22px var(--display,Poppins,Inter,sans-serif)">Reporting</h2><div style="color:var(--os-ink2);font-size:13px;margin-top:4px">Every client report in one place. Reports go out on the ' + ordinal(cfg.day) + ' of each month at ' + fmtHour(cfg.hour) + '.</div></div><span class="os-grow"></span>' +
-      '<span class="os-chip">' + this.scheduledCount() + ' scheduled</span><span class="os-chip">Next send ' + esc(nextSend.toLocaleDateString('en-CA', {month: 'short', day: 'numeric'})) + '</span></div>' +
+    v.innerHTML = '<div class="os-rh-top" style="margin-bottom:14px"><span class="os-chip">' + this.scheduledCount() + ' clients scheduled</span><span class="os-chip">Next send ' + esc(nextSend.toLocaleDateString('en-CA', {month: 'short', day: 'numeric'})) + ' · ' + fmtHour(cfg.hour) + '</span></div>' +
       (c ? '<div class="os-sched" id="osSched"><div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">' + logoHtml(logoOf(c), c.name) + '<div style="flex:1;min-width:0"><h3>' + esc(c.name) + '</h3><div style="color:var(--os-ink3);font-size:12.5px">' +
         (RA && RA.isPublished(c) ? 'Report link live · published ' + new Date(RA.publishedAt(c)).toLocaleDateString('en-CA', {month: 'short', day: 'numeric'}) : 'Not published yet') + '</div></div>' +
         '<button type="button" class="os-btn" data-tpl>' + (hasItems ? 'Rebuild' : 'Build') + ' monthly report</button><button type="button" class="os-btn" data-open>Open client report</button><button type="button" class="os-btn dark" data-pub>' + ICON.link + 'Publish &amp; copy link</button></div>' +
@@ -897,12 +953,7 @@ const Reporting = {
         '<div class="os-row" style="margin-top:12px"><div class="os-form"><label>Send day and hour</label><div class="os-row"><select class="os-sel" data-day>' + [1, 2, 3, 4, 5].map(d => '<option' + (d === cfg.day ? ' selected' : '') + ' value="' + d + '">' + ordinal(d) + ' of the month</option>').join('') + '</select><select class="os-sel" data-hour>' + [7, 8, 9, 10, 11, 13, 14].map(h => '<option' + (h === cfg.hour ? ' selected' : '') + ' value="' + h + '">' + fmtHour(h) + '</option>').join('') + '</select></div></div>' +
         '<div class="os-form"><label>Reply-to</label><input class="os-in" data-reply value="' + esc(cfg.replyTo || '') + '" placeholder="robert@edgemarketing.ca"></div></div>' +
         '<div style="margin-top:10px"><button type="button" class="os-btn" data-saveglobal>Save sending settings</button></div></div>' +
-      '<div class="os-h2">All clients <span class="n">' + cs.length + '</span><span class="sp"></span><input class="os-in" data-rq placeholder="Find a client" style="width:220px;height:32px"></div><div class="os-rh-grid">' + cs.map((x, i) => {
-        const s = cfg.clients[x.id] || {}, pub = RA && RA.isPublished(x), chx = Channels.forClient(x);
-        return '<div class="os-rc' + (c && c.id === x.id ? ' on' : '') + '" data-cid="' + esc(x.id) + '" data-name="' + esc(norm(x.name)) + '" style="animation-delay:' + Math.min(i * 18, 500) + 'ms"><div class="os-rc-logo">' + (logoOf(x) ? '<img alt="" src="' + esc(logoOf(x)) + '" onerror="this.remove()">' : '<b>' + esc(initials(x.name)) + '</b>') + '</div><b>' + esc(x.name) + '</b><div class="os-rc-s">' +
-          '<span class="os-tag ' + (pub ? 'ok' : '') + '">' + (pub ? 'Live link' : 'Not shared') + '</span>' + (s.on && (s.to || []).length ? '<span class="os-tag brand">Monthly</span>' : '') +
-          (chx.google_ads ? '<span class="os-tag">Ads</span>' : '') + (chx.meta_ads ? '<span class="os-tag">Meta</span>' : '') + (chx.facebook || chx.instagram || chx.linkedin ? '<span class="os-tag">Social</span>' : '') + '</div></div>';
-      }).join('') + '</div>';
+      '';
     this.wire(v, c);
   },
   wire(v, c){
@@ -920,13 +971,10 @@ const Reporting = {
     const emails = s => String(s || '').split(/[,;\s]+/).map(x => x.trim()).filter(x => /^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(x));
     v.querySelector('[data-tpl]').addEventListener('click', e => {
       if (!RA) return FX.toast('Reports are still loading', 'sync');
-      if (RA.clientItems(c).length && !confirm('Replace ' + c.name + '’s client report with the monthly template? Widgets you added by hand will be replaced.')) return;
-      const ch = Channels.forClient(c), social = !!(ch.facebook || ch.instagram || ch.linkedin);
-      const items = TEMPLATE.filter(t => !t.only || (t.only === 'social' ? social : ch[t.only])).filter(t => RA.W[t.type]).map(t => { const o = Object.assign({}, t); delete o.only; return o; });
-      RA.applyClient(c, items, c.name + ' — Monthly report');
-      FX.done(e.target, 'Monthly report built: ' + items.length + ' widgets'); this.render();
+      const n = this.buildTemplate(c); if (!n) return;
+      FX.done(e.target, 'Monthly report built: ' + n + ' widgets'); this.render(); try{ RA.redraw(); }catch(err){}
     });
-    v.querySelector('[data-open]').addEventListener('click', () => { localPref('reportTab', 'rclient'); const b = document.querySelector('#seoModes [data-seoview="rclient"]'); if (b) b.click(); });
+    v.querySelector('[data-open]').addEventListener('click', () => { Drawer.close(); localPref('reportTab', 'rclient'); const b = document.querySelector('#seoModes [data-seoview="rclient"]'); if (b) b.click(); });
     v.querySelector('[data-pub]').addEventListener('click', async e => {
       const btn = e.currentTarget; if (!RA) return;
       btn.disabled = true; btn.innerHTML = 'Publishing…'; FX.shimmer(btn, true);
@@ -994,9 +1042,7 @@ document.addEventListener('click', e => {
   const b = e.target.closest && e.target.closest('#seoModes .seo-mode');
   if (!b) return;
   const id = b.dataset.seoview;
-  if (id === 'rhome'){ e.preventDefault(); e.stopImmediatePropagation(); Reporting.show(true); localPref('reportTab', 'rhome'); return; }
-  Reporting.show(false);
-  if (section === 'report' && /^(ai|rteam|rclient|dash:)/.test(id || '')) localPref('reportTab', id);
+  if (section === 'report' && /^(rteam|rclient)$/.test(id || '')) localPref('reportTab', id);
 }, true);
 
 /* ======================================================================
@@ -1111,10 +1157,6 @@ function boot(){
   };
   if (shell){ new MutationObserver(land).observe(shell, {attributes: true, attributeFilter: ['class']}); setTimeout(land, 300); }
   if (login) new MutationObserver(() => { if (login.offsetParent !== null || getComputedStyle(login).display !== 'none'){ try{ sessionStorage.removeItem('osLanded'); }catch(e){} } }).observe(login, {attributes: true, attributeFilter: ['class', 'style']});
-  /* reports.js redraws the tab strip now and then: keep "Overview & sending" on it. */
-  const sm = $('seoModes');
-  if (sm) new MutationObserver(() => { if (!sm.querySelector('[data-seoview="rhome"]')) Reporting.ensureTab(); }).observe(sm, {childList: true});
-  Reporting.ensureTab();
   const tree = $('seoClientTree');
   const markAds = () => { tree.querySelectorAll('.rail-folder').forEach(w => { const n = w.querySelector('.folder-name'); w.classList.toggle('os-adsfolder', !!(n && n.textContent === ADS_FOLDER)); }); };
   if (tree){ new MutationObserver(markAds).observe(tree, {childList: true}); markAds(); }

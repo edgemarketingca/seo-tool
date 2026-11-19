@@ -4462,6 +4462,37 @@ function renderBoard(root, o){
     }
   }
 
+  /* Workspace editor (o.autoFit): each widget fits what it shows once its data is in, so nothing is
+     cut off and nothing sits in empty space. KPI rows always grow to fit; everything else is fitted
+     once (it.af) and after that keeps whatever height you give it. Charts keep their height. */
+  if (o.autoFit && free){
+    let fitT = 0;
+    const scaleOf = el => { const r = el.getBoundingClientRect().height; return el.offsetHeight ? r / el.offsetHeight : 1; };
+    const fitPass = () => {
+      let changed = false;
+      items.forEach(it => {
+        if (!it || /^(section|cover|embed|text)$/.test(it.type)) return;
+        const el = elOf(it); if (!el) return;
+        const body = el.querySelector('[data-body]'); if (!body || !body.children.length) return;
+        if (body.querySelector('.rp-load,.aiv-spin')) return;
+        if (body.querySelector(':scope > .rp-err, :scope > .aiv-msg')) return;
+        const z = scaleOf(el) || 1, br = body.getBoundingClientRect();
+        let bottom = 0; Array.from(body.children).forEach(c => { const r = c.getBoundingClientRect(); if (r.height) bottom = Math.max(bottom, (r.bottom - br.top) / z); });
+        const pad = parseFloat(getComputedStyle(body).paddingBottom) || 0;
+        const need = Math.ceil((el.offsetHeight - body.clientHeight + bottom + pad + 6) / SNAP) * SNAP;
+        const kpi = !!body.querySelector('.rp-kpis');
+        if (kpi && need > it.h + 2){ it.h = Math.min(4000, need); it.af = 1; changed = true; return; }
+        if (it.af || body.querySelector('.rp-chwrap.fill') || body.querySelector('.aiv-scroll')) { if (!it.af){ it.af = 1; changed = true; } return; }
+        const nh = Math.max(120, Math.min(4000, need));
+        it.af = 1; changed = true;
+        if (Math.abs(nh - it.h) >= SNAP * 2) it.h = nh;
+      });
+      if (changed){ compact(items, null); items.sort(byPos); layoutAll(); o.onAutoFit ? o.onAutoFit(items) : commit(); }
+    };
+    new MutationObserver(() => { clearTimeout(fitT); fitT = setTimeout(() => { if (grid.isConnected) fitPass(); }, 700); }).observe(grid, {childList: true, subtree: true});
+    setTimeout(() => { if (grid.isConnected) fitPass(); }, 900);
+  }
+
   /* Placeholder showing where a widget being moved will land. */
   const ghost = it => { const ph = document.createElement('div'); ph.className = 'rp-ph'; place(ph, it); grid.appendChild(ph); return ph; };
   let placing = null;
@@ -5407,7 +5438,7 @@ function draw(){
   const id = activeTab, v = view(id), c = client();
   loadedFor = c ? c.id : null;
   if (!v) return;
-  if (!c){ AIV.renderMessage(v, 'No client selected', 'Pick an SEO client on the left.'); return; }
+  if (!c){ AIV.renderMessage(v, 'No client selected', 'Choose a client with the switcher at the top.'); return; }
   const R = reportsOf(c);
   const ctx = ctxFor(c);
   /* One widget from a teammate's widget link: just that widget, full width, everything clickable. */
@@ -5426,7 +5457,10 @@ function draw(){
   }
   if (id === 'rteam' && curWho && !memberOf(curWho)) setWho('');
   if (id === 'rteam' && curWho){ drawMember(v, c, ctx, R, memberOf(curWho)); return; }
-  if (id === 'rteam'){
+  if (id === 'rteam' && window.EDGE_aaBuilder && !window.EDGE_aaBuilder.off){
+    /* The team report opens in the same AgencyAnalytics editor as the client report. */
+    window.EDGE_aaBuilder.draw(v, c, ctx, R, 'team');
+  } else if (id === 'rteam'){
     const clientFrom = new Set(R.client.items.map(x => x.from).filter(Boolean));
     renderBoard(v, Object.assign({mode: 'team', aa: true, clientName: c.name, title: (c.name || ctx.domain) + ' — Team report', sub: esc(ctx.domain) + ' · internal · <button type="button" class="rp-tpl-pill" data-tplpill title="Open templates">' + glyph('grid', 12) + esc(tplLabel(tplStatus(R.team, 'team'))) + '</button>', items: R.team.items, period: validPeriod(R.team.period) ? R.team.period : '30', ctx,
       whoHtml: whoHtml(), stars: teamPrefs().stars, onStar: st => { teamPrefs().stars = st; saveState(); },
@@ -5451,7 +5485,7 @@ function draw(){
     panelOpen.rteam = '';
   } else if (window.EDGE_aaBuilder && !window.EDGE_aaBuilder.off){
     /* Reporting: AgencyAnalytics' report editor (edge-aa.js). Same widgets, same saved layout, same share link. */
-    window.EDGE_aaBuilder.draw(v, c, ctx, R);
+    window.EDGE_aaBuilder.draw(v, c, ctx, R, 'client');
   } else {
     const pub = R.client.publishedAt;
     renderBoard(v, Object.assign({mode: 'client', title: R.client.title || ((c.name || ctx.domain) + ' — Report'), sub: pub ? 'Shared · updates automatically' : 'Not shared yet', items: R.client.items, period: clientPeriod(R), ctx,
@@ -5887,6 +5921,7 @@ async function regenerate(v, c){
 window.EdgeReportsApp = {
   W, G, metaOf, logo, glyph, defH, SIZE_COLS, GAP, PERIODS, rangeOf, newItem, renderBoard, ctxFor, reportsOf, logosFor, clientPeriods, validPeriod,
   persistClient: c => { persist(c, 'client'); autoPublish(c); },
+  persistTeam: c => persist(c, 'team'), pushToClient: (c, it) => pushToClient(c, it), shareWidget: (c, it, p) => shareWidget(c, it, p), teamUrl: (c, t) => teamUrl(c, t), teamDefault: () => teamDefault(),
   share: (v, c) => share(v, c), regenerate: (v, c) => regenerate(v, c), openTemplates: c => openTemplates(c), brandPanel: (host, o) => brandPanel(host, o), datePanel: (host, c, R) => datePanel(host, c, R),
   redraw: () => { try{ draw(); }catch(e){} },
   clientItems: c => reportsOf(c).client.items.slice(),

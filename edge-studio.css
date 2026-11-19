@@ -129,3 +129,84 @@ html body.os-on:not(.report-mode):not(.embed-mode) ::-webkit-scrollbar-track{bac
 .osh-ring b{display:flex !important;align-items:baseline;justify-content:center;place-items:unset !important;padding-top:34px;}
 .osh-ring b span{margin-left:1px;}
 @media (prefers-reduced-motion:reduce){html body.os-on:not(.report-mode):not(.embed-mode) .stage .panels > *,html body.os-on:not(.report-mode):not(.embed-mode) .seo-view.on{animation:none !important;}}
+
+/* ==========================================================================
+   FIT: every screen from a wide monitor down to a small phone.
+   ========================================================================== */
+/* Top bar: one tidy row on desktop; nothing ever drops onto the page below it. */
+html body.os-on #topNav.topnav{height:auto !important;min-height:56px;flex-wrap:nowrap !important;}
+body.os-on .topnav > *{min-width:0;}
+body.os-on .topnav .tn-right{flex:none;}
+@media (max-width:1360px){
+  body.os-on .topnav .tn-team{max-width:46px;overflow:hidden;padding-right:4px !important;}
+  body.os-on .topnav .tn-team > :not(:first-child){display:none !important;}
+}
+@media (max-width:1260px){ body.os-on .os-sec:not(.on) span.l{display:none;} body.os-on .os-sec{padding:0 10px;} }
+@media (max-width:1100px){ body.os-on .os-sec span.l{display:none;} body.os-on .topnav .tn-bell.tn-bk-slow{display:none !important;} }
+
+/* Tablets and phones: the side list sits above the page instead of squeezing it. */
+@media (max-width:900px){
+  html body.os-on #appShell.shell{grid-template-columns:minmax(0,1fr) !important;}
+  body.os-on .shell > .rail{position:relative !important;top:auto !important;height:auto !important;max-height:none;overflow:visible;border-right:0 !important;border-bottom:1px solid rgba(0,72,81,.08) !important;}
+  body.os-on .shell > .rail .rail-foot{position:static !important;}
+  body.os-on .shell > .rail .rail-tree{max-height:34vh;overflow:auto;flex:none !important;}
+  body.os-on .shell > .stage{grid-column:1/-1 !important;min-width:0;}
+  html body.os-on:not(.report-mode):not(.embed-mode) .stage > .topbar{position:relative;flex-wrap:wrap;height:auto !important;row-gap:8px;padding:12px 16px !important;}
+  body.os-on .stage .panels{padding-left:16px !important;padding-right:16px !important;}
+  html body.os-on #topNav.topnav{flex-wrap:wrap !important;row-gap:8px;padding:8px 12px !important;}
+  body.os-on .topnav .os-grow{display:none;}
+  body.os-on .topnav .tn-right{margin-left:auto;}
+  body.os-on .os-sub{order:5;}
+  .os-rpick{max-width:100%;}
+  .os-rpop{width:min(420px,calc(100vw - 24px));left:12px !important;}
+  .aab .aab-bar{flex-wrap:wrap;height:auto;row-gap:6px;padding:8px 12px;}
+  .aab .aab-top{height:auto;}
+  .aab .aab-canvas{padding:16px 10px 70px;}
+  .aab .aab-sheet{padding:16px 14px 24px;}
+}
+@media (max-width:640px){
+  body.os-on .topnav .tn-btn{padding:0 10px !important;font-size:12.5px !important;}
+  body.os-on .topnav .tn-bell{width:32px !important;}
+  body.os-on .os-secs{order:4;width:100%;justify-content:space-between;}
+  body.os-on .os-sub{width:100%;justify-content:center;}
+  body.os-on .os-sec{flex:1;justify-content:center;}
+  #seoStage .save-group,#gbpStage .save-group{flex-wrap:wrap;}
+  .mt-grid,.os-acct-g,.os-rh-grid{grid-template-columns:minmax(0,1fr) !important;}
+  .os-kpis{grid-template-columns:repeat(2,minmax(0,1fr)) !important;}
+  .os-head{flex-wrap:wrap;}
+  .os-tabs{max-width:100%;overflow:auto;}
+  .os-drawer,.os-drawer.wide{width:100vw !important;max-width:100vw !important;}
+  .os-steps{grid-template-columns:minmax(0,1fr) !important;}
+  .aab .rp-kpis{grid-template-columns:minmax(0,1fr) !important;}
+}
+@media (max-width:380px){
+  body.os-on .topnav .tn-bell.tn-bk-calls{display:none !important;}
+  .os-kpis{grid-template-columns:minmax(0,1fr) !important;}
+}
+
+/* Command centre header on small screens */
+@media (max-width:640px){
+  .osh-top,.osh-head{flex-wrap:wrap;gap:10px;}
+  .osh-top .osh-mail,.osh-head .osh-mail{display:none !important;}
+}
+@media (max-width:640px){
+  .hub-top{flex-wrap:wrap;gap:12px;}
+  .hub-top .hub-brand{min-width:0;flex:1;}
+  .hub-top .hub-mail,.hub-top .hub-team{display:none !important;}
+  .hub-inner{padding-left:16px !important;padding-right:16px !important;}
+}
+@media (max-width:640px){
+  .seo-match-actions{flex-wrap:wrap;}
+  .seo-match-actions .btn{max-width:100%;}
+}
+@media (max-width:420px){
+  .osh-month{grid-template-columns:minmax(0,1fr) !important;}
+  .osh-month b{font-size:26px !important;}
+}
+@media (max-width:640px){
+  .aab .aab-tl{flex-wrap:wrap;gap:6px;}
+  .aab .aab-name{max-width:100%;white-space:normal;}
+  .aab .aab-tr{flex-wrap:wrap;justify-content:flex-start;}
+}
+/* The closed Claude panel waits just off the right edge; never let it make the page scroll sideways. */
+html:has(body.os-on),body.os-on{overflow-x:clip;}

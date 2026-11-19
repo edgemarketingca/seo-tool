@@ -1,6 +1,6 @@
 /* ==========================================================================
    EDGE OS: the four-section shell (SEO · Google Ads · Web Maintenance · Reporting),
-   the Tasks drawer (Basecamp through Tidyboard), the Google Ads / Paid Social
+   the Tasks drawer (Basecamp through Baseboard), the Google Ads / Paid Social
    desk and the Reporting home. Brand: EDGE orange #E87722 on warm ink.
    ========================================================================== */
 :root{
@@ -48,15 +48,15 @@ body.os-sec-seo .os-sub{display:flex;}
 .os-grow{flex:1;}
 #adsStage{grid-column:1/-1;}
 
-/* Reporting lives in Reporting only: the report tabs are hidden in SEO, the SEO tabs in Reporting. */
-body.os-sec-seo #seoModes .seo-mode[data-seoview="ai"],
+/* Reporting is two tabs and nothing else: Team report and Client report. AI Visibility and pinned pages sit with the SEO client. */
 body.os-sec-seo #seoModes .seo-mode[data-seoview="rteam"],
 body.os-sec-seo #seoModes .seo-mode[data-seoview="rclient"],
 body.os-sec-seo #seoModes .seo-mode[data-seoview="rhome"],
-body.os-sec-seo #seoModes .seo-mode[data-seoview^="dash:"],
-body.os-sec-seo #seoModes .seo-dash-add,
-body.os-sec-report #seoModes .seo-mode[data-seoview="dashboard"],
-body.os-sec-report #seoModes .seo-mode[data-seoview="keywords"]{display:none !important;}
+body.os-sec-report #seoModes > *:not([data-seoview="rteam"]):not([data-seoview="rclient"]){display:none !important;}
+body.os-sec-report #seoRail{display:none !important;}
+html body.os-sec-report #appShell.shell{grid-template-columns:minmax(0,1fr) !important;}
+body.os-sec-report #seoCrumbs,body.os-sec-report #seoHere{display:none !important;}
+body:not(.os-sec-report) .os-rpick{display:none !important;}
 body.os-sec-report #seoStage .mod-intro{display:none !important;}
 body.os-sec-report #seoRail .rail-brand h1{font-size:0 !important;}
 body.os-sec-report #seoRail .rail-brand h1::after{content:"Reporting";font-size:18px;}
@@ -462,3 +462,51 @@ body.os-sec-report .os-btn.go{background:linear-gradient(135deg,#6F6DB5,#9594C9)
 =======
 /* Google Ads-only clients: not part of SEO */
 body.os-sec-seo #seoClientTree .os-adsfolder{display:none !important;}
+
+/* ---------- Reporting header: one client switcher instead of a list ---------- */
+.os-rpick{display:inline-flex;align-items:center;gap:12px;height:48px;padding:0 14px 0 6px;margin-right:6px;border:1px solid rgba(0,72,81,.09);border-radius:16px;background:#fff;
+  box-shadow:0 1px 2px rgba(0,40,46,.05),0 10px 24px -18px rgba(0,40,46,.4);cursor:pointer;font:inherit;color:#1D2A31;text-align:left;max-width:440px;transition:box-shadow .25s,border-color .2s,transform .15s;}
+.os-rpick:hover{border-color:rgba(111,109,181,.45);box-shadow:0 0 0 4px rgba(111,109,181,.12),0 14px 28px -18px rgba(0,40,46,.45);}
+.os-rpick:active{transform:scale(.98);}
+.os-rpick .os-logo{width:36px;height:36px;border-radius:11px;flex:none;}
+.os-rpick-t{display:flex;flex-direction:column;min-width:0;line-height:1.15;}
+.os-rpick-t small{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:#6F6DB5;font-weight:700;}
+.os-rpick-t b{font-size:16px;font-weight:700;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.os-rpick-ch{display:inline-flex;gap:4px;padding-left:10px;border-left:1px solid #EDF2F2;}
+.os-rpick .car{color:#87959C;flex:none;}
+.os-rpop{position:fixed;z-index:9000;width:420px;max-height:min(560px,70vh);display:flex;flex-direction:column;background:rgba(255,255,255,.96);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
+  border:1px solid rgba(0,72,81,.09);border-radius:20px;box-shadow:0 2px 6px rgba(0,40,46,.06),0 40px 80px -30px rgba(0,40,46,.45);opacity:0;transform:translateY(-6px) scale(.98);transform-origin:top left;transition:opacity .18s,transform .25s cubic-bezier(.2,.8,.2,1);}
+.os-rpop.on{opacity:1;transform:none;}
+.os-rpop-s{display:flex;align-items:center;gap:8px;margin:10px;padding:0 12px;height:42px;border-radius:13px;background:#F4F7F7;color:#87959C;}
+.os-rpop-s input{flex:1;border:0 !important;background:transparent !important;box-shadow:none !important;outline:0;font:500 14px var(--ui,Inter,sans-serif);color:#1D2A31;height:40px;padding:0;}
+.os-rpop-l{overflow:auto;padding:0 8px 8px;}
+.os-rpop-i{display:flex;align-items:center;gap:12px;width:100%;padding:9px 10px;border:0;border-radius:13px;background:transparent;cursor:pointer;font:inherit;color:#1D2A31;text-align:left;transition:background .15s;}
+.os-rpop-i:hover{background:#F1F0FA;}
+.os-rpop-i.on{background:#F1F0FA;box-shadow:inset 3px 0 0 #6F6DB5;}
+.os-rpop-i .os-logo{width:34px;height:34px;border-radius:10px;flex:none;}
+.os-rpop-i .t{flex:1;min-width:0;display:flex;flex-direction:column;}
+.os-rpop-i .t b{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.os-rpop-i .t small{font-size:12px;color:#87959C;display:flex;align-items:center;gap:5px;}
+.os-rpop-i .t small .live{width:6px;height:6px;border-radius:50%;background:#1f9d55;box-shadow:0 0 0 3px rgba(31,157,85,.15);}
+.os-rpop-i .ic{display:inline-flex;gap:3px;}
+
+/* ---------- Channel icons ---------- */
+.os-chi{position:relative;display:inline-grid;place-items:center;flex:none;border-radius:5px;overflow:hidden;vertical-align:middle;background:var(--chc);}
+.os-chi b{color:#fff;font-weight:700;line-height:1;}
+.os-chi img{position:absolute;inset:0;width:100%;height:100%;background:#fff;opacity:0;transition:opacity .2s;}
+.os-chi img.ok{opacity:1;}
+.os-chi.ring{box-shadow:0 0 0 3px #fff,0 4px 10px -4px rgba(0,40,46,.35);}
+
+/* Reporting: the editor fills the page */
+body.os-sec-report #seoStage > .topbar{padding-left:28px;}
+body.os-sec-report #seoStage .panels{padding-left:28px;padding-right:28px;}
+.os-h1ic{display:flex;align-items:center;gap:14px;}
+.os-icpair{display:inline-flex;}
+.os-icpair .os-chi + .os-chi{margin-left:-8px;}
+.os-tab{display:inline-flex;align-items:center;gap:7px;}
+.os-tab .os-chi + .os-chi{margin-left:-4px;}
+.os-tab i{display:none;}
+.os-kpi small{display:flex;align-items:center;gap:6px;}
+.os-acct-lg{position:relative;display:inline-flex;flex:none;}
+.os-chi.badge{position:absolute;right:-5px;bottom:-5px;box-shadow:0 0 0 2px #fff;border-radius:5px;}
+.osh-ic .os-chi{border-radius:7px;}

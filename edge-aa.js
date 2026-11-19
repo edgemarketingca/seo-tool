@@ -177,21 +177,26 @@ const PAGE_TPL = [
 ];
 const ED = {v: null, c: null, ctx: null, R: null, undo: [], redo: [], tab: 'design', preview: false, zoom: 1, saving: 0, lastSaved: 0};
 
-function draw(v, c, ctx, R){
+const D = () => ED.mode === 'team' ? ED.R.team : ED.R.client;
+const periodsOf = () => { const A = RA(); return ED.mode === 'team' ? A.PERIODS.map(p => String(p[0])).filter(p => A.validPeriod(p)) : A.clientPeriods(ED.R); };
+const TEAM = () => ED.mode === 'team';
+function draw(v, c, ctx, R, mode){
   const A = RA(); if (!A) return;
-  const same = ED.c && ED.c.id === c.id;
-  Object.assign(ED, {v, c, ctx, R});
+  mode = mode || 'client';
+  const same = ED.c && ED.c.id === c.id && ED.mode === mode;
+  Object.assign(ED, {v, c, ctx, R, mode});
+  if (TEAM()) ED.tab = 'design';
   if (!same){ ED.undo = []; ED.redo = []; ED.preview = false; ED.tab = 'design'; }
   document.body.classList.add('aab-on');
-  const L = A.logosFor(c, R.client), periods = A.clientPeriods(R);
-  const per = periods.indexOf(String(R.client.period)) > -1 ? String(R.client.period) : periods[0];
+  const L = A.logosFor(c, D()), periods = periodsOf();
+  const per = periods.indexOf(String(D().period)) > -1 ? String(D().period) : (TEAM() && periods.indexOf('30') > -1 ? '30' : periods[0]);
   const plabel = k => (A.PERIODS.find(p => p[0] === String(k)) || [0, k])[1];
-  const title = R.client.title || (c.name + ' — Report');
-  v.innerHTML = '<div class="aab' + (ED.preview ? ' preview' : '') + '">' +
+  const title = TEAM() ? c.name + ' — Team report' : (D().title || (c.name + ' — Report'));
+  v.innerHTML = '<div class="aab' + (ED.preview ? ' preview' : '') + (TEAM() ? ' team' : ' client') + '">' +
     '<div class="aab-top"><div class="aab-tl"><span class="aab-name" contenteditable="true" spellcheck="false" data-title title="Rename the report">' + esc(title) + '</span>' +
-      '<span class="aab-client">' + (L.clientLogo ? '<img alt="" src="' + esc(L.clientLogo) + '" onerror="this.remove()">' : '') + esc(c.name) + '<em>Client</em></span></div>' +
-      '<div class="aab-tc"><button type="button" data-tab="design" class="' + (ED.tab === 'design' ? 'on' : '') + '">Design</button><button type="button" data-tab="shares" class="' + (ED.tab === 'shares' ? 'on' : '') + '">Shares</button></div>' +
-      '<div class="aab-tr"><button type="button" class="aab-b" data-sched>' + I.sched + 'Schedule</button><button type="button" class="aab-b dark" data-share>' + I.share + 'Share</button><button type="button" class="aab-ib" data-close title="Back to Reporting">' + I.x + '</button></div></div>' +
+      '<span class="aab-client">' + (L.clientLogo ? '<img alt="" src="' + esc(L.clientLogo) + '" onerror="this.remove()">' : '') + esc(c.name) + '<em' + (TEAM() ? ' class="team"' : '') + '>' + (TEAM() ? 'Team · internal' : 'Client') + '</em></span></div>' +
+      (TEAM() ? '<div class="aab-tc"><button type="button" class="on">Design</button></div>' : '<div class="aab-tc"><button type="button" data-tab="design" class="' + (ED.tab === 'design' ? 'on' : '') + '">Design</button><button type="button" data-tab="shares" class="' + (ED.tab === 'shares' ? 'on' : '') + '">Shares</button></div>') +
+      '<div class="aab-tr">' + (TEAM() ? '<button type="button" class="aab-b" data-reset>Reset layout</button><button type="button" class="aab-b dark" data-tlink>' + I.share + 'Copy team link</button>' : '<button type="button" class="aab-b" data-sched>' + I.sched + 'Schedule</button><button type="button" class="aab-b dark" data-share>' + I.share + 'Share</button>') + '</div></div>' +
     '<div class="aab-bar"><span class="aab-live"><i></i>Live data</span><button type="button" class="aab-ib" data-undo title="Undo (Ctrl+Z)"' + (ED.undo.length ? '' : ' disabled') + '>' + I.undo + '</button><button type="button" class="aab-ib" data-redo title="Redo"' + (ED.redo.length ? '' : ' disabled') + '>' + I.redo + '</button>' +
       '<span style="flex:1"></span><button type="button" class="aab-b ghost" data-setup>' + I.grid + 'Page Setup</button><button type="button" class="aab-b ghost" data-tpls>' + I.copy + 'Templates</button>' +
       '<div class="aab-dd"><button type="button" class="aab-b ghost" data-per>' + I.cal + esc(plabel(per)) + ' <span class="car">▾</span></button></div>' +
@@ -209,10 +214,11 @@ function draw(v, c, ctx, R){
 }
 const monthLabel = R => { try{ const d = new Date(String(R.end).slice(0, 10) + 'T12:00:00'); return d.toLocaleDateString('en-CA', {month: 'long', year: 'numeric'}); }catch(e){ return ''; } };
 
-function snapshot(){ return JSON.stringify(ED.R.client.items); }
+function persistDoc(A){ if (TEAM()) A.persistTeam(ED.c); else A.persistClient(ED.c); }
+function snapshot(){ return JSON.stringify(D().items); }
 function remember(){ ED.undo.push(ED._last || snapshot()); if (ED.undo.length > 60) ED.undo.shift(); ED.redo = []; }
 function saved(){
-  const A = RA(); A.persistClient(ED.c);
+  const A = RA(); persistDoc(A);
   const s = ED.v && ED.v.querySelector('[data-saved]');
   if (s){ s.classList.add('busy'); s.innerHTML = I.cloud + 'Saving…'; clearTimeout(ED._st); ED._st = setTimeout(() => { if (s.isConnected){ s.classList.remove('busy'); s.innerHTML = I.cloud + 'Auto saved'; } }, 700); }
   const u = ED.v && ED.v.querySelector('[data-undo]'), r = ED.v && ED.v.querySelector('[data-redo]');
@@ -221,14 +227,19 @@ function saved(){
 
 function board(per){
   const A = RA(), host = ED.v.querySelector('[data-board]'), R = ED.R, c = ED.c;
-  const L = A.logosFor(c, R.client);
+  const L = A.logosFor(c, D());
   ED._last = snapshot();
-  A.renderBoard(host, Object.assign({mode: 'client', aa: true, bare: true, title: R.client.title, items: R.client.items, period: per, ctx: ED.ctx,
-    editable: !ED.preview, startEditing: !ED.preview, periods: A.clientPeriods(R), showDates: false, brand: R.client.brand, clientName: c.name,
-    emptyHtml: '<h3>Start your report</h3><div>Add a page from the left, use the monthly template, or insert a single widget.</div><div style="margin-top:14px;display:flex;gap:8px;justify-content:center"><button class="aiv-btn go" type="button" data-aab-tpl>Use the monthly template</button><button class="aiv-btn" type="button" data-aab-ins>+ Add a widget</button></div>',
+  const team = TEAM();
+  A.renderBoard(host, Object.assign({mode: ED.mode, aa: true, bare: true, title: D().title, items: D().items, period: per, ctx: ED.ctx,
+    editable: !ED.preview, startEditing: !ED.preview, periods: periodsOf(), showDates: false, brand: D().brand, clientName: c.name,
+    pushed: team ? new Set(R.client.items.map(x => x.from).filter(Boolean)) : undefined,
+    onPush: team && A.pushToClient ? it => A.pushToClient(c, it) : undefined,
+    onShareWidget: team && A.shareWidget ? it => A.shareWidget(c, it, per) : undefined,
+    emptyHtml: '<h3>Start your ' + (team ? 'team ' : '') + 'report</h3><div>Add a page from the left, use the ' + (team ? 'standard team layout' : 'monthly template') + ', or insert a single widget.</div><div style="margin-top:14px;display:flex;gap:8px;justify-content:center"><button class="aiv-btn go" type="button" data-aab-tpl>' + (team ? 'Use the standard layout' : 'Use the monthly template') + '</button><button class="aiv-btn" type="button" data-aab-ins>+ Add a widget</button></div>',
+    autoFit: team || !!ED.fitOnce, onAutoFit: () => { if (!team) ED.fitOnce = false; persistDoc(A); ED._last = snapshot(); },
     onItems: () => { remember(); ED._last = snapshot(); saved(); pages(); },
     onPeriod: () => {}}, L));
-  const t = host.querySelector('[data-aab-tpl]'); if (t) t.addEventListener('click', () => { const r = window.EDGE_OS && EDGE_OS.reporting; const b = ED.v.ownerDocument.querySelector('#seoModes [data-seoview="rhome"]'); if (b) b.click(); setTimeout(() => { const x = document.querySelector('#osSched [data-tpl]'); if (x) x.click(); }, 300); });
+  const t = host.querySelector('[data-aab-tpl]'); if (t) t.addEventListener('click', e => { remember(); if (TEAM()){ R.team.items = A.teamDefault(); delete R.team.free; persistDoc(A); redrawBoard(); FX().done(e.target, 'Standard team layout added'); } else if (window.EDGE_OS && EDGE_OS.reporting) { ED.fitOnce = true; EDGE_OS.reporting.buildTemplate(c, true); draw(ED.v, c, ED.ctx, A.reportsOf(c), 'client'); } });
   const ins = host.querySelector('[data-aab-ins]'); if (ins) ins.addEventListener('click', e => insertAt(null, e.currentTarget));
   pages();
   handles();
@@ -236,7 +247,7 @@ function board(per){
 
 /* Pages: the cover and every page title, in the order they appear. */
 function pageList(){
-  const items = ED.R.client.items.filter(it => it && it.y != null).slice().sort((a, b) => a.y - b.y || a.x - b.x);
+  const items = D().items.filter(it => it && it.y != null).slice().sort((a, b) => a.y - b.y || a.x - b.x);
   const out = []; let cur = null;
   items.forEach(it => {
     if (it.type === 'section' || it.type === 'cover'){
@@ -279,7 +290,7 @@ function movePage(P, from, to){
   remember();
   const m = P.splice(from, 1)[0]; P.splice(to, 0, m);
   restack(P);
-  ED.R.client.items.sort((a, b) => a.y - b.y || a.x - b.x);
+  D().items.sort((a, b) => a.y - b.y || a.x - b.x);
   saved(); redrawBoard();
   FX().toast('Moved “' + m.label + '”', 'ok');
 }
@@ -296,7 +307,7 @@ function pageMenu(p, btn){
     if (a.a === 'del'){
       if (!confirm('Delete the page “' + p.label + '” and the ' + (p.items.length - 1) + ' widget' + (p.items.length === 2 ? '' : 's') + ' on it? You can undo this.')) return;
       remember(); const gone = new Set(p.items.map(i => i.id));
-      ED.R.client.items = ED.R.client.items.filter(i => !gone.has(i.id));
+      D().items = D().items.filter(i => !gone.has(i.id));
       restack(pageList()); saved(); redrawBoard(); FX().toast('Page deleted', 'del');
     }
   });
@@ -316,7 +327,7 @@ function addPage(btn){
     const t = PAGE_TPL[+b.dataset.t], name = t[0] === 'Blank page' ? (prompt('Page name', 'New page') || '').trim() : t[0];
     if (!name) return;
     remember();
-    const items = ED.R.client.items, GAP = A.GAP || 16;
+    const items = D().items, GAP = A.GAP || 16;
     let y = items.length ? Math.max.apply(null, items.map(i => (i.y || 0) + (i.h || 0))) + GAP : 0;
     const sec = A.newItem('section', 'xl', {heading: name}); Object.assign(sec, {x: 0, y, cols: 12, h: 70}); items.push(sec); y += 70 + GAP;
     let cx = 0, rowH = 0;
@@ -344,12 +355,12 @@ function handles(){
     plus.classList.add('on');
   });
   sheet.addEventListener('mouseleave', () => { plus.classList.remove('on'); target = null; });
-  plus.onclick = () => { if (!target) return; const it = ED.R.client.items.find(i => i.id === target.dataset.id); insertAt(it, plus); };
+  plus.onclick = () => { if (!target) return; const it = D().items.find(i => i.id === target.dataset.id); insertAt(it, plus); };
 }
 function insertAt(after, anchor){
-  openPicker({items: ED.R.client.items, mode: 'client', client: ED.c, anchor, onTemplates: () => addPage(anchor), onPick: k => {
+  openPicker({items: D().items, mode: ED.mode, client: ED.c, anchor, onTemplates: () => addPage(anchor), onPick: k => {
     const A = RA(); remember();
-    const it = A.newItem(k), items = ED.R.client.items, GAP = A.GAP || 16;
+    const it = A.newItem(k), items = D().items, GAP = A.GAP || 16;
     const cols = A.SIZE_COLS[it.size] || 6, h = A.defH(it);
     const y = after ? after.y + after.h + 1 : (items.length ? Math.max.apply(null, items.map(i => (i.y || 0) + (i.h || 0))) + GAP : 0);
     Object.assign(it, {x: after && after.cols + cols <= 12 && after.type !== 'section' ? 0 : 0, y, cols, h});
@@ -358,25 +369,29 @@ function insertAt(after, anchor){
     setTimeout(() => { const el = ED.v.querySelector('.rp-w[data-id="' + it.id + '"]'); if (el){ el.scrollIntoView({behavior: RM() ? 'auto' : 'smooth', block: 'center'}); FX().done(el, 'Added: ' + A.W[k].t); } }, 150);
   }});
 }
-function redrawBoard(){ const A = RA(), periods = A.clientPeriods(ED.R); const per = periods.indexOf(String(ED.R.client.period)) > -1 ? String(ED.R.client.period) : periods[0]; board(per); }
+function redrawBoard(){ const periods = periodsOf(); const per = periods.indexOf(String(D().period)) > -1 ? String(D().period) : (TEAM() && periods.indexOf('30') > -1 ? '30' : periods[0]); board(per); }
 
 function wire(per, periods, plabel){
   const v = ED.v, A = RA(), c = ED.c, R = ED.R;
   const tEl = v.querySelector('[data-title]');
-  tEl.addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); tEl.blur(); } });
-  tEl.addEventListener('blur', () => { const t = tEl.textContent.trim(); if (t && t !== (R.client.title || '')){ R.client.title = t; saved(); FX().toast('Report renamed', 'ok'); } });
-  v.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => { ED.tab = b.dataset.tab; draw(v, c, ED.ctx, R); }));
-  v.querySelector('[data-close]').addEventListener('click', () => { const b = document.querySelector('#seoModes [data-seoview="rhome"]'); if (b) b.click(); });
-  v.querySelector('[data-sched]').addEventListener('click', () => { const b = document.querySelector('#seoModes [data-seoview="rhome"]'); if (b) b.click(); setTimeout(() => { const s = $('osSched'); if (s){ s.scrollIntoView({behavior: 'smooth'}); FX().flash(s); } }, 250); });
-  v.querySelector('[data-share]').addEventListener('click', () => { ED.tab = 'shares'; draw(v, c, ED.ctx, R); });
+  if (tEl){
+    tEl.addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); tEl.blur(); } });
+    tEl.addEventListener('blur', () => { const t = tEl.textContent.trim(); if (t && t !== (D().title || '')){ D().title = t; saved(); FX().toast('Report renamed', 'ok'); } });
+  }
+  const re = (m) => draw(v, c, ED.ctx, R, ED.mode);
+  v.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => { ED.tab = b.dataset.tab; re(); }));
+  const sch = v.querySelector('[data-sched]'); if (sch) sch.addEventListener('click', () => { if (window.EDGE_OS && EDGE_OS.reporting) EDGE_OS.reporting.drawer(c); });
+  const sh = v.querySelector('[data-share]'); if (sh) sh.addEventListener('click', () => { ED.tab = 'shares'; re(); });
+  const tl = v.querySelector('[data-tlink]'); if (tl) tl.addEventListener('click', async e => { const u = A.teamUrl ? A.teamUrl(c, 'rteam') : location.href; try{ await navigator.clipboard.writeText(u); }catch(err){} FX().done(e.currentTarget, 'Team link copied'); });
+  const rs = v.querySelector('[data-reset]'); if (rs) rs.addEventListener('click', () => { if (!confirm('Put the team report back to the standard widgets and layout? You can undo this.')) return; remember(); R.team.items = A.teamDefault(); delete R.team.free; persistDoc(A); redrawBoard(); FX().toast('Team report reset', 'sync'); });
   v.querySelector('[data-undo]').addEventListener('click', () => undo(-1));
   v.querySelector('[data-redo]').addEventListener('click', () => undo(1));
   v.querySelector('[data-addpage]').addEventListener('click', e => addPage(e.currentTarget));
   v.querySelector('[data-tpls]').addEventListener('click', () => A.openTemplates(c));
-  v.querySelector('[data-prev]').addEventListener('click', () => { ED.preview = !ED.preview; draw(v, c, ED.ctx, R); });
+  v.querySelector('[data-prev]').addEventListener('click', () => { ED.preview = !ED.preview; re(); });
   v.querySelector('[data-setup]').addEventListener('click', () => {
     const host = v.querySelector('[data-panel]');
-    A.brandPanel(host, Object.assign({brand: R.client.brand, onBrand: b => { R.client.brand = b; saved(); draw(v, c, ED.ctx, R); }}, A.logosFor(c, R.client)));
+    A.brandPanel(host, Object.assign({brand: D().brand, onBrand: b => { D().brand = b; saved(); re(); }}, A.logosFor(c, D())));
   });
   const pb = v.querySelector('[data-per]');
   pb.addEventListener('click', e => {
@@ -384,7 +399,7 @@ function wire(per, periods, plabel){
     const m = document.createElement('div'); m.className = 'aab-menu';
     m.innerHTML = periods.map(p => '<button type="button" data-p="' + p + '"' + (p === per ? ' class="on"' : '') + '>' + esc(plabel(p)) + '</button>').join('');
     document.body.appendChild(m); const r = pb.getBoundingClientRect(); m.style.left = r.left + 'px'; m.style.top = (r.bottom + 4) + 'px';
-    m.addEventListener('click', ev => { const b = ev.target.closest('[data-p]'); if (!b) return; closeMenus(); R.client.period = b.dataset.p; saved(); draw(v, c, ED.ctx, R); });
+    m.addEventListener('click', ev => { const b = ev.target.closest('[data-p]'); if (!b) return; closeMenus(); D().period = b.dataset.p; saved(); re(); });
     setTimeout(() => document.addEventListener('mousedown', awayMenu, true), 0);
   });
   v.querySelectorAll('[data-z]').forEach(b => b.addEventListener('click', () => {
@@ -396,8 +411,8 @@ function undo(dir){
   const from = dir < 0 ? ED.undo : ED.redo, to = dir < 0 ? ED.redo : ED.undo;
   if (!from.length) return;
   to.push(snapshot());
-  ED.R.client.items = JSON.parse(from.pop());
-  RA().persistClient(ED.c);
+  D().items = JSON.parse(from.pop());
+  persistDoc(RA());
   redrawBoard(); saved();
   FX().toast(dir < 0 ? 'Undone' : 'Redone', 'sync');
 }
@@ -414,7 +429,7 @@ function shares(){
     '<div class="aab-sh-card"><div class="aab-sh-row"><div><b>Client link</b><small>' + (pub ? 'Live · last published ' + new Date(A.publishedAt(c)).toLocaleString('en-CA', {month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'}) : 'Not shared yet') + '</small></div>' +
       '<button type="button" class="aab-b dark" data-pub>' + I.share + (pub ? 'Update & copy link' : 'Share report') + '</button>' + (pub ? '<button type="button" class="aab-b" data-open>Open</button><button type="button" class="aab-b" data-new>New link</button>' : '') + '</div>' +
       '<div data-sharebox></div></div>' +
-    '<div class="aab-sh-card"><div class="aab-sh-row"><div><b>Scheduled email</b><small>Monthly sending is set up in Reporting → Overview &amp; sending.</small></div><button type="button" class="aab-b" data-sched2>' + I.sched + 'Schedule</button></div></div></div>';
+    '<div class="aab-sh-card"><div class="aab-sh-row"><div><b>Scheduled email</b><small>Sent on the 1st of each month from your own Gmail, once you switch it on.</small></div><button type="button" class="aab-b" data-sched2>' + I.sched + 'Schedule</button></div></div></div>';
   host.querySelector('[data-pub]').addEventListener('click', async e => { const b = e.currentTarget; b.disabled = true; try{ await A.share(host, c); try{ await navigator.clipboard.writeText(A.url(c)); }catch(err){} FX().done(b, 'Report link copied'); }catch(err){ FX().toast('Couldn’t share: ' + err.message, 'del'); } b.disabled = false; });
   const o = host.querySelector('[data-open]'); if (o) o.addEventListener('click', () => window.open(A.url(c), '_blank', 'noopener'));
   const n = host.querySelector('[data-new]'); if (n) n.addEventListener('click', () => A.regenerate(host, c));
@@ -424,7 +439,7 @@ function shares(){
 /* Leaving the client report tab: put the page back to normal. */
 document.addEventListener('click', e => {
   const b = e.target.closest && e.target.closest('#seoModes .seo-mode');
-  if (b && b.dataset.seoview !== 'rclient') document.body.classList.remove('aab-on');
+  if (b && !/^(rclient|rteam)$/.test(b.dataset.seoview)) document.body.classList.remove('aab-on');
 }, true);
-window.EDGE_aaBuilder = {draw, openPicker, pages: () => pageList()};
+window.EDGE_aaBuilder = {draw, openPicker, pages: () => pageList(), fitNext: () => { ED.fitOnce = true; }};
 })();
