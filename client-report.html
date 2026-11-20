@@ -83,7 +83,7 @@ html:has(.rp-pw),html:has(.rp-pw) body{height:100%;overflow:hidden}
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="ai-visibility.js?v=20261118b"></script>
 <script src="ai-report2.js?v=15"></script>
-<script src="reports.js?v=20261120a"></script>
+<script src="reports.js?v=20261120b"></script>
 <script>
 (function(){
   'use strict';
@@ -160,7 +160,7 @@ html:has(.rp-pw),html:has(.rp-pw) body{height:100%;overflow:hidden}
     const live = {feed: null, people: null, g4: {}, gsc: {}, pages: {}, pg: {}, pathway: {}, pw: {}, forms: {}, easyleads: {}, formsc: {}, gsch: {}};
     /* Stored copy for the period the report was published with; live numbers (read-only token) for everything else. */
     const ctxFor = () => {
-      const ctx = {domain: view.domain, clientName: view.clientName || '', cms: String(view.cms || '')};
+      const ctx = {domain: view.domain, clientName: view.clientName || '', cms: String(view.cms || ''), kwShare: /^kwreport-[\w-]+$/.test(String(view.kwShare || '')) ? String(view.kwShare) : ''};
       const fromSnap = n => snap && snap[n] && snap.period === period ? snap[n] : null;
       const canLive = !!(view.feedUrl && view.token);
       ctx.get = name => {

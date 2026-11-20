@@ -168,7 +168,7 @@ const PAGE_TPL = [
   ['Blank page', []],
   ['Website Traffic', [['traffic_kpis', 'xl'], ['traffic_trend', 'l', 8], ['gsc_devices', 's', 4], ['traffic_channels', 'xl']]],
   ['Website Events', [['conv_kpi', 's', 4], ['conv_by_event', 'm', 8], ['conv_trend', 'xl'], ['forms_kpi', 's', 4], ['forms_latest', 'l', 8]]],
-  ['SEO', [['gsc_kpis', 'xl'], ['kw_kpis', 'xl'], ['kw_cards', 'xl'], ['gsc_queries', 'l', 6], ['gsc_pages', 'l', 6]]],
+  ['SEO', [['gsc_kpis', 'xl'], ['kw_public', 'xl'], ['gsc_queries', 'l', 6], ['gsc_pages', 'l', 6]]],
   ['Google Business Profile', [['gbp_glance', 'xl']]],
   ['AI visibility', [['aivr_kpi-visits', 's', 4], ['aivr_kpi-conv', 's', 4], ['aivr_kpi-gimpr', 's', 4], ['aivr_conv-types', 'xl'], ['aivr_visits-3m', 'xl'], ['aivr_pages', 'xl']]],
   ['Google Ads', [['gads_kpis', 'xl'], ['gads_trend', 'l', 12], ['gads_campaigns', 'xl']]],

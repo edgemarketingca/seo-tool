@@ -830,7 +830,7 @@ const TEMPLATE = [
   {type: 'section', size: 'xl', cols: 12, h: 70, cfg: {heading: 'Website Events & Leads'}},
   {type: 'conv_kpi', size: 's', cols: 4}, {type: 'conv_by_event', size: 'm', cols: 8}, {type: 'conv_trend', size: 'xl', cols: 12}, {type: 'forms_kpi', size: 's', cols: 4}, {type: 'forms_latest', size: 'l', cols: 8},
   {type: 'section', size: 'xl', cols: 12, h: 70, cfg: {heading: 'SEO'}},
-  {type: 'gsc_kpis', size: 'xl', cols: 12}, {type: 'kw_kpis', size: 'xl', cols: 12}, {type: 'kw_cards', size: 'xl', cols: 12}, {type: 'gsc_queries', size: 'l', cols: 6}, {type: 'gsc_pages', size: 'l', cols: 6},
+  {type: 'gsc_kpis', size: 'xl', cols: 12}, {type: 'kw_public', size: 'xl', cols: 12, h: 1300}, {type: 'gsc_queries', size: 'l', cols: 6}, {type: 'gsc_pages', size: 'l', cols: 6},
   {type: 'section', size: 'xl', cols: 12, h: 70, cfg: {heading: 'Google Business Profile'}, only: 'gbp'},
   {type: 'gbp_glance', size: 'l', cols: 12, only: 'gbp'}, {type: 'gbp_grids', size: 'xl', cols: 12, only: 'gbp'},
   {type: 'section', size: 'xl', cols: 12, h: 70, cfg: {heading: 'AI visibility'}},
@@ -1231,6 +1231,7 @@ const AiSweep = {
     if (this.done || !RA || !RA.migrateAI || !window.AIReport2 || typeof state === 'undefined' || !(state.seoClients || []).length) return;
     if (typeof fbDb === 'undefined' || !fbDb) return;
     this.done = true;
+    (state.seoClients || []).forEach(c => { try{ if (c && c.reports && c.reports.client && !c.reports.client.kwp && RA.migrateKw) RA.migrateKw(c); }catch(e){ console.warn('keyword widget', c && c.name, e); } });
     const todo = (state.seoClients || []).filter(c => c && c.reports && c.reports.client && (c.reports.client.items || []).length && !c.reports.client.aiv2);
     let n = 0;
     for (const c of todo){

@@ -2059,6 +2059,9 @@ body.report-mode .kwr-root{display:block; font-family:var(--ui); color:var(--ink
    opened full-width, so the shell stays modest and centred rather than
    stretching to whatever the container happens to be. */
 .kwr-shell{max-width:940px; margin:0 auto; padding:26px 20px 40px;}
+body.kwr-bare{background:transparent !important;}
+body.kwr-bare .kwr-head{display:none !important;}
+body.kwr-bare .kwr-shell{max-width:none; padding:0 0 4px;}
 
 .kwr-head{
   display:flex; align-items:center; gap:16px; flex-wrap:wrap;
@@ -28372,6 +28375,8 @@ function applySeoReportZoom(){
 }
 async function bootSeoReportView(shareId){
   document.body.classList.add('embed-mode', 'report-mode');
+  /* &bare=1: drawn inside a client report widget, which has its own header. */
+  if (new URLSearchParams(location.search).get('bare')) document.body.classList.add('kwr-bare');
   applySeoReportZoom();
   setAppVisible(false);
   if ($('loginScreen')) $('loginScreen').classList.remove('on');
@@ -29305,13 +29310,14 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
 <script src="ai-visibility.js?v=20261109w"></script>
 <script src="ai-report2.js?v=15"></script>
 <script src="gsc-widgets.js"></script>
-<script src="reports.js?v=20261120a"></script>
+<script src="reports.js?v=20261120b"></script>
 <script src="connections.js?v=20261106e"></script>
 <script src="edge-ui.js"></script>
 <script src="maintenance.js?v=20261120a"></script>
 <script src="report-nav.js?v=20261106b"></script>
-<script src="edge-os.js?v=6"></script>
-<script src="edge-aa.js?v=4"></script>
+<script src="edge-os.js?v=7"></script>
+<script src="edge-viz.js?v=1"></script>
+<script src="edge-aa.js?v=5"></script>
 <style>/* Keyword report inside AgencyAnalytics (or any iframe): the whole report is its own scroll area.
    AgencyAnalytics' frame doesn't scroll, so the page itself can't; an element that scrolls still does,
    wherever the mouse is. html stops scrolling, body takes over at exactly the frame's height. */
@@ -29345,6 +29351,7 @@ html.kwr-embedded body::-webkit-scrollbar-thumb:hover{background:#9aa7b3;backgro
 <link rel="stylesheet" href="air.css?v=2"/>
 <link rel="stylesheet" href="edge-os.css?v=6"/>
 <link rel="stylesheet" href="edge-aa.css?v=4"/>
-<link rel="stylesheet" href="edge-studio.css?v=3"/>
+<link rel="stylesheet" href="edge-studio.css?v=4"/>
+<link rel="stylesheet" href="edge-viz.css?v=1"/>
 </body>
 </html>

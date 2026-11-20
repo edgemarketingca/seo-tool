@@ -933,6 +933,14 @@ body.rp-moving .rp-grid.free > .rp-w,.rp-grid.free > .rp-w.moving,.rp-grid.free 
 .rp.rp-aa .rp-kpi-v .aiv-delta{font:600 clamp(13px,min(4cqw,5cqh),22px) Geist,Arial,sans-serif !important;letter-spacing:0;padding:3px 9px;border-radius:5px;}
 .rp.rp-aa .rp-kpi-n{font-size:13px !important;color:#8A949C !important;min-height:0;}
 .rp.rp-aa .rp-kpi svg:not(.rp-gl){height:48px !important;width:100% !important;margin-top:8px;}
+.rp-kpi-dh{display:none;}
+.rp.rp-aa .rp-kpi-dh{display:inline-flex;align-items:center;flex:none;height:20px;padding:0 7px;border-radius:4px;font:600 11.5px Geist,Arial,sans-serif;letter-spacing:0;background:#F4F4F5;color:#71717A;}
+.rp.rp-aa .rp-kpi-dh.up{background:#E7F6EC;color:#16803C;}
+.rp.rp-aa .rp-kpi-dh.down{background:#FDECEC;color:#C2302E;}
+.rp.rp-aa .rp-kpi-v .aiv-delta{display:none !important;}
+.rp.rp-aa .rp-kpi-h > :not(.rp-kpi-l):not(.rp-kpi-dh){display:none !important;}
+.rp.rp-aa .rp-kpi-l{display:inline-flex;align-items:center;gap:8px;}
+.rp.rp-aa .rp-kpi-l .rp-aalogo{margin:0;}
 /* Single big numbers (headline widgets) scale with their card too */
 .rp.rp-aa .rp-grid.free > .rp-w > [data-body]:has(> .rp-big){container-type:size;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;}
 .rp.rp-aa .rp-big{display:flex !important;flex-direction:column;align-items:center;gap:12px;font:700 clamp(32px,min(22cqw,40cqh),200px)/1 Geist,Arial,sans-serif !important;color:#555 !important;letter-spacing:-.02em;white-space:nowrap;}
@@ -952,6 +960,10 @@ body.rp-moving .rp-grid.free > .rp-w,.rp-grid.free > .rp-w.moving,.rp-grid.free 
 .rp.rp-aa .rp-grid.free > .rp-w:has(> .rp-aivr) > .rp-wh{position:absolute;top:8px;right:8px;z-index:4;margin:0;min-height:0;}
 .rp.rp-aa .rp-grid.free > .rp-w:has(> .rp-aivr) > .rp-wh .rp-wt{display:none;}
 .rp-aivr{height:100%;padding:0 !important;overflow:hidden;}
+.rp.rp-aa .rp-grid.free > .rp-w:has(> .rp-kwpub){padding:0;border:0;background:transparent;}
+.rp.rp-aa .rp-grid.free > .rp-w:has(> .rp-kwpub) > .rp-wh{position:absolute;top:8px;right:8px;z-index:4;margin:0;min-height:0;}
+.rp.rp-aa .rp-grid.free > .rp-w:has(> .rp-kwpub) > .rp-wh .rp-wt{display:none;}
+.rp-kwpub{padding:0 !important;overflow:hidden;}
 .rp-aivr .rp-aivr-in,.rp-aivr .ar{height:100%;max-width:none;padding:0;margin:0;display:block;}
 .rp-aivr .ar-grid{display:block !important;height:100%;}
 .rp-aivr .ar-cell{height:100% !important;}
@@ -1156,7 +1168,8 @@ const G = {
 const kpiTile = (label, val, note, opts) => {
   opts = opts || {};
   const tag = opts.click ? 'button type="button"' : 'div';
-  return '<' + tag + ' class="rp-kpi"' + (opts.click ? ' data-k="' + esc(opts.click) + '"' : '') + '><div class="rp-kpi-h"><div class="rp-kpi-l">' + esc(label) + '</div>' + (opts.icon || '') + '</div>' +
+  return '<' + tag + ' class="rp-kpi"' + (opts.click ? ' data-k="' + esc(opts.click) + '"' : '') + '><div class="rp-kpi-h"><div class="rp-kpi-l">' + esc(label) + '</div>' + (opts.icon || '') +
+    (opts.d && opts.d.txt ? '<span class="rp-kpi-dh ' + esc(opts.d.cls || '') + '">' + esc(String(opts.d.txt).replace(/^[▲▼]\s*/, m => (m.trim() === '▲' ? '+' : '-'))) + '</span>' : '<span class="rp-kpi-dh flat">0</span>') + '</div>' +
     '<div class="rp-kpi-v">' + val + (opts.d && opts.d.txt ? '<span class="aiv-delta ' + opts.d.cls + '" style="font-family:var(--ui,Inter,sans-serif)">' + esc(opts.d.txt) + '</span>' : '') + '</div>' +
     '<div class="rp-kpi-n">' + (note || '') + '</div>' + (opts.spark ? U.sparkline(opts.spark, opts.color || '#2a78d6') : '') + '</' + tag.split(' ')[0] + '>';
 };
@@ -3576,6 +3589,28 @@ AIVR.forEach(([id, t, size, d]) => {
     }};
 });
 
+/* ---------- Keyword rankings, exactly as the client's public keyword link shows them ----------
+   The SEO tab's Share link (publicViews/kwreport-<client>) drawn inside the report, without its own header. */
+W.kw_public = {g: 'rank', t: 'Keyword rankings', d: 'The client’s keyword ranking report exactly as its shared link shows it: the totals, the position breakdown and every keyword by location.', size: 'xl', needs: [], plain: true, grow: true,
+  render(h, ctx){
+    const id = String(ctx.kwShare || '');
+    if (!/^kwreport-[\w-]+$/.test(id)){ h.innerHTML = '<div class="rp-err">This client’s keyword report isn’t shared yet. Open SEO → Keywords → Share and publish it, then it shows here.</div>'; return; }
+    const url = new URL('index.html?report=' + encodeURIComponent(id) + '&bare=1', location.href).href;
+    h.classList.add('rp-kwpub');
+    h.innerHTML = '<iframe title="Keyword rankings" src="' + esc(url) + '" loading="lazy" scrolling="no" style="width:100%;height:900px;border:0;display:block;background:transparent"></iframe>';
+    const f = h.querySelector('iframe');
+    let n = 0;
+    const tick = () => {
+      if (!f.isConnected) return;
+      try{
+        const d = f.contentDocument, sh = d && (d.querySelector('.kwr-shell') || d.querySelector('.embed-msg'));
+        if (sh){ const ht = Math.ceil(sh.getBoundingClientRect().bottom + (d.defaultView.scrollY || 0)) + 8; if (ht > 80 && Math.abs(ht - f.offsetHeight) > 4) f.style.height = ht + 'px'; }
+      }catch(e){ return; }
+      if (++n < 240) setTimeout(tick, n < 20 ? 400 : 1500);
+    };
+    f.addEventListener('load', () => { n = 0; tick(); });
+  }};
+
 W.text = {g: 'content', t: 'Text / heading', d: 'A heading and a note: a summary, next steps, anything worth saying in words.', size: 'xl', needs: [], editable: true, plain: true,
   render(h, ctx, w){
     const c = w.cfg || {};
@@ -4088,7 +4123,7 @@ W.people = {g: 'conv', t: 'Client personas', d: 'One card per person behind the 
   }};
 
 /* Height a widget gets when it is first placed on a free layout (px). */
-const DEF_H = {'aivr_kpi-visits': 360, 'aivr_kpi-conv': 360, 'aivr_kpi-gimpr': 360, 'aivr_kpi-mentioned': 360, 'aivr_conv-types': 540, 'aivr_visits-3m': 560, aivr_pages: 460, aivr_sources: 420, 'aivr_conv-sources': 420, 'aivr_gimpr-3m': 420, aivr_aio: 560, headline: 250, conv_kpi: 230, traffic_kpis: 240, gsc_kpis: 240, kw_kpis: 320, gai_organic: 210, gsc_devices: 380, gsc_countries: 380,
+const DEF_H = {kw_public: 1300, 'aivr_kpi-visits': 360, 'aivr_kpi-conv': 360, 'aivr_kpi-gimpr': 360, 'aivr_kpi-mentioned': 360, 'aivr_conv-types': 540, 'aivr_visits-3m': 560, aivr_pages: 460, aivr_sources: 420, 'aivr_conv-sources': 420, 'aivr_gimpr-3m': 420, aivr_aio: 560, headline: 250, conv_kpi: 230, traffic_kpis: 240, gsc_kpis: 240, kw_kpis: 320, gai_organic: 210, gsc_devices: 380, gsc_countries: 380,
   conv_list: 480, kw_table: 480, kw_cards: 440, llm_checks: 470, ai_journeys: 560, gbp_grids: 470, conv_by_page: 420, traffic_channels: 400,
   gsc_queries: 440, gsc_pages: 440, gsc_almost: 440, gsc_lowctr: 440, aio: 440, ai_pages: 420, gai_pages: 400, bing_queries: 380, llm_share: 340,
   kw_movers: 380, text: 170, section: 84, ga4_pages: 660, ga4_pathways: 780, forms: 1150,
@@ -4574,7 +4609,7 @@ function renderBoard(root, o){
         let bottom = 0; Array.from(body.children).forEach(c => { const r = c.getBoundingClientRect(); if (r.height) bottom = Math.max(bottom, (r.bottom - br.top) / z); });
         const pad = parseFloat(getComputedStyle(body).paddingBottom) || 0;
         const need = Math.ceil((el.offsetHeight - body.clientHeight + bottom + pad + 6) / SNAP) * SNAP;
-        const kpi = !!body.querySelector('.rp-kpis');
+        const kpi = !!body.querySelector('.rp-kpis') || !!(W[it.type] && W[it.type].grow);
         if (kpi && need > it.h + 2){ it.h = Math.min(4000, need); it.af = 1; changed = true; return; }
         if (it.af || body.querySelector('.rp-chwrap.fill') || body.querySelector('.aiv-scroll')) { if (!it.af){ it.af = 1; changed = true; } return; }
         const nh = Math.max(120, Math.min(4000, need));
@@ -4595,8 +4630,15 @@ function renderBoard(root, o){
         while (w() > room && fs > 18 && g++ < 30){ fs *= .92; el.style.setProperty('font-size', fs.toFixed(1) + 'px', 'important'); }
       });
     };
+    /* AgencyAnalytics number cards: the data source's logo before each label. */
+    const decorate = () => {
+      grid.querySelectorAll('.rp-w[data-type]').forEach(w => {
+        const m = metaOf(w.dataset.type); if (!m || !m.src || !m.src.length || !BRAND[m.src[0]]) return;
+        w.querySelectorAll('.rp-kpi-l').forEach(l => { if (!l.querySelector('.rp-aalogo')) l.insertAdjacentHTML('afterbegin', '<span class="rp-aalogo">' + logo(m.src[0], 16) + '</span>'); });
+      });
+    };
     let numT = 0;
-    const numsSoon = () => { clearTimeout(numT); numT = setTimeout(() => { if (grid.isConnected) fitNums(); }, 120); };
+    const numsSoon = () => { clearTimeout(numT); numT = setTimeout(() => { if (grid.isConnected){ if (aa) decorate(); fitNums(); } }, 120); };
     new MutationObserver(numsSoon).observe(grid, {childList: true, subtree: true});
     if (window.ResizeObserver) new ResizeObserver(numsSoon).observe(grid);
     new MutationObserver(() => { clearTimeout(fitT); fitT = setTimeout(() => { if (grid.isConnected) fitPass(); }, 700); }).observe(grid, {childList: true, subtree: true});
@@ -5084,6 +5126,25 @@ function migrateAI(c, layout){
   return true;
 }
 
+/* Keyword ranking widgets → the exact public keyword report (once per client report, client.kwp). */
+const KW_OLD = ['kw_kpis', 'kw_cards', 'kw_table'];
+function migrateKw(c){
+  const R = reportsOf(c), b = R.client, items = b.items;
+  if (b.kwp || !items || !items.length) return false;
+  const old = items.filter(i => KW_OLD.indexOf(i.type) > -1);
+  b.kwp = 1;
+  if (!old.length || items.some(i => i.type === 'kw_public')){ persist(c, 'client'); return false; }
+  const first = old.slice().sort((a, x) => (a.y || 0) - (x.y || 0))[0];
+  const nw = Object.assign(newItem('kw_public', 'xl'), {cols: 12, h: DEF_H.kw_public});
+  if (first.y != null && isFinite(first.y)){ nw.x = 0; nw.y = first.y; }
+  const at = items.indexOf(first);
+  for (let k = items.length - 1; k >= 0; k--) if (KW_OLD.indexOf(items[k].type) > -1) items.splice(k, 1);
+  items.splice(Math.min(at, items.length), 0, nw);
+  if (items.every(i => i.y != null && isFinite(i.y))){ compact(items, null); items.sort(byPos); }
+  persist(c, 'client'); autoPublish(c);
+  return true;
+}
+
 /* Writes one layout back to the client record (cfg left out when empty). */
 function persist(c, which){
   const R = reportsOf(c);
@@ -5437,7 +5498,7 @@ function ctxFor(c){
   const s = AIV.tracker ? AIV.tracker() : {};
   const dc = dataCache[domain] = dataCache[domain] || {g4: {}, gsc: {}, pages: {}, pg: {}, pw: {}, at: Date.now()};
   if (Date.now() - dc.at > 15 * 60 * 1000){ dataCache[domain] = {g4: {}, gsc: {}, pages: {}, pg: {}, pw: {}, at: Date.now()}; return ctxFor(c); }
-  const ctx = {domain, clientName: c.name || '', cms: c.cms || ''};
+  const ctx = {domain, clientName: c.name || '', cms: c.cms || '', kwShare: 'kwreport-' + c.id};
   /* Last copy now (if this browser has one), live answer behind it; keep() swaps the live one into memory. */
   const swr = (name, k, load, keep) => {
     const ck = RP_KEY + domain + '|' + name + '|' + k;
@@ -5954,6 +6015,7 @@ name: r.name, email: r.email, phone: r.phone, company: r.company, message: r.mes
 if (need.has('pages')){ const g = await get('pages'); if (g && !g.error) snap.pages = Object.assign({}, g, {pages: (g.pages || []).slice(0, 400), sitemap: (g.sitemap || []).slice(0, 2000)}); }
   if (need.has('kw')) doc.kw = JSON.stringify(kwRows(c));
   if (need.has('gbp')) doc.gbp = JSON.stringify(gbpSummary(gbpsFor(c)));
+  doc.kwShare = 'kwreport-' + c.id;
   /* Paid ads and social travel with the report: monthly totals, campaigns and daily rows, never logins. */
   if (need.has('chan')){ const ch = await get('chan'); if (ch) doc.chan = JSON.stringify(ch).slice(0, 300000); }
   /* Firestore keeps up to 1 MB per document: the data copy gets what the rest leaves. */
@@ -6097,7 +6159,7 @@ window.EdgeReportsApp = {
     persist(c, 'client');
     try{ if (activeTab === 'rclient' && client() && client().id === c.id) draw(); }catch(e){}
   },
-  migrateAI: (c, layout) => migrateAI(c, layout),
+  migrateAI: (c, layout) => migrateAI(c, layout), migrateKw: c => migrateKw(c),
   publish: async c => { await publish(c); return reportUrl(c); },
   url: c => reportUrl(c)
 };
