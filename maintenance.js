@@ -479,31 +479,46 @@ function renderOverview(stg){
   const sub = !list.length ? 'SEO clients whose CMS is WordPress (or WP) appear here automatically. You can also add a site with the + in the list.'
     : due.length ? 'Due now: ' + due.map(c => c.name).slice(0, 4).join(', ') + (due.length > 4 ? ' and ' + (due.length - 4) + ' more' : '') + '. Open a site, work through its checklist and mark it done.'
     : 'Nice work. Everything resets on the 1st of next month, and anything not done turns red and rings the bell.';
-  const cards = list.map(c => {
-    const s = statusOf(c), pct = Math.round(s.n / TOTAL * 100);
-    return '<button type="button" class="mt-card ' + s.key + '" data-site="' + esc(c.id) + '">' +
+  /* Months each site was maintained (from its log), for the six-month trail on each card. */
+  const ymOf = t => { const d = new Date(t); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); };
+  const months6 = []; { const d = new Date(now); d.setDate(15); for (let i = 5; i >= 0; i--){ const x = new Date(d); x.setMonth(d.getMonth() - i); months6.push({k: ymOf(x), l: x.toLocaleDateString(undefined, {month: 'short'})}); } }
+  const doneMonths = c => { const set = new Set(); ((c.maint && c.maint.log) || []).forEach(e => { if (e && e.at) set.add(ymOf(e.at)); }); if (statusOf(c).key === 'ok') set.add(ymOf(now)); return set; };
+  const ticks = act.reduce((t, c) => t + statusOf(c).n, 0), tickMax = act.length * TOTAL;
+  const cards = list.map((c, k) => {
+    const s = statusOf(c), pct = s.key === 'ok' && !s.n ? 100 : Math.round(s.n / TOTAL * 100), dm = doneMonths(c);
+    const col = s.key === 'ok' ? '#12A36F' : s.key === 'due' ? '#E5484D' : '#A0AAB4';
+    return '<button type="button" class="mt-card mt-card2 ' + s.key + '" data-site="' + esc(c.id) + '" style="--d:' + (k * 40) + 'ms;--tone:' + col + '">' +
       '<div class="mt-ch">' + logoHtml(c, 'mt-logo') + '<div class="mt-cn"><b>' + esc(c.name || 'Untitled') + '</b><small>' + esc(domainOf(c) || 'No website set') + '</small></div>' +
       '<span class="mt-pill ' + s.key + '">' + svg(s.key === 'ok' ? IC.check : s.key === 'due' ? IC.alert : IC.pause) + (s.key === 'ok' ? 'Done' : s.key === 'due' ? 'Due · ' + s.late + (s.late === 1 ? ' day' : ' days') : 'Paused') + '</span></div>' +
-      '<div><div class="mt-cf" style="margin-bottom:7px"><span>' + esc(monthName(now)) + ' checklist</span><em>' + s.n + ' / ' + TOTAL + '</em></div><div class="mt-bar"><i style="width:' + (s.key === 'ok' && !s.n ? 100 : pct) + '%"></i></div></div>' +
-      '<div class="mt-cf"><span>' + esc(s.line) + '</span><span class="mt-go">Open' + svg(IC.back) + '</span></div></button>';
+      '<div class="mt-c2mid"><div class="mt-c2ring">' + ring(s.key === 'ok' && !s.n ? TOTAL : s.n, TOTAL, 84, 8, col) + '<b>' + pct + '<i>%</i></b></div>' +
+        '<div class="mt-c2info"><span>' + esc(monthName(now)) + ' checklist</span><strong>' + s.n + ' <em>of ' + TOTAL + ' checks</em></strong><small>' + esc(s.line) + '</small></div></div>' +
+      '<div class="mt-trail" aria-label="Last six months">' + months6.map(m => '<span class="' + (dm.has(m.k) ? 'on' : m.k === ymOf(now) ? 'now' : '') + '" title="' + esc(m.l) + (dm.has(m.k) ? ': maintained' : ': not marked done') + '"><i></i><small>' + esc(m.l) + '</small></span>').join('') + '</div>' +
+      '<div class="mt-cf"><span>' + (s.last ? 'Last done ' + esc(dShort(s.last)) + (s.by ? ' · ' + esc(s.by) : '') : 'Never marked done') + '</span><span class="mt-go">Open' + svg(IC.back) + '</span></div></button>';
   }).join('');
   const log = [];
   list.forEach(c => ((c.maint && c.maint.log) || []).forEach(e => log.push({c, e})));
   log.sort((a, b) => (b.e.at || 0) - (a.e.at || 0));
+  /* The month as a strip of days: today marked, and each day sites were finished. */
+  const ms = monthStart(now), me = monthEnd(now), days = Math.round((me - ms) / DAY) + 1, todayN = new Date(now).getDate();
+  const perDay = {}; log.forEach(({e}) => { if (e.at >= ms && e.at <= me) { const d = new Date(e.at).getDate(); perDay[d] = (perDay[d] || 0) + 1; } });
+  const maxDay = Math.max(1, ...Object.values(perDay));
+  const strip = '<div class="mt-strip">' + Array.from({length: days}, (_, i) => { const d = i + 1, n = perDay[d] || 0;
+    return '<span class="' + (d === todayN ? 'today' : d < todayN ? 'past' : '') + (n ? ' hit' : '') + '" title="' + esc(monthName(now)) + ' ' + d + (n ? ': ' + n + ' site' + (n === 1 ? '' : 's') + ' done' : '') + '"><i style="height:' + (n ? 30 + Math.round(n / maxDay * 70) : 14) + '%"></i><small>' + d + '</small></span>'; }).join('') + '</div>';
+  const stat = (n, l, cls) => '<div class="mt-hs ' + (cls || '') + '"><b>' + n + '</b><small>' + l + '</small></div>';
   stg.innerHTML = topbar('Web Maintenance', monthName(now, true)) +
-    '<div class="mt-wrap">' +
-    '<section class="mt-hero ' + tone + '"><div style="position:relative;z-index:1">' +
-      '<span class="mt-eyebrow">' + svg(IC.wrench) + 'Website maintenance · ' + esc(monthName(now, true)) + '</span>' +
+    '<div class="mt-wrap mt-wrap2">' +
+    '<section class="mt-hero2 ' + tone + '"><span class="mt-orb a"></span><span class="mt-orb b"></span><div class="mt-h2l">' +
+      '<span class="mt-eyebrow">' + svg(IC.wrench) + 'Website care · ' + esc(monthName(now, true)) + '</span>' +
       '<h2>' + esc(head) + '</h2><p>' + esc(sub) + '</p>' +
-      '<div class="mt-chips"><span class="mt-chip"><i style="background:#ffb3b5"></i>' + due.length + ' due</span><span class="mt-chip"><i style="background:#8ff0c4"></i>' + ok.length + ' done</span>' +
-      '<span class="mt-chip">' + svg(IC.clock, '') .replace('<svg', '<svg style="width:14px;height:14px"') + left + (left === 1 ? ' day' : ' days') + ' left in ' + esc(monthName(now)) + '</span></div></div>' +
-      '<div class="mt-ring">' + ring(ok.length, act.length || 1, 150, 12) + '<div><span><b>' + ok.length + '/' + act.length + '</b><small>maintained</small></span></div></div>' +
+      '<div class="mt-hstats">' + stat(due.length, 'due now', due.length ? 'bad' : '') + stat(ok.length, 'done this month', 'good') + stat(tickMax ? Math.round(ticks / tickMax * 100) + '<span>%</span>' : '—', 'of all checks ticked') + stat(left, (left === 1 ? 'day' : 'days') + ' left in ' + esc(monthName(now))) + '</div></div>' +
+      '<div class="mt-ring2">' + ring(ok.length, act.length || 1, 190, 14) + '<div><span><b>' + ok.length + '<i>/' + act.length + '</i></b><small>sites maintained</small></span></div></div>' +
     '</section>' +
-    '<div class="mt-sec-h"><h3>Websites</h3><span>' + list.length + ' WordPress ' + (list.length === 1 ? 'site' : 'sites') + ' · red until this month’s maintenance is marked done</span></div>' +
-    (list.length ? '<div class="mt-grid">' + cards + '</div>' : '<div class="mt-panel mt-empty">No WordPress websites yet. <button class="mt-btn sm line" type="button" data-add2 style="margin-left:8px">' + svg(IC.plus) + 'Add a website</button></div>') +
+    '<section class="mt-panel mt-month"><div class="mt-month-h"><h3>' + esc(monthName(now, true)) + '</h3><span>Each bar is a day · taller bars are days sites were finished</span></div>' + strip + '</section>' +
+    '<div class="mt-sec-h"><h3>Websites</h3><span>' + list.length + ' WordPress ' + (list.length === 1 ? 'site' : 'sites') + ' · red until this month’s maintenance is marked done · dots show the last six months</span></div>' +
+    (list.length ? '<div class="mt-grid mt-grid2">' + cards + '</div>' : '<div class="mt-panel mt-empty">No WordPress websites yet. <button class="mt-btn sm line" type="button" data-add2 style="margin-left:8px">' + svg(IC.plus) + 'Add a website</button></div>') +
     '<div class="mt-sec-h"><h3>Recent maintenance</h3><span>Every site, newest first</span></div>' +
-    '<div class="mt-panel">' + (log.length ? '<ul class="mt-tl-list">' + log.slice(0, 12).map(({c, e}) =>
-      '<li><span class="mt-tick">' + svg(IC.check) + '</span><div style="flex:1;min-width:0"><b>' + esc(c.name) + ' · ' + esc(dLong(e.at)) + '</b><small>' + esc((e.by || 'Someone') + ' · ' + (e.items ? e.items.length : 0) + ' of ' + (e.total || TOTAL) + ' checks') + '</small>' + (e.note ? '<p>' + esc(e.note) + '</p>' : '') + '</div></li>').join('') + '</ul>'
+    '<div class="mt-panel">' + (log.length ? '<ul class="mt-tl-list mt-tl2">' + log.slice(0, 12).map(({c, e}) =>
+      '<li>' + logoHtml(c, 'mt-logo') + '<div style="flex:1;min-width:0"><b>' + esc(c.name) + '</b><small>' + esc(dLong(e.at) + ' · ' + (e.by || 'Someone') + ' · ' + (e.items ? e.items.length : 0) + ' of ' + (e.total || TOTAL) + ' checks') + '</small>' + (e.note ? '<p>' + esc(e.note) + '</p>' : '') + '</div><span class="mt-tick">' + svg(IC.check) + '</span></li>').join('') + '</ul>'
       : '<div class="mt-empty">Nothing marked done yet. Finished maintenance shows up here with the date and who did it.</div>') + '</div>' +
     '</div>';
   stg.querySelectorAll('.mt-card').forEach(b => b.onclick = () => { setView({site: b.dataset.site}); render(); window.scrollTo(0, 0); });

@@ -908,6 +908,66 @@ button.rp-lead{cursor:pointer;} button.rp-lead:hover{border-color:#b8c2cc;}
 .rp-grid.free > .rp-w{transition:left .28s cubic-bezier(.2,.8,.2,1),top .28s cubic-bezier(.2,.8,.2,1),width .28s cubic-bezier(.2,.8,.2,1),height .28s cubic-bezier(.2,.8,.2,1),box-shadow .2s,border-color .2s;}
 body.rp-moving .rp-grid.free > .rp-w,.rp-grid.free > .rp-w.moving,.rp-grid.free > .rp-w.placing{transition:none !important;}
 .rp-grid.free > .rp-w.moving{box-shadow:0 22px 50px -20px rgba(24,24,27,.45) !important;z-index:5;}
+/* ---- AI VISIBILITY SIZE: every client and team report widget drawn like the AI Visibility tab ----
+   Big standalone number cards whose numbers scale with the card, quiet 14px titles, roomy cards,
+   page titles centred and large, tools on hover. */
+.rp.rp-aa .rp-grid.free > .rp-w{padding:20px 22px;border:1px solid #EBEDF0;border-radius:8px;background:#fff;}
+.rp.rp-aa .rp-grid.free > .rp-w:hover{box-shadow:0 1px 2px rgba(16,24,40,.04),0 14px 32px -20px rgba(16,24,40,.32);}
+.rp.rp-aa .rp-wh{margin-bottom:16px;min-height:22px;}
+.rp.rp-aa .rp-wt h3{font:400 14px/1.35 Geist,"Helvetica Neue",Arial,sans-serif !important;color:#555 !important;letter-spacing:0 !important;}
+.rp.rp-aa .rp-wt .rp-wic{display:none !important;}
+.rp.rp-aa .rp-w .rp-acts{opacity:0;transform:translateY(-2px);transition:opacity .18s,transform .18s;}
+.rp.rp-aa .rp-w:hover .rp-acts,.rp.rp-aa .rp-w:focus-within .rp-acts{opacity:1;transform:none;}
+/* Number rows: each number is its own big card, three to a row. */
+.rp.rp-aa .rp-grid.free > .rp-w:has(> [data-body] > .rp-kpis:only-child){padding:0;border:0;background:transparent;box-shadow:none;}
+.rp.rp-aa .rp-grid.free > .rp-w:has(> [data-body] > .rp-kpis:only-child) > .rp-wh{position:absolute;top:8px;right:8px;z-index:4;margin:0;min-height:0;}
+.rp.rp-aa .rp-grid.free > .rp-w:has(> [data-body] > .rp-kpis:only-child) > .rp-wh .rp-wt{display:none;}
+.rp.rp-aa .rp-w .rp-kpis{display:grid !important;grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr)) !important;grid-auto-rows:340px;gap:12px !important;}
+.rp.rp-aa .rp-kpi{container-type:size;display:flex;flex-direction:column;text-align:center;min-height:0;height:100%;padding:20px 22px 16px;border:1px solid #EBEDF0;border-radius:8px;background:#fff;box-sizing:border-box;overflow:hidden;
+  transition:box-shadow .25s ease,transform .25s cubic-bezier(.2,.8,.2,1);}
+.rp.rp-aa .rp-kpi:hover{box-shadow:0 1px 2px rgba(16,24,40,.04),0 16px 34px -20px rgba(16,24,40,.32);transform:translateY(-2px);}
+.rp.rp-aa .rp-kpi-h{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.rp.rp-aa .rp-kpi-l{font:400 14px Geist,Arial,sans-serif !important;color:#555 !important;letter-spacing:0 !important;text-transform:none !important;text-align:left;}
+.rp.rp-aa .rp-kpi-v{flex:1;display:flex !important;flex-direction:column;align-items:center;justify-content:center;gap:12px;margin:6px 0 !important;
+  font:700 clamp(28px,min(22cqw,30cqh),200px)/1 Geist,"Helvetica Neue",Arial,sans-serif !important;color:#555 !important;letter-spacing:-.02em;white-space:nowrap;}
+.rp.rp-aa .rp-kpi-v .aiv-delta{font:600 clamp(13px,min(4cqw,5cqh),22px) Geist,Arial,sans-serif !important;letter-spacing:0;padding:3px 9px;border-radius:5px;}
+.rp.rp-aa .rp-kpi-n{font-size:13px !important;color:#8A949C !important;min-height:0;}
+.rp.rp-aa .rp-kpi svg:not(.rp-gl){height:48px !important;width:100% !important;margin-top:8px;}
+/* Single big numbers (headline widgets) scale with their card too */
+.rp.rp-aa .rp-grid.free > .rp-w > [data-body]:has(> .rp-big){container-type:size;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;}
+.rp.rp-aa .rp-big{display:flex !important;flex-direction:column;align-items:center;gap:12px;font:700 clamp(32px,min(22cqw,40cqh),200px)/1 Geist,Arial,sans-serif !important;color:#555 !important;letter-spacing:-.02em;white-space:nowrap;}
+.rp.rp-aa .rp-big .aiv-delta{font:600 clamp(13px,min(4cqw,6cqh),22px) Geist,Arial,sans-serif !important;}
+/* Tables and lists at report size */
+.rp.rp-aa .rp-w table{font-size:14px;color:#555;}
+.rp.rp-aa .rp-w th{font-size:12px !important;color:#A1A1AA !important;font-weight:500 !important;letter-spacing:0 !important;text-transform:none !important;}
+.rp.rp-aa .rp-w td{padding-top:12px !important;padding-bottom:12px !important;}
+.rp.rp-aa .rp-legend{font-size:14px;}
+/* Page titles: centred, big, no rule */
+.rp.rp-aa .rp-grid.free > .rp-w.sec{border:0;background:transparent;padding:0;display:block !important;}
+.rp.rp-aa .rp-w.sec > .rp-wh{position:absolute;top:6px;right:6px;margin:0;z-index:3;opacity:0;transition:opacity .15s;}
+.rp.rp-aa .rp-w.sec:hover > .rp-wh{opacity:1;}
+.rp.rp-aa .rp-w.sec > [data-body]{width:100%;height:100%;}
+/* The AI Visibility tab's own widgets, drawn by ai-report2.js inside a report widget */
+.rp.rp-aa .rp-grid.free > .rp-w:has(> .rp-aivr){padding:0;border:0;background:transparent;}
+.rp.rp-aa .rp-grid.free > .rp-w:has(> .rp-aivr) > .rp-wh{position:absolute;top:8px;right:8px;z-index:4;margin:0;min-height:0;}
+.rp.rp-aa .rp-grid.free > .rp-w:has(> .rp-aivr) > .rp-wh .rp-wt{display:none;}
+.rp-aivr{height:100%;padding:0 !important;overflow:hidden;}
+.rp-aivr .rp-aivr-in,.rp-aivr .ar{height:100%;max-width:none;padding:0;margin:0;display:block;}
+.rp-aivr .ar-grid{display:block !important;height:100%;}
+.rp-aivr .ar-cell{height:100% !important;}
+.rp-aivr .ar-cell > .ar-card{height:100%;box-sizing:border-box;overflow:auto;}
+.rp-aivr .ar-foot{display:none;}
+/* Google Maps grids at report size */
+.rp.rp-aa .rp-gbp{display:grid !important;grid-template-columns:repeat(auto-fill,minmax(250px,1fr)) !important;gap:18px !important;}
+.rp.rp-aa .rp-gbp > div{padding:16px;border:1px solid #EBEDF0;border-radius:8px;background:#fff;}
+.rp.rp-aa .rp-gbp > div > div:first-child{font-size:15px !important;color:#333 !important;}
+.rp.rp-aa .rp-heat{gap:4px !important;margin-top:12px !important;}
+.rp.rp-aa .rp-heat i{border-radius:6px !important;aspect-ratio:1;font-size:11px !important;display:grid;place-items:center;font-style:normal;color:#fff;font-weight:600;}
+/* Arriving and leaving */
+@keyframes rpAdd{0%{opacity:0;transform:translateY(18px) scale(.96);filter:blur(4px)}60%{opacity:1;filter:blur(0)}100%{opacity:1;transform:none}}
+@keyframes rpAddGlow{0%{box-shadow:0 0 0 0 rgba(111,109,181,.5),0 18px 40px -18px rgba(111,109,181,.6)}100%{box-shadow:0 0 0 14px rgba(111,109,181,0),0 0 0 0 rgba(0,0,0,0)}}
+.rp-grid.free > .rp-w.rp-new{animation:rpAdd .6s cubic-bezier(.2,.8,.2,1) both,rpAddGlow 1.4s .2s ease-out both;}
+.rp-grid.free > .rp-w.rp-bye{transition:opacity .28s ease,transform .28s cubic-bezier(.4,0,1,1),filter .28s !important;opacity:0 !important;transform:scale(.92) translateY(6px) !important;filter:blur(3px);pointer-events:none;}
 @keyframes rpAaIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.rp-aa .rp-w,.rp-aa .rp-w.sec{animation:none;}.rp-grid.free > .rp-w{transition:none;}}
 `;
@@ -974,8 +1034,8 @@ function gbpSummary(gbps){
         const ranked = pts.filter(p => p.rank != null && p.rank > 0);
         const avg = ranked.length ? ranked.reduce((t, p) => t + p.rank, 0) / ranked.length : null;
         return {ts: s.ts, n: pts.length, found: ranked.length, top3: ranked.filter(p => p.rank <= 3).length, avg,
-          grid: s.grid || Math.round(Math.sqrt(pts.length)) || 0,
-          pts: (s.points || []).map(p => [p.row, p.col, p.rank == null || p.error ? null : p.rank])};
+          grid: (s.grid && s.grid.rows) || (typeof s.grid === 'number' ? s.grid : 0) || Math.round(Math.sqrt(pts.length)) || 0,
+          pts: (s.points || []).map(p => [p.row, p.col, p.rank == null || p.error || !(p.rank > 0) ? null : p.rank])};
       };
       return {kw: k.text, last: stat(last), prev: stat(prev)};
     }).filter(k => k.last)})).filter(g => g.kws.length);
@@ -3490,6 +3550,32 @@ W.ai_share = {g: 'ai', t: 'AI share of visits', d: 'What share of all website vi
     const sv = h.querySelector('svg'); if (sv){ sv.style.width = '100%'; sv.style.height = '34px'; }
   }};
 
+/* ---------- The AI Visibility tab's report widgets, one per widget, exactly as that tab draws them ----------
+   Drawn by ai-report2.js (the AgencyAnalytics-style AI report), always for the last full month. */
+const AIVR = [
+  ['kpi-visits', 'Visits from AI', 's', 'AI visits last month, with the change from the month before.'],
+  ['kpi-conv', 'Conversions from AI', 's', 'Leads and key actions from AI visitors last month.'],
+  ['kpi-gimpr', 'Times Google’s AI showed the site', 's', 'How often Google’s AI Overviews and AI Mode showed the site.'],
+  ['kpi-mentioned', 'Mentioned in Google’s AI', 's', 'Tracked searches where Google’s AI named or cited the business.'],
+  ['conv-types', 'Conversions from AI, by action', 'xl', 'What AI visitors did, by AI source.'],
+  ['visits-3m', 'Visits from AI — last 3 months', 'xl', 'AI visits by month and by AI source.'],
+  ['pages', 'Top pages AI brought visitors to', 'xl', 'The five pages AI visitors landed on most.'],
+  ['sources', 'Where AI visitors came from', 'xl', 'Each AI assistant and Google AI Search, side by side.'],
+  ['conv-sources', 'Conversions by AI source', 'l', 'Conversions from each AI source.'],
+  ['gimpr-3m', 'Times Google’s AI showed the site — 3 months', 'l', 'Google AI impressions by month.'],
+  ['aio', 'Is the business in Google’s AI answers?', 'xl', 'Tracked searches and whether Google’s AI mentions the business.']
+];
+AIVR.forEach(([id, t, size, d]) => {
+  W['aivr_' + id] = {g: 'ai', t, d: d + ' The same widget as the AI Visibility tab.', size, needs: ['feed'], plain: true, aivr: id,
+    render(h, ctx, w, D){
+      if (!window.AIReport2 || !window.AIReport2.render){ h.innerHTML = '<div class="rp-err">The AI report isn’t loaded on this page.</div>'; return; }
+      h.classList.add('rp-aivr'); h.classList.toggle('rp-aivr-k', /^kpi-/.test(id));
+      const box = document.createElement('div'); box.className = 'rp-aivr-in'; h.innerHTML = ''; h.appendChild(box);
+      window.AIReport2.render(box, D.feed, {layout: [{id, w: 6, h: /^kpi-/.test(id) ? 360 : 0}]});
+      if (!box.querySelector('.ar-cell')) h.innerHTML = '<div class="rp-err">No data for this widget yet.</div>';
+    }};
+});
+
 W.text = {g: 'content', t: 'Text / heading', d: 'A heading and a note: a summary, next steps, anything worth saying in words.', size: 'xl', needs: [], editable: true, plain: true,
   render(h, ctx, w){
     const c = w.cfg || {};
@@ -4002,7 +4088,7 @@ W.people = {g: 'conv', t: 'Client personas', d: 'One card per person behind the 
   }};
 
 /* Height a widget gets when it is first placed on a free layout (px). */
-const DEF_H = {headline: 250, conv_kpi: 230, traffic_kpis: 240, gsc_kpis: 240, kw_kpis: 320, gai_organic: 210, gsc_devices: 380, gsc_countries: 380,
+const DEF_H = {'aivr_kpi-visits': 360, 'aivr_kpi-conv': 360, 'aivr_kpi-gimpr': 360, 'aivr_kpi-mentioned': 360, 'aivr_conv-types': 540, 'aivr_visits-3m': 560, aivr_pages: 460, aivr_sources: 420, 'aivr_conv-sources': 420, 'aivr_gimpr-3m': 420, aivr_aio: 560, headline: 250, conv_kpi: 230, traffic_kpis: 240, gsc_kpis: 240, kw_kpis: 320, gai_organic: 210, gsc_devices: 380, gsc_countries: 380,
   conv_list: 480, kw_table: 480, kw_cards: 440, llm_checks: 470, ai_journeys: 560, gbp_grids: 470, conv_by_page: 420, traffic_channels: 400,
   gsc_queries: 440, gsc_pages: 440, gsc_almost: 440, gsc_lowctr: 440, aio: 440, ai_pages: 420, gai_pages: 400, bing_queries: 380, llm_share: 340,
   kw_movers: 380, text: 170, section: 84, ga4_pages: 660, ga4_pathways: 780, forms: 1150,
@@ -4325,6 +4411,7 @@ function renderBoard(root, o){
     const el = document.createElement('section');
     const m = metaOf(it.type);
     el.className = 'rp-w ' + (it.size || 'l') + (def && def.plain && !(it.cfg && it.cfg.title) ? ' plain' : '') + (def && def.sec ? ' sec' : '');
+    if (it.__new){ delete it.__new; el.classList.add('rp-new'); setTimeout(() => el.classList.remove('rp-new'), 1700); setTimeout(() => { try{ el.scrollIntoView({behavior: 'smooth', block: 'nearest'}); }catch(e){} }, 80); }
     el.style.setProperty('--tint', m.tint);
     el.dataset.id = it.id; el.dataset.type = it.type;
     applySize(el, it);
@@ -4398,9 +4485,16 @@ function renderBoard(root, o){
     if (dn) dn.addEventListener('click', () => mv(1));
     const del = el.querySelector('[data-del]');
     if (del) del.addEventListener('click', () => {
-      items.splice(items.indexOf(it), 1); commit(); el.remove();
-      if (!items.length){ drawAll(); return; }
-      if (free){ compact(items, null); items.sort(byPos); layoutAll(); commit(); }
+      const title = (it.cfg && it.cfg.title) || (def && def.t) || 'Widget';
+      items.splice(items.indexOf(it), 1); commit();
+      const finish = () => {
+        el.remove();
+        if (!items.length){ drawAll(); }
+        else if (free){ compact(items, null); items.sort(byPos); layoutAll(); o.onAutoFit ? o.onAutoFit(items) : null; }
+        if (o.onDeleted) o.onDeleted(title);
+      };
+      if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) finish();
+      else { el.classList.add('rp-bye'); setTimeout(finish, 280); }
     });
     const cf = el.querySelector('[data-cfg]');
     if (cf) cf.addEventListener('click', () => {
@@ -4465,7 +4559,7 @@ function renderBoard(root, o){
   /* Workspace editor (o.autoFit): each widget fits what it shows once its data is in, so nothing is
      cut off and nothing sits in empty space. KPI rows always grow to fit; everything else is fitted
      once (it.af) and after that keeps whatever height you give it. Charts keep their height. */
-  if (o.autoFit && free){
+  if ((o.autoFit || aa) && free){
     let fitT = 0;
     const scaleOf = el => { const r = el.getBoundingClientRect().height; return el.offsetHeight ? r / el.offsetHeight : 1; };
     const fitPass = () => {
@@ -4487,8 +4581,24 @@ function renderBoard(root, o){
         it.af = 1; changed = true;
         if (Math.abs(nh - it.h) >= SNAP * 2) it.h = nh;
       });
-      if (changed){ compact(items, null); items.sort(byPos); layoutAll(); o.onAutoFit ? o.onAutoFit(items) : commit(); }
+      if (changed){ compact(items, null); items.sort(byPos); layoutAll(); if (o.onAutoFit) o.onAutoFit(items); else if (o.editable && o.autoFit) commit(); }
     };
+    /* Big numbers never spill out of their card: shrink any that would. */
+    const fitNums = () => {
+      grid.querySelectorAll('.rp-kpi-v, .rp-big, .ar-kpi-v').forEach(el => {
+        el.style.fontSize = '';
+        const box = el.closest('.rp-kpi, .ar-card, [data-body]') || el.parentElement; if (!box) return;
+        const room = box.clientWidth - 24; if (room <= 0) return;
+        const line = el.firstChild && el.firstChild.nodeType === 3 ? el : el;
+        let fs = parseFloat(getComputedStyle(el).fontSize) || 40, g = 0;
+        const w = () => { const r = document.createRange(); r.selectNodeContents(el); const t = el.firstChild; if (t && t.nodeType === 3){ r.setStart(t, 0); r.setEnd(t, t.length); } return r.getBoundingClientRect().width; };
+        while (w() > room && fs > 18 && g++ < 30){ fs *= .92; el.style.setProperty('font-size', fs.toFixed(1) + 'px', 'important'); }
+      });
+    };
+    let numT = 0;
+    const numsSoon = () => { clearTimeout(numT); numT = setTimeout(() => { if (grid.isConnected) fitNums(); }, 120); };
+    new MutationObserver(numsSoon).observe(grid, {childList: true, subtree: true});
+    if (window.ResizeObserver) new ResizeObserver(numsSoon).observe(grid);
     new MutationObserver(() => { clearTimeout(fitT); fitT = setTimeout(() => { if (grid.isConnected) fitPass(); }, 700); }).observe(grid, {childList: true, subtree: true});
     setTimeout(() => { if (grid.isConnected) fitPass(); }, 900);
   }
@@ -4879,7 +4989,7 @@ function openCatalog(o, done){
       draw(); return;
     }
     if (b.dataset.type){
-      const it = newItem(b.dataset.type);
+      const it = newItem(b.dataset.type); it.__new = 1;
       if (b.dataset.type === 'text' || b.dataset.type === 'embed') it.size = 'xl';
       o.items.push(it); inBoard.add(b.dataset.type); o.onItems && o.onItems(o.items);
       b.textContent = 'Added ✓'; b.classList.remove('go'); b.classList.add('on');
@@ -4924,6 +5034,56 @@ function reportsOf(c){
     team: stored && stored.team ? JSON.parse(JSON.stringify(stored.team)) : {period: '30', items: teamDefault()},
     client: stored && stored.client ? JSON.parse(JSON.stringify(stored.client)) : {period: 'lastMonth', items: []}};
 }
+/* ---------- AI section → the AI Visibility tab's widgets ----------
+   Each client's report gets the same AI widgets (in the same order and widths) as that client's
+   AI Visibility tab. Done once per client report (client.aiv2), saved and republished if shared. */
+function aiBlock(layout){
+  const L = (Array.isArray(layout) && layout.length ? layout : ((window.AIReport2 && window.AIReport2.DEFAULT_LAYOUT) || ['kpi-visits', 'kpi-conv', 'kpi-gimpr', 'conv-types', 'visits-3m', 'pages']))
+    .map(x => typeof x === 'string' ? {id: x} : x).filter(x => x && W['aivr_' + x.id]);
+  return L.map(x => {
+    const t = 'aivr_' + x.id, kpi = /^kpi-/.test(x.id);
+    const span = Math.max(1, Math.min(6, Number(x.w) || (kpi ? 2 : W[t].size === 'l' ? 3 : 6)));
+    return {id: uid(), type: t, size: kpi ? 's' : span >= 6 ? 'xl' : 'l', cols: Math.max(3, Math.min(12, span * 2)), h: DEF_H[t] || 420, cfg: {}};
+  });
+}
+const isAiSec = it => it && it.type === 'section' && /\bAI\b/i.test(String((it.cfg || {}).heading || (it.cfg || {}).title || ''));
+function migrateAI(c, layout){
+  const R = reportsOf(c), b = R.client, items = b.items;
+  if (b.aiv2 || !items || !items.length) return false;
+  const block = aiBlock(layout);
+  const positioned = items.every(i => i.y != null && isFinite(i.y));
+  if (positioned){
+    const secs = items.filter(i => i.type === 'section' || i.type === 'cover').sort(byPos);
+    let sec = items.filter(isAiSec).sort(byPos)[0];
+    if (sec){
+      const next = secs.find(x => x.y > sec.y);
+      const end = next ? next.y : Infinity;
+      for (let k = items.length - 1; k >= 0; k--){ const i = items[k]; if (i !== sec && i.y > sec.y && i.y < end) items.splice(k, 1); }
+      sec.cfg = Object.assign({}, sec.cfg, {heading: 'AI visibility'});
+    } else {
+      const before = secs.find(x => /google ads|facebook|instagram|social/i.test(String((x.cfg || {}).heading || '')));
+      const y0 = before ? before.y - 0.5 : (Math.max.apply(null, items.map(i => i.y + i.h)) + GAP);
+      sec = Object.assign(newItem('section', 'xl', {heading: 'AI visibility'}), {x: 0, y: y0, cols: 12, h: 70});
+      items.push(sec);
+    }
+    let cx = 0, row = 0;
+    block.forEach(it => { if (cx + it.cols > 12){ row++; cx = 0; } Object.assign(it, {x: cx, y: sec.y + 0.01 + row * 0.01}); cx += it.cols; items.push(it); });
+    compact(items, null); items.sort(byPos);
+  } else {
+    let at = items.findIndex(isAiSec);
+    if (at > -1){
+      let n = at + 1; while (n < items.length && items[n].type !== 'section' && items[n].type !== 'cover') n++;
+      items.splice(at + 1, n - at - 1, ...block);
+      items[at].cfg = Object.assign({}, items[at].cfg, {heading: 'AI visibility'});
+    } else {
+      items.push(newItem('section', 'xl', {heading: 'AI visibility'}), ...block);
+    }
+  }
+  b.aiv2 = 1;
+  persist(c, 'client'); autoPublish(c);
+  return true;
+}
+
 /* Writes one layout back to the client record (cfg left out when empty). */
 function persist(c, which){
   const R = reportsOf(c);
@@ -5380,6 +5540,8 @@ ctx.formsShare = (secret, on) => (!s.url || !s.key || domain.indexOf('.') < 0) ?
 }
 /* GBP Tracker profiles for this SEO client: same name, or a profile whose website is this domain. */
 function gbpsFor(c){
+  /* The tool links each SEO client to one Business Profile (GBP Tracker shows and changes the link). */
+  if (window.EDGE_gbpFor){ const g = window.EDGE_gbpFor(c); return g ? (g.gbps || []).slice() : []; }
   const nm = String(c.name || '').trim().toLowerCase(), dom = AIV.normDomain(c.website || '');
   const out = [];
   (state.clients || []).forEach(g => (g.gbps || []).forEach(p => {
@@ -5935,6 +6097,7 @@ window.EdgeReportsApp = {
     persist(c, 'client');
     try{ if (activeTab === 'rclient' && client() && client().id === c.id) draw(); }catch(e){}
   },
+  migrateAI: (c, layout) => migrateAI(c, layout),
   publish: async c => { await publish(c); return reportUrl(c); },
   url: c => reportUrl(c)
 };

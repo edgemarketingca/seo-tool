@@ -170,7 +170,7 @@ const PAGE_TPL = [
   ['Website Events', [['conv_kpi', 's', 4], ['conv_by_event', 'm', 8], ['conv_trend', 'xl'], ['forms_kpi', 's', 4], ['forms_latest', 'l', 8]]],
   ['SEO', [['gsc_kpis', 'xl'], ['kw_kpis', 'xl'], ['kw_cards', 'xl'], ['gsc_queries', 'l', 6], ['gsc_pages', 'l', 6]]],
   ['Google Business Profile', [['gbp_glance', 'xl']]],
-  ['AI Traffic', [['ai_kpis', 'xl'], ['ai_visits', 'l', 8], ['ai_assistants', 'm', 4]]],
+  ['AI visibility', [['aivr_kpi-visits', 's', 4], ['aivr_kpi-conv', 's', 4], ['aivr_kpi-gimpr', 's', 4], ['aivr_conv-types', 'xl'], ['aivr_visits-3m', 'xl'], ['aivr_pages', 'xl']]],
   ['Google Ads', [['gads_kpis', 'xl'], ['gads_trend', 'l', 12], ['gads_campaigns', 'xl']]],
   ['Paid Social', [['meta_kpis', 'xl'], ['meta_campaigns', 'xl']]],
   ['Social Media', [['social_kpis', 'xl'], ['social_posts', 'l', 12]]]
@@ -236,7 +236,8 @@ function board(per){
     onPush: team && A.pushToClient ? it => A.pushToClient(c, it) : undefined,
     onShareWidget: team && A.shareWidget ? it => A.shareWidget(c, it, per) : undefined,
     emptyHtml: '<h3>Start your ' + (team ? 'team ' : '') + 'report</h3><div>Add a page from the left, use the ' + (team ? 'standard team layout' : 'monthly template') + ', or insert a single widget.</div><div style="margin-top:14px;display:flex;gap:8px;justify-content:center"><button class="aiv-btn go" type="button" data-aab-tpl>' + (team ? 'Use the standard layout' : 'Use the monthly template') + '</button><button class="aiv-btn" type="button" data-aab-ins>+ Add a widget</button></div>',
-    autoFit: team || !!ED.fitOnce, onAutoFit: () => { if (!team) ED.fitOnce = false; persistDoc(A); ED._last = snapshot(); },
+    autoFit: true, onAutoFit: () => { ED.fitOnce = false; persistDoc(A); ED._last = snapshot(); },
+    onDeleted: t => FX().toast(t + ' removed', 'del', {label: 'Undo', key: 'Ctrl+Z', fn: () => undo(-1)}),
     onItems: () => { remember(); ED._last = snapshot(); saved(); pages(); },
     onPeriod: () => {}}, L));
   const t = host.querySelector('[data-aab-tpl]'); if (t) t.addEventListener('click', e => { remember(); if (TEAM()){ R.team.items = A.teamDefault(); delete R.team.free; persistDoc(A); redrawBoard(); FX().done(e.target, 'Standard team layout added'); } else if (window.EDGE_OS && EDGE_OS.reporting) { ED.fitOnce = true; EDGE_OS.reporting.buildTemplate(c, true); draw(ED.v, c, ED.ctx, A.reportsOf(c), 'client'); } });
@@ -329,11 +330,11 @@ function addPage(btn){
     remember();
     const items = D().items, GAP = A.GAP || 16;
     let y = items.length ? Math.max.apply(null, items.map(i => (i.y || 0) + (i.h || 0))) + GAP : 0;
-    const sec = A.newItem('section', 'xl', {heading: name}); Object.assign(sec, {x: 0, y, cols: 12, h: 70}); items.push(sec); y += 70 + GAP;
+    const sec = A.newItem('section', 'xl', {heading: name}); Object.assign(sec, {x: 0, y, cols: 12, h: 70, __new: 1}); items.push(sec); y += 70 + GAP;
     let cx = 0, rowH = 0;
     t[1].forEach(d => { const it = A.newItem(d[0], d[1]); const cols = d[2] || A.SIZE_COLS[d[1]] || 6, h = A.defH(it);
       if (cx + cols > 12){ y += rowH + GAP; cx = 0; rowH = 0; }
-      Object.assign(it, {x: cx, y, cols, h}); items.push(it); cx += cols; rowH = Math.max(rowH, h); });
+      Object.assign(it, {x: cx, y, cols, h, __new: 1}); items.push(it); cx += cols; rowH = Math.max(rowH, h); });
     saved(); redrawBoard();
     setTimeout(() => { const el = ED.v.querySelector('.rp-w[data-id="' + sec.id + '"]'); if (el){ el.scrollIntoView({behavior: RM() ? 'auto' : 'smooth', block: 'start'}); FX().done(el, 'Page added: ' + name); } }, 120);
   });
@@ -363,7 +364,7 @@ function insertAt(after, anchor){
     const it = A.newItem(k), items = D().items, GAP = A.GAP || 16;
     const cols = A.SIZE_COLS[it.size] || 6, h = A.defH(it);
     const y = after ? after.y + after.h + 1 : (items.length ? Math.max.apply(null, items.map(i => (i.y || 0) + (i.h || 0))) + GAP : 0);
-    Object.assign(it, {x: after && after.cols + cols <= 12 && after.type !== 'section' ? 0 : 0, y, cols, h});
+    Object.assign(it, {x: 0, y, cols, h, __new: 1});
     items.push(it);
     saved(); redrawBoard();
     setTimeout(() => { const el = ED.v.querySelector('.rp-w[data-id="' + it.id + '"]'); if (el){ el.scrollIntoView({behavior: RM() ? 'auto' : 'smooth', block: 'center'}); FX().done(el, 'Added: ' + A.W[k].t); } }, 150);

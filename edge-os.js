@@ -36,6 +36,7 @@ const RM = () => !!(window.matchMedia && matchMedia('(prefers-reduced-motion: re
 const num = v => Number(v) || 0;
 const fmt = n => Math.round(num(n)).toLocaleString('en-CA');
 const money = n => '$' + num(n).toLocaleString('en-CA', {minimumFractionDigits: 0, maximumFractionDigits: num(n) < 100 ? 2 : 0});
+const moneyK = n => { n = num(n); return n >= 10000 ? '$' + (n / 1000).toFixed(n >= 100000 ? 0 : 1).replace(/\.0$/, '') + 'k' : money(n); };
 const pct = (a, b) => b ? (a / b * 100) : 0;
 const ym = t => { const d = new Date(t); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); };
 const prevYm = m => { const d = new Date(m + '-15T12:00:00'); d.setMonth(d.getMonth() - 1); return ym(d); };
@@ -80,14 +81,15 @@ const ICON = {
    EFFECTS: toast, confetti, flash, fade-out. Every one respects reduced motion.
    ====================================================================== */
 const FX = {
-  toast(msg, kind){
+  toast(msg, kind, act){
     let t = $('osToast');
     if (!t){ t = document.createElement('div'); t.id = 'osToast'; t.className = 'os-toast'; t.setAttribute('role', 'status'); document.body.appendChild(t); }
     const ic = {del: ICON.trash, sync: ICON.sync, add: ICON.plus}[kind] || ICON.check;
-    t.className = 'os-toast ' + (kind || '');
-    t.innerHTML = '<i>' + ic + '</i><span>' + esc(msg) + '</span>';
+    t.className = 'os-toast ' + (kind || '') + (act ? ' has-act' : '');
+    t.innerHTML = '<i>' + ic + '</i><span>' + esc(msg) + '</span>' + (act ? '<button type="button" class="os-toast-act">' + esc(act.label) + (act.key ? '<kbd>' + esc(act.key) + '</kbd>' : '') + '</button>' : '');
+    if (act){ const b = t.querySelector('.os-toast-act'); b.addEventListener('click', () => { t.classList.remove('on'); try{ act.fn(); }catch(e){} }); }
     requestAnimationFrame(() => t.classList.add('on'));
-    clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('on'), 2600);
+    clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('on'), act ? 6500 : 2600);
   },
   confetti(x, y, n){
     if (RM()) return;
@@ -263,7 +265,7 @@ function hubHtml(){
   const mx = Math.max.apply(null, A.series.concat([1]));
   const first = A.series.findIndex(v => v > 0);
   const bars = A.series.map((v, i) => ({v, i})).filter(x => first > -1 && x.i >= first).map((x, j, arr) => { const mm = prevYmN(A.m, 5 - x.i);
-    return '<span class="osh-bar' + (j === arr.length - 1 ? ' now' : '') + '" title="' + esc(monthName(mm)) + ': ' + money(x.v) + '"><em>' + esc(money(x.v)) + '</em><i style="height:' + Math.max(4, Math.round(x.v / mx * 100)) + '%;animation-delay:' + (j * 80) + 'ms"></i><small>' + esc(monthName(mm).slice(0, 3)) + '</small></span>'; }).join('');
+    return '<span class="osh-bar' + (j === arr.length - 1 ? ' now' : '') + '" title="' + esc(monthName(mm)) + ': ' + money(x.v) + '"><i style="height:' + Math.max(18, Math.round(x.v / mx * 100)) + '%;animation-delay:' + (j * 80) + 'ms"><em>' + esc(moneyK(x.v)) + '</em></i><small>' + esc(monthName(mm).slice(0, 3)) + '</small></span>'; }).join('');
   const dl = A.prev ? Math.round((A.spend - A.prev) / A.prev * 100) : null;
   const today = new Date().toLocaleDateString('en-CA', {weekday: 'long', month: 'long', day: 'numeric'});
   return '<div class="osh-hero"><div class="osh-orb a"></div><div class="osh-orb b"></div><div class="osh-hl"><span class="osh-eye">EDGE Workspace · ' + esc(today) + '</span>' +
@@ -280,7 +282,7 @@ function hubHtml(){
         '<span class="osh-go">Open SEO <svg viewBox="0 0 24 24"><path d="M5 12h13M13 6l6 6-6 6"/></svg></span></button>' +
       /* Google Ads: deep teal, the spend by month */
       '<button type="button" class="osh-t ads" data-osgo="ads" style="--p:' + PILLAR.ads + '"><span class="osh-k">2</span><div class="osh-th"><span class="osh-ic">' + chIcon('google_ads', 26) + '</span><div><small>Marketing · read only</small><h3>Google Ads</h3></div></div>' +
-        '<div class="osh-big">' + count(A.spend, 'money') + '<span>spent in ' + esc(monthName(A.m)) + (dl != null ? ' · <b class="' + (dl > 0 ? 'up' : 'down') + '">' + (dl > 0 ? '▲' : '▼') + ' ' + Math.abs(dl) + '%</b>' : '') + '</span></div>' +
+        '<div class="osh-big">' + count(A.spend, 'money') + '<span class="osh-adsub">spent in ' + esc(monthName(A.m)) + (dl != null ? '<b class="osh-dl ' + (dl > 0 ? 'up' : dl < 0 ? 'down' : '') + '">' + (dl > 0 ? '▲' : dl < 0 ? '▼' : '') + ' ' + Math.abs(dl) + '% vs ' + esc(monthName(prevYm(A.m)).slice(0, 3)) + '</b>' : '') + '</span></div>' +
         '<div class="osh-bars">' + bars + '</div>' +
         '<div class="osh-foot">' + (A.logos.length ? '<span class="osh-stack">' + A.logos.map(c => logoHtml(logoOf(c), c.name)).join('') + '</span>' : '') + '<span>' + A.n + ' accounts</span>' + (A.attn ? '<span class="osh-warn">' + A.attn + ' need attention</span>' : '') + '</div>' +
         '<span class="osh-go">Open Google Ads <svg viewBox="0 0 24 24"><path d="M5 12h13M13 6l6 6-6 6"/></svg></span></button>' +
@@ -828,9 +830,12 @@ const TEMPLATE = [
   {type: 'section', size: 'xl', cols: 12, h: 70, cfg: {heading: 'Website Events & Leads'}},
   {type: 'conv_kpi', size: 's', cols: 4}, {type: 'conv_by_event', size: 'm', cols: 8}, {type: 'conv_trend', size: 'xl', cols: 12}, {type: 'forms_kpi', size: 's', cols: 4}, {type: 'forms_latest', size: 'l', cols: 8},
   {type: 'section', size: 'xl', cols: 12, h: 70, cfg: {heading: 'SEO'}},
-  {type: 'gsc_kpis', size: 'xl', cols: 12}, {type: 'kw_kpis', size: 'xl', cols: 12}, {type: 'kw_cards', size: 'xl', cols: 12}, {type: 'gsc_queries', size: 'l', cols: 6}, {type: 'gsc_pages', size: 'l', cols: 6}, {type: 'gbp_glance', size: 'l', cols: 12},
-  {type: 'section', size: 'xl', cols: 12, h: 70, cfg: {heading: 'AI Traffic'}},
-  {type: 'ai_kpis', size: 'xl', cols: 12}, {type: 'ai_visits', size: 'l', cols: 8}, {type: 'ai_assistants', size: 'm', cols: 4},
+  {type: 'gsc_kpis', size: 'xl', cols: 12}, {type: 'kw_kpis', size: 'xl', cols: 12}, {type: 'kw_cards', size: 'xl', cols: 12}, {type: 'gsc_queries', size: 'l', cols: 6}, {type: 'gsc_pages', size: 'l', cols: 6},
+  {type: 'section', size: 'xl', cols: 12, h: 70, cfg: {heading: 'Google Business Profile'}, only: 'gbp'},
+  {type: 'gbp_glance', size: 'l', cols: 12, only: 'gbp'}, {type: 'gbp_grids', size: 'xl', cols: 12, only: 'gbp'},
+  {type: 'section', size: 'xl', cols: 12, h: 70, cfg: {heading: 'AI visibility'}},
+  {type: 'aivr_kpi-visits', size: 's', cols: 4, h: 360}, {type: 'aivr_kpi-conv', size: 's', cols: 4, h: 360}, {type: 'aivr_kpi-gimpr', size: 's', cols: 4, h: 360},
+  {type: 'aivr_conv-types', size: 'xl', cols: 12}, {type: 'aivr_visits-3m', size: 'xl', cols: 12}, {type: 'aivr_pages', size: 'xl', cols: 12},
   {type: 'section', size: 'xl', cols: 12, h: 70, cfg: {heading: 'Google Ads'}, only: 'google_ads'},
   {type: 'gads_kpis', size: 'xl', cols: 12, h: 200, only: 'google_ads'}, {type: 'gads_trend', size: 'l', cols: 12, only: 'google_ads'}, {type: 'gads_campaigns', size: 'xl', cols: 12, only: 'google_ads'},
   {type: 'section', size: 'xl', cols: 12, h: 70, cfg: {heading: 'Facebook & Instagram Ads'}, only: 'meta_ads'},
@@ -909,7 +914,8 @@ const Reporting = {
     const RA = window.EdgeReportsApp; if (!RA || !c) return 0;
     if (!quiet && RA.clientItems(c).length && !confirm('Replace ' + c.name + '’s client report with the monthly template? Widgets you added by hand will be replaced.')) return 0;
     const ch = Channels.forClient(c), social = !!(ch.facebook || ch.instagram || ch.linkedin);
-    const items = TEMPLATE.filter(t => !t.only || (t.only === 'social' ? social : ch[t.only])).filter(t => RA.W[t.type]).map(t => { const o = Object.assign({}, t); delete o.only; return o; });
+    const hasGbp = !!gbpFor(c);
+    const items = TEMPLATE.filter(t => !t.only || (t.only === 'social' ? social : t.only === 'gbp' ? hasGbp : ch[t.only])).filter(t => RA.W[t.type]).map(t => { const o = Object.assign({}, t); delete o.only; return o; });
     try{ window.EDGE_aaBuilder && EDGE_aaBuilder.fitNext(); }catch(e){}
     RA.applyClient(c, items, c.name + ' — Monthly report');
     return items.length;
@@ -1052,14 +1058,105 @@ document.addEventListener('click', e => {
    "Other profiles" at the bottom, so nothing is ever hidden.
    ====================================================================== */
 const gbpLinks = () => settings().gbpLinks || {};
+/* One Business Profile per SEO client, and that profile is what the client's reports show.
+   An explicit link (settings.gbpLinks) always wins; otherwise the same name or website, but never a
+   profile already linked to another client. Matches found that way are written down (lockGbpLinks). */
 function gbpFor(sc){
+  if (!sc) return null;
   const L = gbpLinks(), id = L[sc.id];
   if (id === 'none') return null;
   if (id){ const g = (state.clients || []).find(x => x.id === id); if (g) return g; }
-  const n = norm(sc.name);
-  return (state.clients || []).find(g => norm(g.name) === n) ||
-    (state.clients || []).find(g => { const gn = norm(g.name); return gn.length > 3 && n.length > 3 && (gn.indexOf(n) === 0 || n.indexOf(gn) === 0); }) || null;
+  const taken = new Set(Object.keys(L).filter(k => k !== sc.id && L[k] && L[k] !== 'none').map(k => L[k]));
+  const pool = (state.clients || []).filter(g => !taken.has(g.id));
+  const n = norm(sc.name), dom = String(sc.website || '').toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
+  const domOf = u => String(u || '').toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
+  return pool.find(g => norm(g.name) === n) ||
+    (dom ? pool.find(g => (g.gbps || []).some(p => domOf(p.website) === dom)) : null) ||
+    pool.find(g => { const gn = norm(g.name); return gn.length > 3 && n.length > 3 && (gn.indexOf(n) === 0 || n.indexOf(gn) === 0); }) || null;
 }
+const gbpOwner = gc => gc ? seoOnly().filter(c => !isArchived(c)).find(sc => { const g = gbpFor(sc); return g && g.id === gc.id; }) || null : null;
+function setGbpLink(sc, gc){
+  const L = Object.assign({}, gbpLinks());
+  Object.keys(L).forEach(k => { if (gc && L[k] === gc.id && k !== (sc && sc.id)) delete L[k]; });
+  if (sc) L[sc.id] = gc ? gc.id : 'none';
+  setSetting('gbpLinks', L);
+}
+function lockGbpLinks(){
+  if (typeof state === 'undefined' || !(state.clients || []).length || !seoClients().length) return;
+  const L = Object.assign({}, gbpLinks()); let changed = false;
+  seoOnly().filter(c => !isArchived(c)).forEach(sc => { if (L[sc.id]) return; const g = gbpFor(sc); if (g){ L[sc.id] = g.id; changed = true; } });
+  if (changed) setSetting('gbpLinks', L);
+}
+window.EDGE_gbpFor = sc => gbpFor(sc);
+
+/* GBP Tracker: a visual header for the open profile: who it belongs to, how it ranks, every keyword's grid. */
+const GbpHero = {
+  t: 0,
+  soon(){ clearTimeout(this.t); this.t = setTimeout(() => this.render(), 160); },
+  cur(){
+    const gc = (state.clients || []).find(x => x.id === state.activeClientId); if (!gc) return {};
+    const g = (gc.gbps || []).find(p => p.id === state.activeGbpId) || (gc.gbps || [])[0];
+    return {gc, g};
+  },
+  render(){
+    const fv = $('focusView'), tabs = $('gbpTabs');
+    let host = $('osGbpHero');
+    if (!fv || !tabs || fv.style.display === 'none' || typeof scanStatsOf !== 'function'){ if (host) host.remove(); return; }
+    const {gc, g} = this.cur(); if (!g){ if (host) host.remove(); return; }
+    if (!host){ host = document.createElement('section'); host.id = 'osGbpHero'; host.className = 'os-gh'; }
+    if (host.nextSibling !== tabs) fv.insertBefore(host, tabs);
+    const owner = gbpOwner(gc);
+    const kws = (g.keywords || []).map(k => { const sc = k.scans || [], last = sc[sc.length - 1], prev = sc[sc.length - 2];
+      return {k, last, st: last ? scanStatsOf(last) : null, pv: prev ? scanStatsOf(prev) : null}; });
+    const scanned = kws.filter(x => x.st && x.st.read);
+    const read = scanned.reduce((t, x) => t + x.st.read, 0), top3 = scanned.reduce((t, x) => t + x.st.top3, 0), found = scanned.reduce((t, x) => t + x.st.found, 0);
+    const avgs = scanned.filter(x => x.st.avg != null).map(x => x.st.avg);
+    const avg = avgs.length ? avgs.reduce((a, b) => a + b, 0) / avgs.length : null;
+    const lastTs = Math.max(0, ...scanned.map(x => x.last.ts || 0));
+    const rc = r => r == null ? '#D8DEE2' : r <= 3 ? '#12A36F' : r <= 10 ? '#F5A524' : r <= 20 ? '#F07A3C' : '#E5484D';
+    const mini = (scan) => {
+      const pts = (scan && scan.points) || []; if (!pts.length) return '<div class="os-gh-nogrid">Not scanned yet</div>';
+      const n = (scan.grid && scan.grid.rows) || (typeof scan.grid === 'number' ? scan.grid : 0) || Math.round(Math.sqrt(pts.length)) || 5, cell = 100 / n;
+      return '<svg viewBox="0 0 100 100" class="os-gh-grid" aria-hidden="true">' + pts.map(p => { const r = p.error || !(p.rank > 0) ? null : p.rank;
+        return '<rect x="' + (p.col * cell + 1.2).toFixed(2) + '" y="' + (p.row * cell + 1.2).toFixed(2) + '" width="' + (cell - 2.4).toFixed(2) + '" height="' + (cell - 2.4).toFixed(2) + '" rx="' + (cell * .28).toFixed(2) + '" fill="' + rc(r) + '"' + (r != null && r <= 3 ? '' : ' opacity="' + (r == null ? .7 : .92) + '"') + '/>'; }).join('') + '</svg>';
+    };
+    const opts = seoOnly().filter(c => !isArchived(c)).sort((a, b) => String(a.name).localeCompare(String(b.name)));
+    const kpi = (v, l, sub) => '<div class="os-gh-k"><b>' + v + '</b><small>' + l + '</small>' + (sub ? '<em>' + sub + '</em>' : '') + '</div>';
+    host.innerHTML =
+      '<div class="os-gh-top"><span class="os-gh-orb"></span>' +
+        '<div class="os-gh-id">' + (owner ? logoHtml(logoOf(owner), owner.name) : '<span class="os-logo mono">' + esc(initials(gc.name)) + '</span>') +
+          '<div><small>Google Business Profile</small><h2>' + esc(g.bizName || gc.name) + '</h2><span class="os-gh-loc">' + esc(g.name || 'Main location') + (g.website ? ' · ' + esc(String(g.website).replace(/^https?:\/\//, '').replace(/\/$/, '')) : '') + '</span></div></div>' +
+        '<label class="os-gh-link' + (owner ? ' ok' : '') + '"><span>' + (owner ? 'Feeds the reports of' : 'Not linked to an SEO client') + '</span><select data-owner aria-label="SEO client this profile belongs to"><option value="">' + (owner ? 'Unlink' : 'Choose the SEO client…') + '</option>' +
+          opts.map(c => '<option value="' + esc(c.id) + '"' + (owner && owner.id === c.id ? ' selected' : '') + '>' + esc(c.name) + '</option>').join('') + '</select></label>' +
+      '</div>' +
+      '<div class="os-gh-kpis">' +
+        kpi(avg == null ? '—' : (avg < 10 ? avg.toFixed(1) : Math.round(avg)), 'average Maps position', scanned.length ? 'across ' + scanned.length + ' keyword' + (scanned.length === 1 ? '' : 's') : 'scan to see') +
+        kpi(read ? Math.round(top3 / read * 100) + '<i>%</i>' : '—', 'of the grid in the top 3', read ? top3 + ' of ' + read + ' points' : '') +
+        kpi(read ? Math.round(found / read * 100) + '<i>%</i>' : '—', 'of the grid where it shows', read ? found + ' of ' + read + ' points' : '') +
+        kpi(lastTs ? esc(new Date(lastTs).toLocaleDateString('en-CA', {month: 'short', day: 'numeric'})) : '—', 'last scan', (g.keywords || []).length + ' keyword' + ((g.keywords || []).length === 1 ? '' : 's') + ' tracked') +
+      '</div>' +
+      (kws.length ? '<div class="os-gh-kws">' + kws.map((x, i) => {
+        const st = x.st, d = st && x.pv && x.pv.read && st.read ? Math.round((st.top3 / st.read - x.pv.top3 / x.pv.read) * 100) : null;
+        return '<button type="button" class="os-gh-kw' + (x.k.id === g.activeKeywordId ? ' on' : '') + '" data-kw="' + esc(x.k.id) + '" style="--d:' + (i * 50) + 'ms">' + mini(x.last) +
+          '<span class="t"><b>' + esc(x.k.text) + '</b><small>' + (st ? (st.avg == null ? 'Not found on the map' : 'Avg #' + (st.avg < 10 ? st.avg.toFixed(1) : Math.round(st.avg)) + ' · top 3 at ' + st.top3 + '/' + st.read) : 'Not scanned yet') + '</small></span>' +
+          (d ? '<em class="' + (d > 0 ? 'up' : 'down') + '">' + (d > 0 ? '▲' : '▼') + Math.abs(d) + '%</em>' : '') + '</button>';
+      }).join('') + '</div>' : '') +
+      '<div class="os-gh-leg"><span><i style="background:#12A36F"></i>1–3</span><span><i style="background:#F5A524"></i>4–10</span><span><i style="background:#F07A3C"></i>11–20</span><span><i style="background:#E5484D"></i>20+</span><span><i style="background:#D8DEE2"></i>Not found</span></div>';
+    host.querySelectorAll('[data-kw]').forEach(b => b.addEventListener('click', () => { try{ selectKeyword(b.dataset.kw); }catch(e){} }));
+    host.querySelector('[data-owner]').addEventListener('change', e => {
+      const id = e.target.value, sc = seoClients().find(c => c.id === id) || null;
+      if (sc) setGbpLink(sc, gc); else if (owner) setGbpLink(owner, null);
+      FX.toast(sc ? g.bizName ? (g.bizName + ' now feeds ' + sc.name + '’s reports') : ('Linked to ' + sc.name) : 'Profile unlinked', 'ok');
+      try{ unifyGbpTree(); }catch(err){} this.render();
+    });
+  },
+  init(){
+    const st = $('gbpStage'); if (!st || this.mo) return;
+    this.mo = new MutationObserver(ms => { if (ms.every(m => { const h = $('osGbpHero'); return h && (h === m.target || h.contains(m.target)); })) return; this.soon(); });
+    this.mo.observe(st, {childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class']});
+    this.soon();
+  }
+};
 function unifyGbpTree(){
   const tree = $('clientTree'); if (!tree) return;
   const filter = (($('clientSearch') || {}).value || '').toLowerCase().trim();
@@ -1126,6 +1223,26 @@ function serpLayout(){
 /* ======================================================================
    BOOT
    ====================================================================== */
+/* Every client report's AI section becomes that client's AI Visibility tab widgets (once per report). */
+const AiSweep = {
+  done: false,
+  async run(){
+    const RA = window.EdgeReportsApp;
+    if (this.done || !RA || !RA.migrateAI || !window.AIReport2 || typeof state === 'undefined' || !(state.seoClients || []).length) return;
+    if (typeof fbDb === 'undefined' || !fbDb) return;
+    this.done = true;
+    const todo = (state.seoClients || []).filter(c => c && c.reports && c.reports.client && (c.reports.client.items || []).length && !c.reports.client.aiv2);
+    let n = 0;
+    for (const c of todo){
+      let layout = null;
+      try{ const d = await fbDb.collection('publicViews').doc('aireport-' + c.id).get(); if (d.exists) layout = (d.data() || {}).layout || null; }catch(e){}
+      try{ if (RA.migrateAI(c, layout)) n++; }catch(e){ console.warn('AI section', c.name, e); }
+      await new Promise(r => setTimeout(r, 400));
+    }
+    if (n){ try{ RA.redraw(); }catch(e){} FX.toast('AI Visibility widgets added to ' + n + ' client report' + (n === 1 ? '' : 's'), 'ok'); }
+  }
+};
+
 function boot(){
   ensureStage();
   buildBar();
@@ -1133,7 +1250,10 @@ function boot(){
   hookRouter();
   Bridge.init();
   Channels.start();
+  [6000, 15000, 40000].forEach(t => setTimeout(() => AiSweep.run(), t));
   hookGbpTree();
+  GbpHero.init();
+  [5000, 20000].forEach(t => setTimeout(lockGbpLinks, t));
   serpLayout();
   /* Land where you left off: the section, and in SEO the sub-tool. */
   section = localPref('section') || (['gbp', 'serp', 'seo'].indexOf(state.seoModule) > -1 ? 'seo' : state.seoModule === 'maint' ? 'maint' : 'seo');

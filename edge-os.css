@@ -510,3 +510,7 @@ body.os-sec-report #seoStage .panels{padding-left:28px;padding-right:28px;}
 .os-acct-lg{position:relative;display:inline-flex;flex:none;}
 .os-chi.badge{position:absolute;right:-5px;bottom:-5px;box-shadow:0 0 0 2px #fff;border-radius:5px;}
 .osh-ic .os-chi{border-radius:7px;}
+.os-toast.has-act{pointer-events:auto;padding-right:8px;}
+.os-toast-act{margin-left:6px;display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 12px;border:0;border-radius:10px;background:rgba(255,255,255,.14);color:#fff;font:600 13px var(--ui,Inter,sans-serif);cursor:pointer;transition:background .15s;}
+.os-toast-act:hover{background:rgba(255,255,255,.24);}
+.os-toast-act kbd{font:500 11px var(--ui,Inter,sans-serif);padding:2px 6px;border-radius:5px;background:rgba(255,255,255,.14);color:rgba(255,255,255,.8);}
