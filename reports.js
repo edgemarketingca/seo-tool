@@ -5997,6 +5997,10 @@ function draw(){
    Templates live in state.reportTemplates and sync like everything else.
    ========================================================================== */
 const STARTERS = [
+  /* The AgencyAnalytics-style monthly report. Built per client, so each one gets the Google Ads,
+     Meta and social pages only for channels it has numbers for, and GBP only when one is linked. */
+  {id: 'starter_monthly', name: 'Monthly report — AgencyAnalytics layout', starter: true, monthly: true,
+    summary: 'Client report · Traffic, Events, SEO, AI, GBP, Google Ads & social', client: {items: []}},
   {id: 'starter_essentials', name: 'Client essentials (starter)', starter: true,
     client: {period: 'lastMonth', periods: ['30', 'lastMonth', '90', '365'], brand: {logo: 'auto', agency: true, banner: true},
       items: [['headline', 'xl'], ['conv_trend', 'l'], ['conv_by_channel', 'l'], ['kw_kpis', 'xl'], ['kw_cards', 'xl'], ['gsc_kpis', 'xl'], ['ai_assistants', 'l'], ['aio', 'l']]
@@ -6045,6 +6049,14 @@ function tplFromClient(c, name, parts){
 /* Gives one client the template's layout. Fresh widget ids per client; a client
    widget copied from a team widget keeps pointing at that client's copy of it. */
 function tplApply(t, c, parts){
+  if (t.monthly){
+    if (!parts.client) return;
+    const OS = window.EDGE_OS && window.EDGE_OS.reporting;
+    if (!OS || !OS.buildTemplate) return;
+    OS.buildTemplate(c, true);
+    const RC = reportsOf(c).client; tplStamp(RC, t); persist(c, 'client');
+    return;
+  }
   const R = reportsOf(c), map = {};
   if (parts.team && t.team){
     R.team = {period: t.team.period || '30', items: t.team.items.map(i => { const n = Object.assign(clone(i), {id: i.id && /^d_/.test(i.id) ? i.id : uid()}); map[i.id] = n.id; return n; })};
@@ -6090,7 +6102,7 @@ function queuePublish(c){
   })();
 }
 
-const tplSummary = t => [t.team ? t.team.items.length + ' team widget' + (t.team.items.length === 1 ? '' : 's') : '', t.client ? t.client.items.length + ' client widget' + (t.client.items.length === 1 ? '' : 's') : '']
+const tplSummary = t => t.summary ? [t.summary] : [t.team ? t.team.items.length + ' team widget' + (t.team.items.length === 1 ? '' : 's') : '', t.client ? t.client.items.length + ' client widget' + (t.client.items.length === 1 ? '' : 's') : '']
   .filter(Boolean).join(' · ');
 
 function openTemplates(c, startOn){
