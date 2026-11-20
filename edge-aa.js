@@ -51,11 +51,14 @@ const VIZ = {
 const SOURCES = [
   {k: 'ga4', l: 'Google Analytics', logo: 'ga4', groups: ['traffic', 'conv', 'ai', 'overview'], assets: ['Conversions', 'Events', 'Pages', 'Traffic']},
   {k: 'gsc', l: 'Google Search Console', logo: 'gsc', groups: ['gsc', 'gai'], assets: ['Queries', 'Pages', 'Devices', 'AI impressions']},
-  {k: 'kw', l: 'Rank Tracker', logo: 'google', groups: ['kw'], assets: ['Keywords', 'Positions', 'Movers']},
+  {k: 'kw', l: 'Rank Tracker', logo: 'google', groups: ['kw', 'rank'], assets: ['Keywords', 'Positions', 'Movers']},
   {k: 'gbp', l: 'Google Business Profile', logo: 'gbp', groups: ['gbp'], assets: ['Map grids', 'Calls', 'Directions']},
-  {k: 'gads', l: 'Google Ads', logo: 'gads', re: /^gads_/, chan: 'google_ads', assets: ['Campaigns', 'Clicks', 'Conversions', 'Cost']},
-  {k: 'meta', l: 'Meta Ads (Facebook & Instagram)', logo: 'facebook', re: /^meta_/, chan: 'meta_ads', assets: ['Campaigns', 'Reach', 'Results', 'Amount spent']},
-  {k: 'social', l: 'Social Media', logo: 'instagram', groups: ['social'], chan: ['facebook', 'instagram', 'linkedin'], assets: ['Followers', 'Reach', 'Engagement', 'Posts']},
+  {k: 'gads', l: 'Google Ads', logo: 'gads', re: /^(gads_|google_ads__)/, chan: 'google_ads', assets: ['Campaigns', 'Clicks', 'Conversions', 'Cost']},
+  {k: 'meta', l: 'Meta Ads (Facebook & Instagram)', logo: 'facebook', re: /^(meta_|meta_ads__)/, chan: 'meta_ads', assets: ['Campaigns', 'Reach', 'Results', 'Amount spent']},
+  {k: 'facebook', l: 'Facebook', logo: 'facebook', re: /^facebook__/, chan: 'facebook', assets: ['Followers', 'Reach', 'Engagement', 'Posts']},
+  {k: 'instagram', l: 'Instagram', logo: 'instagram', re: /^instagram__/, chan: 'instagram', assets: ['Followers', 'Reach', 'Profile visits', 'Posts']},
+  {k: 'linkedin', l: 'LinkedIn', logo: 'linkedin', re: /^linkedin__/, chan: 'linkedin', assets: ['Followers', 'Impressions', 'Clicks', 'Posts']},
+  {k: 'social', l: 'Social Media (all networks)', logo: 'instagram', re: /^social_/, chan: ['facebook', 'instagram', 'linkedin'], assets: ['Followers', 'Reach', 'Engagement', 'Posts']},
   {k: 'forms', l: 'Website forms & Easyleads', logo: '', re: /^(forms|el_|easyleads|people)/, assets: ['Submissions', 'Sources', 'Locations']},
   {k: 'aiv', l: 'AI Visibility', logo: 'ChatGPT', groups: ['llm', 'bing'], assets: ['Prompts', 'Mentions', 'Citations']},
   {k: 'insight', l: 'Insights & goals', logo: '', groups: ['insight'], assets: ['Goals', 'Summary']}
@@ -166,15 +169,16 @@ const currentClient = () => (state.seoClients || []).find(c => c.id === state.ac
    ====================================================================== */
 const PAGE_TPL = [
   ['Blank page', []],
-  ['Website Traffic', [['traffic_kpis', 'xl'], ['traffic_trend', 'l', 8], ['gsc_devices', 's', 4], ['traffic_channels', 'xl']]],
-  ['Website Events', [['conv_kpi', 's', 4], ['conv_by_event', 'm', 8], ['conv_trend', 'xl'], ['forms_kpi', 's', 4], ['forms_latest', 'l', 8]]],
-  ['SEO', [['gsc_kpis', 'xl'], ['kw_public', 'xl'], ['gsc_queries', 'l', 6], ['gsc_pages', 'l', 6]]],
-  ['Google Business Profile', [['gbp_glance', 'xl']]],
-  ['AI visibility', [['aivr_kpi-visits', 's', 4], ['aivr_kpi-conv', 's', 4], ['aivr_kpi-gimpr', 's', 4], ['aivr_conv-types', 'xl'], ['aivr_visits-3m', 'xl'], ['aivr_pages', 'xl']]],
-  ['Google Ads', [['gads_kpis', 'xl'], ['gads_trend', 'l', 12], ['gads_campaigns', 'xl']]],
-  ['Paid Social', [['meta_kpis', 'xl'], ['meta_campaigns', 'xl']]],
-  ['Social Media', [['social_kpis', 'xl'], ['social_posts', 'l', 12]]]
+  ['Website Traffic', [['aa_users', 's', 4], ['aa_source_donut', 'l', 8], ['aa_users_line', 'l', 8], ['aa_source_bars', 's', 4]]],
+  ['Website Events', [['aa_events', 's', 4], ['aa_events_donut', 'l', 8], ['aa_events_line', 'xl', 12]]],
+  ['SEO Score', [['kw_public', 'xl']]],
+  ['AI Traffic', [['aivr_kpi-visits', 's', 4], ['aivr_kpi-conv', 's', 4], ['aivr_kpi-gimpr', 's', 4], ['aivr_conv-types', 'xl'], ['aivr_visits-3m', 'xl'], ['aivr_pages', 'xl']]],
+  ['Google Business Profile', [['gbp_glance', 'xl'], ['gbp_grids', 'xl']]],
+  ['Search Console', [['gsc_kpis', 'xl'], ['gsc_queries', 'l', 6], ['gsc_pages', 'l', 6]]]
 ];
+/* Paid and social pages come from the report's own channel pages (Google Ads, Meta Ads, Facebook, Instagram, LinkedIn). */
+(() => { const add = () => { const RA = window.EdgeReportsApp; if (!RA || !RA.CH_PAGES){ setTimeout(add, 400); return; } const P = RA.CH_PAGES();
+  Object.keys(P).forEach(src => { if (PAGE_TPL.some(t => t[0] === P[src][0])) return; PAGE_TPL.push([P[src][0], P[src][1].map(([t, c]) => [t, c === 12 ? 'xl' : c >= 8 ? 'l' : 's', c])]); }); }; add(); })();
 const ED = {v: null, c: null, ctx: null, R: null, undo: [], redo: [], tab: 'design', preview: false, zoom: 1, saving: 0, lastSaved: 0};
 
 const D = () => ED.mode === 'team' ? ED.R.team : ED.R.client;

@@ -975,6 +975,46 @@ body.rp-moving .rp-grid.free > .rp-w,.rp-grid.free > .rp-w.moving,.rp-grid.free 
 .rp.rp-aa .rp-gbp > div > div:first-child{font-size:15px !important;color:#333 !important;}
 .rp.rp-aa .rp-heat{gap:4px !important;margin-top:12px !important;}
 .rp.rp-aa .rp-heat i{border-radius:6px !important;aspect-ratio:1;font-size:11px !important;display:grid;place-items:center;font-style:normal;color:#fff;font-weight:600;}
+/* AgencyAnalytics template pieces */
+.rp.rp-aa .rp-kpis.rp-one,.rp-kpis.rp-one{grid-template-columns:1fr !important;grid-auto-rows:1fr !important;height:100%;}
+.rp-aadonut{display:flex;align-items:center;justify-content:center;gap:36px;flex-wrap:wrap;height:100%;min-height:220px;padding:6px 0;}
+.rp-aadonut-c{position:relative;width:min(220px,46%);aspect-ratio:1;flex:none;}
+.rp-aadonut-c svg{width:100%;height:100%;transform:rotate(-90deg);}
+.rp-aadonut-c svg circle{transition:stroke-width .2s;}
+.rp-aadonut-c svg circle:hover{stroke-width:34;}
+.rp-aadonut-c > div{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;}
+.rp-aadonut-c b{font:700 clamp(20px,2.4vw,30px)/1 Geist,Arial,sans-serif;color:#555;letter-spacing:-.02em;}
+.rp-aadonut-c small{font-size:12px;color:#A1A1AA;margin-top:4px;}
+.rp-aadonut-l{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;min-width:170px;max-width:340px;flex:1;}
+.rp-aadonut-l li{display:grid;grid-template-columns:10px minmax(0,1fr) auto auto;align-items:center;gap:10px;font:13px Geist,Arial,sans-serif;color:#555;}
+.rp-aadonut-l li i{width:9px;height:9px;border-radius:50%;}
+.rp-aadonut-l li span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.rp-aadonut-l li b{font-weight:700;color:#333;font-variant-numeric:tabular-nums;}
+.rp-aadonut-l li em{font-style:normal;color:#A1A1AA;font-size:12px;}
+.rp-aabars{display:flex;flex-direction:column;gap:14px;padding-top:2px;}
+.rp-aabars > div{display:grid;grid-template-columns:1fr auto;gap:6px 10px;font:13px Geist,Arial,sans-serif;color:#555;}
+.rp-aabars b{font-weight:700;color:#333;font-variant-numeric:tabular-nums;}
+.rp-aabars i{grid-column:1/-1;display:block;height:8px;border-radius:99px;background:#E9E9EB;overflow:hidden;}
+.rp-aabars em{display:block;height:100%;border-radius:99px;background:#171614;transform-origin:left;animation:rpGrow .8s cubic-bezier(.2,.8,.2,1) both;}
+@keyframes rpGrow{from{transform:scaleX(0)}to{transform:none}}
+.rp-aatot{position:absolute;top:-34px;right:0;font:700 13px Geist,Arial,sans-serif;color:#333;}
+[data-body]{position:relative;}
+.rp-mbars{display:flex;align-items:stretch;gap:14px;height:100%;min-height:180px;padding-top:6px;}
+.rp-mbars > div{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:8px;min-width:0;}
+.rp-mbars b{font:700 13px Geist,Arial,sans-serif;color:#333;white-space:nowrap;}
+.rp-mbars i{width:100%;max-width:90px;border-radius:6px 6px 2px 2px;background:#A7C9F0;transform-origin:bottom;animation:rpRise .8s cubic-bezier(.2,.8,.2,1) both;}
+.rp-mbars > div.now i{background:#3B82F6;}
+.rp-mbars small{font-size:12px;color:#8A949C;}
+@keyframes rpRise{from{transform:scaleY(0)}to{transform:none}}
+.rp-posts{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;}
+.rp-post{display:flex;flex-direction:column;border:1px solid #EBEDF0;border-radius:8px;overflow:hidden;background:#fff;}
+.rp-post img,.rp-post-ph{width:100%;aspect-ratio:16/10;object-fit:cover;display:block;background:linear-gradient(135deg,var(--c,#ccc),color-mix(in srgb,var(--c,#ccc) 40%,#fff));}
+.rp-post-b{padding:12px 14px;display:flex;flex-direction:column;gap:6px;}
+.rp-post-b small{font-size:11.5px;color:#A1A1AA;}
+.rp-post-b p{margin:0;font-size:13px;line-height:1.45;color:#444;}
+.rp-post-m{display:flex;flex-wrap:wrap;gap:10px;font-size:12px;color:#777;}
+.rp-post-m b{color:#333;}
+.rp-post-m a{margin-left:auto;color:#3B82F6;text-decoration:none;}
 /* Arriving and leaving */
 @keyframes rpAdd{0%{opacity:0;transform:translateY(18px) scale(.96);filter:blur(4px)}60%{opacity:1;filter:blur(0)}100%{opacity:1;transform:none}}
 @keyframes rpAddGlow{0%{box-shadow:0 0 0 0 rgba(111,109,181,.5),0 18px 40px -18px rgba(111,109,181,.6)}100%{box-shadow:0 0 0 14px rgba(111,109,181,0),0 0 0 0 rgba(0,0,0,0)}}
@@ -3611,6 +3651,157 @@ W.kw_public = {g: 'rank', t: 'Keyword rankings', d: 'The client’s keyword rank
     f.addEventListener('load', () => { n = 0; tick(); });
   }};
 
+/* ==========================================================================
+   AGENCYANALYTICS TEMPLATE WIDGETS
+   The widgets of EDGE's AgencyAnalytics template, one metric or one chart each:
+   website traffic and events (GA4), Google Ads, Meta Ads, and Facebook,
+   Instagram and LinkedIn. Paid and social numbers come from the Google Ads
+   section's data (read from the dashboards by Claude, or typed in by the team).
+   ========================================================================== */
+const AA_COLS = ['#5CBAE6', '#B6D957', '#FAC364', '#8CD3FF', '#D998CB', '#F2D54B', '#9DB4C4', '#E8A87C', '#7FC8A9', '#C3A6E6'];
+const aaShift = (d, days) => { const t = new Date(d + 'T12:00:00Z'); t.setUTCDate(t.getUTCDate() + days); return t.toISOString().slice(0, 10); };
+const aaDays = R => Math.round((Date.parse(R.since + 'T12:00:00Z') - Date.parse(R.prevSince + 'T12:00:00Z')) / 864e5);
+/* One number, AgencyAnalytics' way: logo and label, change badge top-right, the number big. */
+const aaOne = (h, label, val, d, note) => { h.innerHTML = '<div class="rp-kpis rp-one">' + kpiTile(label, val, note || '', {d}) + '</div>'; };
+/* Donut with the total in the middle and a legend of values (Devices, Source, New & Returning). */
+function aaDonut(h, items, centre, opts){
+  opts = opts || {};
+  items = items.filter(x => x.n > 0).sort((a, b) => b.n - a.n);
+  if (!items.length){ h.innerHTML = '<div class="rp-err">' + esc(opts.empty || 'No data for this period.') + '</div>'; return; }
+  const top = items.slice(0, opts.max || 9), rest = items.slice(opts.max || 9).reduce((t, x) => t + x.n, 0);
+  if (rest) top.push({label: 'Other', n: rest, color: '#CBD3D9'});
+  const tot = top.reduce((t, x) => t + x.n, 0), R = 70, C = 2 * Math.PI * R; let off = 0;
+  const segs = top.map((x, i) => { const len = x.n / tot * C, col = x.color || AA_COLS[i % AA_COLS.length];
+    const s = '<circle r="' + R + '" cx="90" cy="90" fill="none" stroke="' + col + '" stroke-width="30" stroke-dasharray="' + Math.max(0, len - 1).toFixed(2) + ' ' + (C - len + 1).toFixed(2) + '" stroke-dashoffset="' + (-off).toFixed(2) + '"><title>' + esc(x.label) + ': ' + fmt(x.n) + '</title></circle>'; off += len; return s; }).join('');
+  h.innerHTML = '<div class="rp-aadonut"><div class="rp-aadonut-c"><svg viewBox="0 0 180 180">' + segs + '</svg><div><b>' + esc(opts.fmt ? opts.fmt(tot) : fmt(tot)) + '</b><small>' + esc(centre) + '</small></div></div>' +
+    '<ul class="rp-aadonut-l">' + top.map((x, i) => '<li><i style="background:' + (x.color || AA_COLS[i % AA_COLS.length]) + '"></i><span>' + esc(x.label) + '</span><b>' + esc(opts.fmt ? opts.fmt(x.n) : fmt(x.n)) + '</b>' + (opts.pct ? '<em>(' + (x.n / tot * 100).toFixed(1) + '%)</em>' : '') + '</li>').join('') + '</ul></div>';
+}
+/* Black bars on a grey track, label left and value right (AgencyAnalytics' Source list). */
+function aaBars(h, items, opts){
+  opts = opts || {};
+  items = items.filter(x => x.n > 0).sort((a, b) => b.n - a.n).slice(0, opts.max || 8);
+  if (!items.length){ h.innerHTML = '<div class="rp-err">' + esc(opts.empty || 'No data for this period.') + '</div>'; return; }
+  const mx = Math.max(...items.map(x => x.n));
+  h.innerHTML = '<div class="rp-aabars">' + items.map(x => '<div><span>' + esc(x.label) + '</span><b>' + esc(opts.fmt ? opts.fmt(x.n) : fmt(x.n)) + '</b><i><em style="width:' + (x.n / mx * 100).toFixed(1) + '%"></em></i></div>').join('') + '</div>';
+}
+/* Current period in black, the period before in grey, total top-right. */
+function aaLine(h, ctx, w, cur, prev, total){
+  const B = buckets(ctx.R), s1 = B.zero(), s2 = B.zero(), sh = aaDays(ctx.R);
+  Object.keys(cur).forEach(d => { const i = B.slot(d); if (i != null) s1[i] += cur[d]; });
+  Object.keys(prev || {}).forEach(d => { const i = B.slot(aaShift(d, sh)); if (i != null) s2[i] += prev[d]; });
+  fillBody(h, ctx, w);
+  const series = [{name: 'Current Period', color: '#171614', values: s1}];
+  if (prev && s2.some(v => v)) series.push({name: 'Previous Period', color: '#BDBDBD', values: s2});
+  chart(h, {labels: B.labels, weekly: ctx.R.weekly, height: chH(w, 260, 40), series, empty: 'No data for this period.'});
+  if (total != null){ const t = document.createElement('div'); t.className = 'rp-aatot'; t.textContent = total; h.prepend(t); }
+}
+const byDay = (rows, vi) => { const m = {}; rows.forEach(r => { m[r[0]] = (m[r[0]] || 0) + (Number(r[vi]) || 0); }); return m; };
+const chName2 = k => (typeof chName === 'function' ? chName(k) : k);
+
+/* ---------- Website traffic (GA4) ---------- */
+W.aa_users = {g: 'traffic', t: 'Users', d: 'Website users this period, with the change from the period before.', size: 's', needs: ['g4'], src: ['ga4'],
+  render(h, ctx, w, D){ const S = g4Split(ctx, D.g4); aaOne(h, 'Users', fmt(sum(S.traffic, 4)), delta(sum(S.traffic, 4), sum(S.trafficPrev, 4), S.hasPrev)); }};
+W.aa_sessions = {g: 'traffic', t: 'Sessions', d: 'Website sessions this period.', size: 's', needs: ['g4'], src: ['ga4'],
+  render(h, ctx, w, D){ const S = g4Split(ctx, D.g4); aaOne(h, 'Sessions', fmt(sum(S.traffic, 2)), delta(sum(S.traffic, 2), sum(S.trafficPrev, 2), S.hasPrev)); }};
+W.aa_users_line = {g: 'traffic', t: 'Users over time', d: 'Users day by day, this period in black and the period before in grey.', size: 'l', needs: ['g4'], src: ['ga4'],
+  render(h, ctx, w, D){ const S = g4Split(ctx, D.g4); aaLine(h, ctx, w, byDay(S.traffic, 4), byDay(S.trafficPrev, 4), fmt(sum(S.traffic, 4))); }};
+W.aa_source_bars = {g: 'traffic', t: 'Source', d: 'Users by channel as bars: Direct, Organic Search, Referral…', size: 'm', needs: ['g4'], src: ['ga4'],
+  render(h, ctx, w, D){ const S = g4Split(ctx, D.g4); aaBars(h, group(S.traffic, r => r[1], 4).map(x => ({label: chName2(x.k), n: x.n}))); }};
+W.aa_source_donut = {g: 'traffic', t: 'Source (donut)', d: 'Users by channel as a donut with the total in the middle.', size: 'l', needs: ['g4'], src: ['ga4'],
+  render(h, ctx, w, D){ const S = g4Split(ctx, D.g4); aaDonut(h, group(S.traffic, r => r[1], 4).map(x => ({label: chName2(x.k), n: x.n})), 'Total Users'); }};
+W.aa_events = {g: 'conv', t: 'Events', d: 'Key events (conversions) this period, as one number.', size: 's', needs: ['g4'], src: ['ga4'],
+  render(h, ctx, w, D){ const S = g4Split(ctx, D.g4); aaOne(h, 'Events', fmt(sum(S.conv, 5)), delta(sum(S.conv, 5), sum(S.convPrev, 5), S.hasPrev)); }};
+W.aa_events_donut = {g: 'conv', t: 'Events by name', d: 'Each key event as a slice, the total in the middle.', size: 'l', needs: ['g4'], src: ['ga4'],
+  render(h, ctx, w, D){ const S = g4Split(ctx, D.g4); aaDonut(h, group(S.conv, r => r[3], 5).map(x => ({label: x.k, n: x.n})), 'Event Count', {max: 10}); }};
+W.aa_events_line = {g: 'conv', t: 'Events over time', d: 'Key events day by day, this period against the one before.', size: 'xl', needs: ['g4'], src: ['ga4'],
+  render(h, ctx, w, D){ const S = g4Split(ctx, D.g4); aaLine(h, ctx, w, byDay(S.conv, 5), byDay(S.convPrev, 5), fmt(sum(S.conv, 5))); }};
+
+/* ---------- Paid and social: one number each ---------- */
+const chMetric = (src, label, k, f, calc, lower) => (h, ctx, w, D) => {
+  const a = chAccts(D, src); if (!a.length) return chEmpty(h, CH_NAMES[src] || src);
+  const m = chMonth(ctx), pm = chPrevMonth(m), hasPrev = chHas(a, pm);
+  const v = mm => calc ? calc(kk => chSum(a, mm, kk)) : chSum(a, mm, k);
+  if (!chHas(a, m)){ h.innerHTML = '<div class="rp-err">No ' + esc(CH_NAMES[src] || src) + ' numbers for ' + esc(m) + ' yet.</div>'; return; }
+  const cur = v(m), dl = delta(cur, v(pm), hasPrev);
+  if (lower && dl.cls !== 'flat') dl.cls = dl.cls === 'up' ? 'down' : 'up';
+  aaOne(h, label, (f || fmt)(cur), dl);
+};
+const CH_NAMES = {google_ads: 'Google Ads', meta_ads: 'Meta Ads', facebook: 'Facebook', instagram: 'Instagram', linkedin: 'LinkedIn'};
+const pct2 = v => (Math.round(v * 100) / 100).toFixed(2) + '%';
+const chMoney = n => '$' + (Math.round((Number(n) || 0) * 100) / 100).toLocaleString('en-CA', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+const dec1 = v => (Math.round(v * 10) / 10).toLocaleString();
+const CH_METRICS = {
+  google_ads: [['impressions', 'Impressions'], ['clicks', 'Clicks'], ['conversions', 'Conversions', dec1], ['spend', 'Cost', chMoney],
+    ['ctr', 'CTR', pct2, g => g('impressions') ? g('clicks') / g('impressions') * 100 : 0], ['cpc', 'Avg. CPC', chMoney, g => g('clicks') ? g('spend') / g('clicks') : 0, true],
+    ['convrate', 'Conversion rate', pct2, g => g('clicks') ? g('conversions') / g('clicks') * 100 : 0], ['cpa', 'Cost / conversion', chMoney, g => g('conversions') ? g('spend') / g('conversions') : 0, true],
+    ['phoneCalls', 'Phone calls']],
+  meta_ads: [['spend', 'Amount spent', chMoney], ['reach', 'Reach'], ['impressions', 'Impressions'], ['clicks', 'Link clicks'],
+    ['ctr', 'CTR', pct2, g => g('impressions') ? g('clicks') / g('impressions') * 100 : 0], ['cpc', 'Cost per click', chMoney, g => g('clicks') ? g('spend') / g('clicks') : 0, true],
+    ['conversions', 'Results', dec1], ['cpr', 'Cost per result', chMoney, g => g('conversions') ? g('spend') / g('conversions') : 0, true], ['frequency', 'Frequency', dec1, g => g('reach') ? g('impressions') / g('reach') : 0]],
+  facebook: [['followers', 'Page followers'], ['newFollowers', 'New followers'], ['reach', 'Reach'], ['impressions', 'Impressions'], ['engagement', 'Engagements'],
+    ['postcount', 'Posts', null, g => g('posts')], ['pageViews', 'Page visits'], ['videoViews', 'Video views'], ['engrate', 'Engagement rate', pct2, g => g('reach') ? g('engagement') / g('reach') * 100 : 0]],
+  instagram: [['followers', 'Followers'], ['newFollowers', 'New followers'], ['reach', 'Reach'], ['impressions', 'Impressions'], ['engagement', 'Engagements'],
+    ['postcount', 'Posts', null, g => g('posts')], ['profileViews', 'Profile visits'], ['websiteClicks', 'Website clicks'], ['engrate', 'Engagement rate', pct2, g => g('reach') ? g('engagement') / g('reach') * 100 : 0]],
+  linkedin: [['followers', 'Followers'], ['newFollowers', 'New followers'], ['impressions', 'Impressions'], ['clicks', 'Clicks'], ['engagement', 'Engagements'],
+    ['postcount', 'Posts', null, g => g('posts')], ['engrate', 'Engagement rate', pct2, g => g('impressions') ? g('engagement') / g('impressions') * 100 : 0]]
+};
+const CH_G = {google_ads: 'paid', meta_ads: 'paid', facebook: 'social', instagram: 'social', linkedin: 'social'};
+const CH_SRC = {google_ads: ['gads'], meta_ads: ['facebook', 'instagram'], facebook: ['facebook'], instagram: ['instagram'], linkedin: ['linkedin']};
+Object.keys(CH_METRICS).forEach(src => CH_METRICS[src].forEach(([k, l, f, calc, lower]) => {
+  W[src + '__' + k] = {g: CH_G[src], t: CH_NAMES[src] + ' · ' + l, d: l + ' for the month, from ' + CH_NAMES[src] + ', with the change from the month before.', size: 's', needs: ['chan'], src: CH_SRC[src], chan: src,
+    render: chMetric(src, l, k, f, calc, lower)};
+}));
+/* ---------- Paid and social: charts ---------- */
+const chMonths = (a, m, n) => { const out = []; let x = m; for (let i = 0; i < n; i++){ out.unshift(x); x = chPrevMonth(x); } return out.filter(mm => chHas(a, mm)); };
+function chMonthBars(h, ctx, w, a, k, label, f){
+  const ms = chMonths(a, chMonth(ctx), 6);
+  if (!ms.length){ h.innerHTML = '<div class="rp-err">No months recorded yet.</div>'; return; }
+  const vals = ms.map(mm => chSum(a, mm, k)), mx = Math.max(1, ...vals);
+  h.innerHTML = '<div class="rp-mbars">' + ms.map((mm, i) => '<div class="' + (i === ms.length - 1 ? 'now' : '') + '"><b>' + esc((f || fmt)(vals[i])) + '</b><i style="height:' + Math.max(3, vals[i] / mx * 100).toFixed(1) + '%"></i><small>' + esc(new Date(mm + '-15T12:00:00Z').toLocaleDateString('en-CA', {month: 'short', year: '2-digit', timeZone: 'UTC'})) + '</small></div>').join('') + '</div>';
+}
+const chCampDonut = (h, ctx, a, k, centre, f) => { const m = chMonth(ctx), rows = []; a.forEach(x => (((x.months || {})[m] || {}).campaigns || []).forEach(cp => rows.push({label: cp.name || 'Campaign', n: chNum(cp[k])}))); aaDonut(h, rows, centre, {fmt: f, empty: 'No campaign numbers for ' + m + '.'}); };
+const listTable = (h, ctx, a, field, cols, empty) => { const m = chMonth(ctx), rows = []; a.forEach(x => (((x.months || {})[m] || {})[field] || []).forEach(r => rows.push(r))); if (!rows.length){ h.innerHTML = '<div class="rp-err">' + esc(empty) + '</div>'; return; } table(h, rows, cols, {sort: cols[1] && cols[1].key}); };
+W.google_ads__conv_campaign = {g: 'paid', t: 'Google Ads · Conversions by campaign', d: 'Each campaign’s share of conversions, the total in the middle.', size: 'l', needs: ['chan'], src: ['gads'], chan: 'google_ads',
+  render(h, ctx, w, D){ const a = chAccts(D, 'google_ads'); if (!a.length) return chEmpty(h, 'Google Ads'); chCampDonut(h, ctx, a, 'conversions', 'Conversions', dec1); }};
+W.google_ads__cost_campaign = {g: 'paid', t: 'Google Ads · Cost by campaign', d: 'Where the budget went, campaign by campaign.', size: 'l', needs: ['chan'], src: ['gads'], chan: 'google_ads',
+  render(h, ctx, w, D){ const a = chAccts(D, 'google_ads'); if (!a.length) return chEmpty(h, 'Google Ads'); chCampDonut(h, ctx, a, 'spend', 'Cost', money); }};
+W.google_ads__actions = {g: 'paid', t: 'Google Ads · Conversion actions', d: 'Each conversion action (form, call…) and how many, with the change.', size: 'm', needs: ['chan'], src: ['gads'], chan: 'google_ads',
+  render(h, ctx, w, D){ const a = chAccts(D, 'google_ads'); if (!a.length) return chEmpty(h, 'Google Ads');
+    listTable(h, ctx, a, 'conversionActions', [{key: 'name', label: 'Conversion Name', fmt: r => esc(r.name || '')}, {key: 'conversions', label: 'Conversions', num: true, fmt: r => dec1(chNum(r.conversions)) + (r.prev != null ? '<div class="aiv-delta ' + (chNum(r.conversions) >= chNum(r.prev) ? 'up' : 'down') + '" style="font-size:11px">' + (chNum(r.conversions) - chNum(r.prev) >= 0 ? '+' : '') + dec1(chNum(r.conversions) - chNum(r.prev)) + '</div>' : '')}], 'No conversion actions recorded for this month.'); }};
+W.google_ads__keywords = {g: 'paid', t: 'Google Ads · Keywords', d: 'Search keywords with clicks, impressions, CTR, cost and conversions.', size: 'xl', needs: ['chan'], src: ['gads'], chan: 'google_ads',
+  render(h, ctx, w, D){ const a = chAccts(D, 'google_ads'); if (!a.length) return chEmpty(h, 'Google Ads');
+    listTable(h, ctx, a, 'keywords', [{key: 'keyword', label: 'Keyword', fmt: r => esc(r.keyword || r.name || '')}, {key: 'clicks', label: 'Clicks', num: true, fmt: r => fmt(r.clicks)}, {key: 'impressions', label: 'Impr.', num: true, fmt: r => fmt(r.impressions)},
+      {key: 'ctr', label: 'CTR', num: true, sort: r => r.impressions ? r.clicks / r.impressions : 0, fmt: r => r.impressions ? pct2(r.clicks / r.impressions * 100) : '—'}, {key: 'spend', label: 'Cost', num: true, fmt: r => money(r.spend)}, {key: 'conversions', label: 'Conv.', num: true, fmt: r => dec1(chNum(r.conversions))}], 'No keyword numbers recorded for this month.'); }};
+W.google_ads__terms = {g: 'paid', t: 'Google Ads · Search terms', d: 'What people actually typed before clicking an ad.', size: 'xl', needs: ['chan'], src: ['gads'], chan: 'google_ads',
+  render(h, ctx, w, D){ const a = chAccts(D, 'google_ads'); if (!a.length) return chEmpty(h, 'Google Ads');
+    listTable(h, ctx, a, 'searchTerms', [{key: 'term', label: 'Search term', fmt: r => esc(r.term || r.name || '')}, {key: 'clicks', label: 'Clicks', num: true, fmt: r => fmt(r.clicks)}, {key: 'impressions', label: 'Impr.', num: true, fmt: r => fmt(r.impressions)}, {key: 'conversions', label: 'Conv.', num: true, fmt: r => dec1(chNum(r.conversions))}], 'No search terms recorded for this month.'); }};
+W.google_ads__months = {g: 'paid', t: 'Google Ads · Cost by month', d: 'Spend for each of the last six months.', size: 'l', needs: ['chan'], src: ['gads'], chan: 'google_ads',
+  render(h, ctx, w, D){ const a = chAccts(D, 'google_ads'); if (!a.length) return chEmpty(h, 'Google Ads'); chMonthBars(h, ctx, w, a, 'spend', 'Cost', money); }};
+W.meta_ads__results_campaign = {g: 'paid', t: 'Meta Ads · Results by campaign', d: 'Each Facebook & Instagram campaign’s share of results.', size: 'l', needs: ['chan'], src: ['facebook', 'instagram'], chan: 'meta_ads',
+  render(h, ctx, w, D){ const a = chAccts(D, 'meta_ads'); if (!a.length) return chEmpty(h, 'Meta Ads'); chCampDonut(h, ctx, a, 'conversions', 'Results', dec1); }};
+W.meta_ads__months = {g: 'paid', t: 'Meta Ads · Spend by month', d: 'Facebook & Instagram ad spend for the last six months.', size: 'l', needs: ['chan'], src: ['facebook', 'instagram'], chan: 'meta_ads',
+  render(h, ctx, w, D){ const a = chAccts(D, 'meta_ads'); if (!a.length) return chEmpty(h, 'Meta Ads'); chMonthBars(h, ctx, w, a, 'spend', 'Spend', money); }};
+['facebook', 'instagram', 'linkedin'].forEach(src => {
+  W[src + '__growth'] = {g: 'social', t: CH_NAMES[src] + ' · Followers by month', d: 'Followers at the end of each of the last six months.', size: 'l', needs: ['chan'], src: CH_SRC[src], chan: src,
+    render(h, ctx, w, D){ const a = chAccts(D, src); if (!a.length) return chEmpty(h, CH_NAMES[src]); chMonthBars(h, ctx, w, a, 'followers', 'Followers'); }};
+  W[src + '__reach_months'] = {g: 'social', t: CH_NAMES[src] + ' · ' + (src === 'linkedin' ? 'Impressions' : 'Reach') + ' by month', d: 'How many people saw the posts, month by month.', size: 'l', needs: ['chan'], src: CH_SRC[src], chan: src,
+    render(h, ctx, w, D){ const a = chAccts(D, src); if (!a.length) return chEmpty(h, CH_NAMES[src]); chMonthBars(h, ctx, w, a, src === 'linkedin' ? 'impressions' : 'reach'); }};
+  W[src + '__posts'] = {g: 'social', t: CH_NAMES[src] + ' · Top posts', d: 'The month’s best posts on ' + CH_NAMES[src] + ', by engagement.', size: 'xl', needs: ['chan'], src: CH_SRC[src], chan: src,
+    render(h, ctx, w, D){ const a = chAccts(D, src); if (!a.length) return chEmpty(h, CH_NAMES[src]); const m = chMonth(ctx), rows = [];
+      a.forEach(x => ((((x.months || {})[m] || {}).topPosts) || []).forEach(p => rows.push(p)));
+      if (!rows.length){ h.innerHTML = '<div class="rp-err">No posts recorded for ' + esc(m) + '.</div>'; return; }
+      rows.sort((p, q) => chNum(q.engagement) - chNum(p.engagement));
+      h.innerHTML = '<div class="rp-posts">' + rows.slice(0, 6).map(p => '<div class="rp-post">' + (p.image && /^https:\/\//.test(p.image) ? '<img src="' + esc(p.image) + '" alt="" loading="lazy" referrerpolicy="no-referrer">' : '<span class="rp-post-ph" style="--c:' + ({facebook: '#1877F2', instagram: '#E1306C', linkedin: '#0A66C2'})[src] + '"></span>') +
+        '<div class="rp-post-b"><small>' + esc(p.date || '') + '</small><p>' + esc(String(p.text || '').slice(0, 160)) + '</p><div class="rp-post-m"><span><b>' + fmt(p.reach || p.impressions || 0) + '</b> reach</span><span><b>' + fmt(p.engagement || 0) + '</b> engagements</span>' + (p.url && /^https:\/\//.test(p.url) ? '<a href="' + esc(p.url) + '" target="_blank" rel="noopener">View post ↗</a>' : '') + '</div></div></div>').join('') + '</div>'; }};
+});
+
+/* Channel charts, tables and post cards always grow to show everything (their data can arrive after the first fit). */
+Object.keys(W).forEach(k => { if (/__(conv_campaign|cost_campaign|results_campaign|actions|keywords|terms|months|growth|reach_months|posts)$/.test(k)) W[k].grow = true; });
+Object.keys(W).forEach(k => { const d = W[k]; if (d.h0) return;
+  if (/^(aa_users|aa_sessions|aa_events)$/.test(k) || (/__/.test(k) && d.size === 's')) d.h0 = 340;
+  else if (/donut|_campaign$/.test(k)) d.h0 = 380; else if (/line$/.test(k)) d.h0 = 380; else if (/source_bars/.test(k)) d.h0 = 380;
+  else if (/__posts$/.test(k)) d.h0 = 520; else if (/__(keywords|terms)$/.test(k)) d.h0 = 480; else if (/__(months|growth|reach_months)$/.test(k)) d.h0 = 340; else if (/__actions$/.test(k)) d.h0 = 380; });
+
 W.text = {g: 'content', t: 'Text / heading', d: 'A heading and a note: a summary, next steps, anything worth saying in words.', size: 'xl', needs: [], editable: true, plain: true,
   render(h, ctx, w){
     const c = w.cfg || {};
@@ -3684,6 +3875,8 @@ W.gads_trend = {g: 'paid', t: 'Google Ads clicks and conversions by day', d: 'Cl
   render(h, ctx, w, D){
     const a = chAccts(D, 'google_ads'); if (!a.length) return chEmpty(h, 'Google Ads');
     const B = buckets(ctx.R), cl = chDaily(a, ctx.R, 2), cv = chDaily(a, ctx.R, 4);
+    /* Numbers typed in (or read) by month only: show clicks by month instead of an empty day chart. */
+    if (!Object.keys(cl).length && !Object.keys(cv).length && chMonths(a, chMonth(ctx), 6).length) return chMonthBars(h, ctx, w, a, 'clicks', 'Clicks');
     const s1 = B.zero(), s2 = B.zero();
     Object.keys(cl).forEach(d => { const i = B.slot(d); if (i != null) s1[i] += cl[d]; });
     Object.keys(cv).forEach(d => { const i = B.slot(d); if (i != null) s2[i] += cv[d]; });
@@ -4133,7 +4326,7 @@ const DEF_H = {kw_public: 1300, 'aivr_kpi-visits': 360, 'aivr_kpi-conv': 360, 'a
   forms_heatmap: 400, gsc_health: 780, kw_wins: 330, kw_close: 380, kw_pages: 420, gbp_glance: 380, ai_share: 210, forms_inbox: 1180, easyleads_forms: 1150, people: 1100,
   el_kpi: 240, el_channels: 460, el_trend: 380, el_forms: 340, el_location: 340, el_inbox: 1180, forms_catalog: 640,
   ai_kpis: 250, ai_summary: 300, ai_growth: 330, ai_quality: 260, ai_monthly: 440, aio_trend: 360, aio_gaps: 440, aio_competitors: 400, aio_pages: 380, aio_history: 520};
-const defH = it => it.type === 'embed' ? Math.max(200, Math.min(2400, Number((it.cfg || {}).height) || 600)) + 70 : (DEF_H[it.type] || 360);
+const defH = it => it.type === 'embed' ? Math.max(200, Math.min(2400, Number((it.cfg || {}).height) || 600)) + 70 : (DEF_H[it.type] || (W[it.type] && W[it.type].h0) || 360);
 
 /* ---------- what each widget looks like: source marks, icon, accent ---------- */
 const GMETA = {
@@ -4165,7 +4358,7 @@ const WIC = {gsc_health: 'flag', insight_summary: 'text', insight_wins: 'up', go
 const WSRC = {gads_kpis: ['gads'], gads_trend: ['gads'], gads_campaigns: ['gads'], meta_kpis: ['facebook', 'instagram'], meta_campaigns: ['facebook', 'instagram'], social_kpis: ['facebook', 'instagram', 'linkedin'], social_posts: ['facebook', 'instagram', 'linkedin'], forms: [], people: [], easyleads_forms: [], el_kpi: [], el_channels: [], el_trend: [], el_forms: [], el_location: [], el_inbox: [], forms_catalog: [], forms_kpi: [], forms_latest: [], forms_heatmap: [], forms_rate: ['ga4'], ai_share: ['ChatGPT', 'ga4'], insight_summary: ['ga4', 'gsc', 'google'], insight_wins: ['ga4', 'gsc'], insight_scorecard: ['ga4', 'gsc', 'ChatGPT'], insight_compare: ['ga4', 'gsc'], insight_forecast: ['ga4'], insight_weekday: ['ga4'], goal_tracker: ['ga4', 'gsc'], conv_ai: ['ga4', 'ChatGPT', 'Perplexity'], ai_vs_channels: ['ChatGPT', 'google'], gai_organic: ['google', 'ga4'], aio: ['google'], kw_kpis: ['google'], embed: [], ai_kpis: ['ChatGPT', 'google'], ai_summary: ['ChatGPT', 'google'], ai_monthly: ['ChatGPT', 'google'], aio_trend: ['google'], aio_gaps: ['google'], aio_competitors: ['google'], aio_pages: ['google'], aio_history: ['google']};
 const metaOf = type => {
   const def = W[type] || {}, g = GMETA[def.g] || GMETA.content;
-  return {src: WSRC[type] || g.src, lbl: type === 'embed' ? '' : type === 'forms_catalog' ? 'Website + Easyleads' : /^(el_|easyleads)/.test(type) ? 'Easyleads' : /^(forms|people)/.test(type) ? 'Website forms' : g.lbl, ic: WIC[type] || g.ic, tint: g.tint};
+  return {src: WSRC[type] || def.src || g.src, lbl: type === 'embed' ? '' : type === 'forms_catalog' ? 'Website + Easyleads' : /^(el_|easyleads)/.test(type) ? 'Easyleads' : /^(forms|people)/.test(type) ? 'Website forms' : g.lbl, ic: WIC[type] || g.ic, tint: g.tint};
 };
 const wIcon = (type, sz) => { const m = metaOf(type); return '<span class="rp-wic" style="--tint:' + m.tint + '">' + glyph(m.ic, sz || 16) + '</span>'; };
 const srcChip = type => { const m = metaOf(type); return m.src.length || m.lbl ? '<span class="rp-src" title="Data from ' + esc(m.lbl) + '">' + (m.src.length ? logoStack(m.src, 14) : '') + esc(m.lbl) + '</span>' : ''; };
@@ -4198,6 +4391,62 @@ const TEAM_DEFAULT = [
   SEC('AI answers & citations', 'Whether ChatGPT, Perplexity, Gemini and Copilot mention or cite the business when asked.'),
   ['llm_share', 'l'], ['bing_cites', 'l'], ['llm_checks', 'xl'], ['bing_queries', 'xl']
 ];
+/* Paid and social pages, in the AgencyAnalytics template's layout: [type, cols]. Shared by the team
+   default, the client template and the sweep that adds a page once a channel has numbers. */
+const CH_PAGES = {
+  google_ads: ['Google Ads', [['google_ads__impressions', 4], ['google_ads__clicks', 4], ['google_ads__conversions', 4], ['google_ads__spend', 4], ['google_ads__ctr', 4], ['google_ads__cpa', 4],
+    ['google_ads__conv_campaign', 8], ['google_ads__actions', 4], ['gads_trend', 12], ['gads_campaigns', 12], ['google_ads__keywords', 12]]],
+  meta_ads: ['Facebook & Instagram Ads', [['meta_ads__spend', 4], ['meta_ads__reach', 4], ['meta_ads__conversions', 4], ['meta_ads__clicks', 4], ['meta_ads__ctr', 4], ['meta_ads__cpr', 4],
+    ['meta_ads__results_campaign', 8], ['meta_ads__months', 4], ['meta_campaigns', 12]]],
+  facebook: ['Facebook', [['facebook__followers', 4], ['facebook__newFollowers', 4], ['facebook__reach', 4], ['facebook__engagement', 4], ['facebook__posts', 4], ['facebook__engrate', 4],
+    ['facebook__growth', 6], ['facebook__reach_months', 6], ['facebook__posts', 12]]],
+  instagram: ['Instagram', [['instagram__followers', 4], ['instagram__newFollowers', 4], ['instagram__reach', 4], ['instagram__engagement', 4], ['instagram__profileViews', 4], ['instagram__engrate', 4],
+    ['instagram__growth', 6], ['instagram__reach_months', 6], ['instagram__posts', 12]]],
+  linkedin: ['LinkedIn', [['linkedin__followers', 4], ['linkedin__newFollowers', 4], ['linkedin__impressions', 4], ['linkedin__clicks', 4], ['linkedin__engagement', 4], ['linkedin__engrate', 4],
+    ['linkedin__growth', 6], ['linkedin__reach_months', 6], ['linkedin__posts', 12]]]
+};
+/* facebook__posts is both a metric (number of posts) and the top posts list: the list is facebook__posts in
+   12 columns. Keep them apart: the number is __postcount. */
+['facebook', 'instagram', 'linkedin'].forEach(src => { const P = CH_PAGES[src][1]; P.forEach(r => { if (r[0] === src + '__posts' && r[1] === 4) r[0] = src + '__postcount'; }); });
+['facebook', 'instagram', 'linkedin'].forEach(src => { if (W[src + '__posts'] && W[src + '__posts'].size === 's') return; });
+Object.keys(CH_PAGES).forEach(src => { TEAM_DEFAULT.push(SEC(CH_PAGES[src][0], 'Read from ' + CH_PAGES[src][0] + ' each month, or typed in on the Google Ads section.')); CH_PAGES[src][1].forEach(([t, c]) => TEAM_DEFAULT.push([t, c === 12 ? 'xl' : c >= 8 ? 'l' : 's', null, c])); });
+/* Items for one channel page, placed from y (free layout). */
+function chPageItems(src, y){
+  const P = CH_PAGES[src]; if (!P) return [];
+  const out = [Object.assign(newItem('section', 'xl', {heading: P[0]}), {x: 0, y, cols: 12, h: 70})]; y += 70 + GAP;
+  let cx = 0, rowH = 0;
+  P[1].forEach(([t, c]) => { if (!W[t]) return; const it = newItem(t, c === 12 ? 'xl' : c >= 8 ? 'l' : 's'); const hh = defH(it);
+    if (cx + c > 12){ y += rowH + GAP; cx = 0; rowH = 0; }
+    Object.assign(it, {x: cx, y, cols: c, h: hh}); out.push(it); cx += c; rowH = Math.max(rowH, hh); });
+  return out;
+}
+/* Once a channel has numbers, its page joins the client's report (and the team report already has it). */
+function addChannelPages(c, srcs){
+  const R = reportsOf(c), b = R.client; if (!b.items || !b.items.length) return 0;
+  let added = 0;
+  srcs.forEach(src => {
+    if (b.items.some(i => W[i.type] && W[i.type].chan === src)) return;
+    /* Added once: if someone deletes the page afterwards it stays deleted. */
+    if ((b.chSkip || []).indexOf(src) > -1) return;
+    const y = b.items.length ? Math.max(...b.items.map(i => (i.y || 0) + (i.h || 0))) + GAP : 0;
+    chPageItems(src, y).forEach(it => b.items.push(it)); added++;
+    b.chSkip = (b.chSkip || []).concat([src]);
+  });
+  if (added){ persist(c, 'client'); autoPublish(c); }
+  return added;
+}
+/* Team reports made before the paid and social pages existed get them once. */
+function addTeamChannelPages(c){
+  const R = reportsOf(c), t = R.team; if (t.soc1) return false;
+  t.soc1 = 1;
+  if (!t.items.some(i => /^facebook__/.test(i.type))){
+    const positioned = t.items.length && t.items.every(i => i.y != null && isFinite(i.y));
+    let y = positioned ? Math.max(...t.items.map(i => i.y + i.h)) + GAP : 0;
+    Object.keys(CH_PAGES).forEach(src => { const its = chPageItems(src, y); if (!positioned) its.forEach(i => { delete i.x; delete i.y; }); its.forEach(i => t.items.push(i)); if (positioned) y = Math.max(...its.map(i => i.y + i.h)) + GAP; });
+  }
+  persist(c, 'team');
+  return true;
+}
 /* The default team layout as widgets. Fixed ids ("d_<type>", sections "d_sec<n>") so a widget sent
    to the client report still points at its source afterwards. */
 const teamDefaultItems = () => { let n = 0; return TEAM_DEFAULT.map(d => {
@@ -6159,7 +6408,7 @@ window.EdgeReportsApp = {
     persist(c, 'client');
     try{ if (activeTab === 'rclient' && client() && client().id === c.id) draw(); }catch(e){}
   },
-  migrateAI: (c, layout) => migrateAI(c, layout), migrateKw: c => migrateKw(c),
+  migrateAI: (c, layout) => migrateAI(c, layout), migrateKw: c => migrateKw(c), addChannelPages: (c, srcs) => addChannelPages(c, srcs), addTeamChannelPages: c => addTeamChannelPages(c), chPageItems: (src, y) => chPageItems(src, y), CH_PAGES: () => CH_PAGES,
   publish: async c => { await publish(c); return reportUrl(c); },
   url: c => reportUrl(c)
 };

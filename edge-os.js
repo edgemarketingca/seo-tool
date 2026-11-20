@@ -746,11 +746,113 @@ const spark = (vals, color) => {
   return '<svg class="os-spark" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none"><defs><linearGradient id="' + id + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + color + '" stop-opacity=".28"/><stop offset="1" stop-color="' + color + '" stop-opacity="0"/></linearGradient></defs>' +
     '<path d="M0,' + h + ' L' + pts.join(' L') + ' L' + w + ',' + h + ' Z" fill="url(#' + id + ')"/><polyline points="' + pts.join(' ') + '" fill="none" stroke="' + color + '" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>';
 };
+/* ---------- Social media (organic): Facebook, Instagram, LinkedIn, one card per client ---------- */
+const SOC_SRC = ['facebook', 'instagram', 'linkedin'];
+const Social = {
+  render(st){
+    const all = [].concat(...SOC_SRC.map(s => Channels.list(s).map(a => ({a, src: s, c: Channels.link(a)}))));
+    const m = SOC_SRC.map(s => Channels.latestMonth(s)).filter(Boolean).sort().pop() || prevYm(ym(Date.now())), pm = prevYm(m);
+    const byClient = {};
+    all.forEach(r => { const k = r.c ? r.c.id : 'x-' + r.a.id; (byClient[k] = byClient[k] || {c: r.c, name: r.c ? r.c.name : r.a.name, nets: []}).nets.push(r); });
+    const g = (r, mm, k) => num((((r.a.months || {})[mm]) || {})[k]);
+    const tot = k => all.reduce((t, r) => t + g(r, m, k), 0), ptot = k => all.reduce((t, r) => t + g(r, pm, k), 0);
+    const kpi = (l, k) => { const cur = tot(k), prev = ptot(k), d = prev ? Math.round((cur - prev) / prev * 100) : null;
+      return '<div class="os-kpi"><small>' + esc(l) + '</small><b>' + count(cur) + '</b><div class="d ' + (d > 0 ? 'up' : d < 0 ? 'down' : '') + '">' + (d == null ? '&nbsp;' : (d > 0 ? '▲ ' : d < 0 ? '▼ ' : '') + Math.abs(d) + '% vs ' + esc(monthName(pm).split(' ')[0])) + '</div></div>'; };
+    st.innerHTML = '<div class="os-head"><div><h1 class="os-h1ic"><span class="os-icpair">' + chIcon('facebook', 30, 'ring') + chIcon('instagram', 30, 'ring') + chIcon('linkedin', 30, 'ring') + '</span>Social media</h1><p>Facebook, Instagram and LinkedIn for every client: followers, reach, engagement and the best posts. Read from each network by Claude once a month, or typed in here.</p></div><span class="sp"></span>' +
+      '<span class="os-chip ro">Read only</span><button type="button" class="os-btn os-entry-btn" data-entry>' + ICON.plus + 'Enter numbers</button>' +
+      '<div class="os-tabs"><button type="button" class="os-tab" data-src="google_ads">' + chIcon('google_ads', 16) + 'Google Ads</button><button type="button" class="os-tab" data-src="meta_ads">' + chIcon('facebook', 16) + chIcon('instagram', 16) + 'Paid Social</button><button type="button" class="os-tab on" data-src="social">' + chIcon('instagram', 16) + chIcon('linkedin', 16) + 'Social media</button></div>' +
+      '<span class="os-chip">' + esc(monthName(m)) + '</span></div>';
+    if (!all.length){
+      st.innerHTML += '<div class="os-empty"><div class="ic">' + chIcon('instagram', 40) + '</div><h3>No social media numbers yet</h3><p>Claude reads Facebook, Instagram and LinkedIn for every client once a month, or anyone can type a month in with <b>Enter numbers</b>. The numbers show here and in each client’s Team and Client reports.</p></div>';
+      Ads.wire(st); return;
+    }
+    st.innerHTML += '<div class="os-kpis">' + kpi('Followers', 'followers') + kpi('New followers', 'newFollowers') + kpi('Reach', 'reach') + kpi('Impressions', 'impressions') + kpi('Engagements', 'engagement') + kpi('Posts', 'posts') + '</div>' +
+      '<div class="os-h2">Clients <span class="n">' + Object.keys(byClient).length + '</span></div><div class="os-soc-grid">' +
+      Object.keys(byClient).map((k, i) => { const B = byClient[k];
+        return '<div class="os-soc" style="--d:' + (i * 40) + 'ms"><div class="os-soc-h">' + (B.c ? logoHtml(logoOf(B.c), B.c.name) : '<span class="os-logo mono">' + esc(initials(B.name)) + '</span>') + '<b>' + esc(B.name) + '</b>' + (B.c ? '<button type="button" class="os-btn sm" data-sentry="' + esc(B.c.id) + '">Edit numbers</button>' : '') + '</div>' +
+          B.nets.map(r => { const f = g(r, m, 'followers'), pf = g(r, pm, 'followers'), rc = g(r, m, r.src === 'linkedin' ? 'impressions' : 'reach'), en = g(r, m, 'engagement');
+            const hist = []; let x = m; for (let j = 0; j < 6; j++){ hist.unshift(g(r, x, 'followers')); x = prevYm(x); }
+            const mx = Math.max(1, ...hist), mn = Math.min(...hist.filter(v => v > 0), mx);
+            const sp = hist.map((v, j) => (j ? 'L' : 'M') + (j * 20) + ' ' + (v ? 28 - (v - mn) / Math.max(1, mx - mn) * 24 : 28).toFixed(1)).join(' ');
+            return '<div class="os-soc-n">' + chIcon(r.src, 22) + '<div class="t"><small>' + esc(SOURCES[r.src].l) + '</small><b>' + count(f) + ' <em>followers</em></b>' + (pf ? '<i class="' + (f >= pf ? 'up' : 'down') + '">' + (f >= pf ? '+' : '') + count(f - pf) + '</i>' : '') + '</div>' +
+              '<svg viewBox="0 0 100 30" class="os-soc-sp"><path d="' + sp + '" fill="none" stroke="' + SOURCES[r.src].c + '" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+              '<div class="os-soc-m"><span><b>' + count(rc) + '</b>' + (r.src === 'linkedin' ? 'impressions' : 'reach') + '</span><span><b>' + count(en) + '</b>engagements</span></div></div>'; }).join('') + '</div>'; }).join('') + '</div>';
+    Ads.wire(st);
+    st.querySelectorAll('[data-sentry]').forEach(b => b.addEventListener('click', () => Entry.open({src: 'facebook', client: b.dataset.sentry})));
+  }
+};
+
+/* ---------- Enter numbers: one client, one channel, one month, typed in by the team ----------
+   Saved exactly like Claude's monthly read (EDGE_ingest), so every widget reads it the same way. */
+const ENTRY_FIELDS = {
+  google_ads: [['impressions', 'Impressions'], ['clicks', 'Clicks'], ['conversions', 'Conversions'], ['spend', 'Cost ($)'], ['phoneCalls', 'Phone calls']],
+  meta_ads: [['spend', 'Amount spent ($)'], ['reach', 'Reach'], ['impressions', 'Impressions'], ['clicks', 'Link clicks'], ['conversions', 'Results']],
+  facebook: [['followers', 'Page followers (end of month)'], ['newFollowers', 'New followers'], ['reach', 'Reach'], ['impressions', 'Impressions'], ['engagement', 'Engagements'], ['posts', 'Posts'], ['pageViews', 'Page visits'], ['videoViews', 'Video views']],
+  instagram: [['followers', 'Followers (end of month)'], ['newFollowers', 'New followers'], ['reach', 'Reach'], ['impressions', 'Impressions'], ['engagement', 'Engagements'], ['posts', 'Posts'], ['profileViews', 'Profile visits'], ['websiteClicks', 'Website clicks']],
+  linkedin: [['followers', 'Followers (end of month)'], ['newFollowers', 'New followers'], ['impressions', 'Impressions'], ['clicks', 'Clicks'], ['engagement', 'Engagements'], ['posts', 'Posts']]
+};
+const ENTRY_LISTS = {
+  google_ads: [['campaigns', 'Campaigns', 'name, cost, clicks, impressions, conversions', ['name', 'spend', 'clicks', 'impressions', 'conversions']],
+    ['conversionActions', 'Conversion actions', 'name, conversions', ['name', 'conversions']],
+    ['keywords', 'Keywords', 'keyword, clicks, impressions, cost, conversions', ['keyword', 'clicks', 'impressions', 'spend', 'conversions']]],
+  meta_ads: [['campaigns', 'Campaigns', 'name, spent, reach, link clicks, results', ['name', 'spend', 'reach', 'clicks', 'conversions']]],
+  facebook: [['topPosts', 'Top posts', 'date | text | reach | engagements | link', ['date', 'text', 'reach', 'engagement', 'url']]],
+  instagram: [['topPosts', 'Top posts', 'date | text | reach | engagements | link', ['date', 'text', 'reach', 'engagement', 'url']]],
+  linkedin: [['topPosts', 'Top posts', 'date | text | impressions | engagements | link', ['date', 'text', 'impressions', 'engagement', 'url']]]
+};
+const Entry = {
+  open(o){
+    o = o || {};
+    const clients = seoClients().filter(c => !isArchived(c)).sort((a, b) => String(a.name).localeCompare(String(b.name)));
+    const st = {src: ENTRY_FIELDS[o.src] ? o.src : 'google_ads', cid: o.client || (activeClient() || {}).id || (clients[0] || {}).id, m: o.month || prevYm(ym(Date.now()))};
+    const d = Drawer.open(dHead('Enter numbers', 'Typed numbers are saved exactly like Claude’s monthly read, and every report widget uses them.') + '<div class="os-db" data-eb></div>', {wide: true});
+    const body = d.querySelector('[data-eb]');
+    const acctOf = () => { const c = clients.find(x => x.id === st.cid); if (!c) return null; const have = (Channels.forClient(c)[st.src] || [])[0]; return {c, a: have ? Channels.list(st.src).find(x => String(x.id) === String(have.id)) : null}; };
+    const paint = () => {
+      const A = acctOf(), cur = A && A.a ? ((A.a.months || {})[st.m] || {}) : {};
+      const listTxt = (k, fields, sep) => (cur[k] || []).map(r => fields.map(f => r[f] == null ? '' : r[f]).join(sep)).join('\n');
+      body.innerHTML = '<div class="os-entry">' +
+        '<div class="os-entry-row"><label>Client<select data-ec>' + clients.map(c => '<option value="' + esc(c.id) + '"' + (c.id === st.cid ? ' selected' : '') + '>' + esc(c.name) + '</option>').join('') + '</select></label>' +
+        '<label>Month<input type="month" data-em value="' + esc(st.m) + '"></label></div>' +
+        '<div class="os-entry-tabs">' + Object.keys(ENTRY_FIELDS).map(k => '<button type="button" data-es="' + k + '" class="' + (k === st.src ? 'on' : '') + '">' + chIcon(k, 16) + esc(SOURCES[k].l) + '</button>').join('') + '</div>' +
+        (A && A.a ? '<div class="os-entry-note">Editing <b>' + esc(A.a.name) + '</b>' + (A.a._by ? ' · last saved by ' + esc(A.a._by) : '') + '. Blank fields keep what is there.</div>' : '<div class="os-entry-note">No ' + esc(SOURCES[st.src].l) + ' numbers for this client yet: saving starts them.</div>') +
+        '<div class="os-entry-grid">' + ENTRY_FIELDS[st.src].map(([k, l]) => '<label>' + esc(l) + '<input type="number" step="any" min="0" data-ef="' + k + '" value="' + (cur[k] != null ? esc(cur[k]) : '') + '" placeholder="—"></label>').join('') + '</div>' +
+        (ENTRY_LISTS[st.src] || []).map(([k, l, hint, fields]) => { const sep = k === 'topPosts' ? ' | ' : ', '; return '<label class="os-entry-list">' + esc(l) + ' <small>one per line: ' + esc(hint) + '</small><textarea rows="4" data-el="' + k + '" placeholder="' + esc(hint) + '">' + esc(listTxt(k, fields, sep)) + '</textarea></label>'; }).join('') +
+        '<div class="os-entry-acts"><button type="button" class="os-btn" data-ex>Cancel</button><button type="button" class="os-btn go" data-eok>' + ICON.check + 'Save ' + esc(monthName(st.m)) + '</button></div></div>';
+      body.querySelector('[data-ec]').addEventListener('change', e => { st.cid = e.target.value; paint(); });
+      body.querySelector('[data-em]').addEventListener('change', e => { if (/^\d{4}-\d{2}$/.test(e.target.value)){ st.m = e.target.value; paint(); } });
+      body.querySelectorAll('[data-es]').forEach(b => b.addEventListener('click', () => { st.src = b.dataset.es; paint(); }));
+      body.querySelector('[data-ex]').addEventListener('click', () => Drawer.close());
+      body.querySelector('[data-eok]').addEventListener('click', async e => {
+        const btn = e.currentTarget, A2 = acctOf(); if (!A2) return;
+        const month = Object.assign({}, cur);
+        body.querySelectorAll('[data-ef]').forEach(i => { if (i.value !== '') month[i.dataset.ef] = Number(i.value); });
+        (ENTRY_LISTS[st.src] || []).forEach(([k, , , fields]) => { const ta = body.querySelector('[data-el="' + k + '"]'); if (!ta) return;
+          const sep = k === 'topPosts' ? '|' : ',';
+          const rows = ta.value.split('\n').map(x => x.trim()).filter(Boolean).map(line => { const parts = line.split(sep).map(x => x.trim()); const r = {};
+            fields.forEach((f, j) => { const v = parts[j]; if (v == null || v === '') return; r[f] = /^(name|keyword|text|date|url|term)$/.test(f) ? v.slice(0, 400) : Number(String(v).replace(/[$,%\s]/g, '')) || 0; }); return r; });
+          month[k] = rows; });
+        const id = A2.a ? A2.a.id : 'manual-' + A2.c.id;
+        btn.disabled = true;
+        try{
+          await Channels.ingest({source: st.src, collectedBy: meName() + ' (typed in)', accounts: [{id, name: A2.a ? A2.a.name : A2.c.name, clientName: A2.c.name, months: {[st.m]: month}}]});
+          if (!A2.a) Channels.setLink({source: st.src, id}, A2.c.id);
+          try{ window.EdgeReportsApp && EdgeReportsApp.addChannelPages && EdgeReportsApp.addChannelPages(A2.c, [st.src]); }catch(err){}
+          FX.done(btn, SOURCES[st.src].l + ' · ' + monthName(st.m) + ' saved for ' + A2.c.name);
+          paint();
+        }catch(err){ FX.toast('Couldn’t save: ' + err.message, 'del'); btn.disabled = false; }
+      });
+    };
+    paint();
+  }
+};
+window.EDGE_entry = o => Entry.open(o);
 const Ads = {
   tab: 'google_ads', filter: '', month: '',
   render(){
     ensureStage();
     const st = $('adsStage'); if (!st) return;
+    if (this.tab === 'social'){ Social.render(st); return; }
     const src = this.tab, accts = Channels.list(src);
     const m = this.month && accts.some(a => (a.months || {})[this.month]) ? this.month : Channels.latestMonth(src), pm = prevYm(m);
     const months = Array.from(new Set([].concat.apply([], accts.map(a => Object.keys(a.months || {}))))).sort().reverse().slice(0, 13);
@@ -767,8 +869,8 @@ const Ads = {
     const attn = rows.filter(r => r.att.length);
     st.innerHTML = '<div class="os-head"><div><h1 class="os-h1ic">' + (src === 'google_ads' ? chIcon('google_ads', 34, 'ring') + 'Google Ads' : '<span class="os-icpair">' + chIcon('facebook', 30, 'ring') + chIcon('instagram', 30, 'ring') + '</span>Paid Social') + '</h1><p>' +
       (src === 'google_ads' ? 'Every Google Ads account, read only: the month’s numbers, campaigns and the accounts that need a look.' : 'Facebook and Instagram ads (Meta Ads Manager), read only.') + '</p></div><span class="sp"></span>' +
-      '<span class="os-chip ro">Read only</span>' +
-      '<div class="os-tabs"><button type="button" class="os-tab' + (src === 'google_ads' ? ' on' : '') + '" data-src="google_ads">' + chIcon('google_ads', 16) + 'Google Ads</button><button type="button" class="os-tab' + (src === 'meta_ads' ? ' on' : '') + '" data-src="meta_ads">' + chIcon('facebook', 16) + chIcon('instagram', 16) + 'Paid Social</button></div>' +
+      '<span class="os-chip ro">Read only</span><button type="button" class="os-btn os-entry-btn" data-entry>' + ICON.plus + 'Enter numbers</button>' +
+      '<div class="os-tabs"><button type="button" class="os-tab' + (src === 'google_ads' ? ' on' : '') + '" data-src="google_ads">' + chIcon('google_ads', 16) + 'Google Ads</button><button type="button" class="os-tab' + (src === 'meta_ads' ? ' on' : '') + '" data-src="meta_ads">' + chIcon('facebook', 16) + chIcon('instagram', 16) + 'Paid Social</button><button type="button" class="os-tab" data-src="social">' + chIcon('instagram', 16) + chIcon('linkedin', 16) + 'Social media</button></div>' +
       (months.length ? '<select class="os-sel" data-month>' + months.map(x => '<option value="' + x + '"' + (x === m ? ' selected' : '') + '>' + esc(monthName(x)) + '</option>').join('') + '</select>' : '') + '</div>';
     if (!accts.length){
       st.innerHTML += '<div class="os-empty"><div class="ic">' + ICON.ads + '</div><h3>No ' + (src === 'google_ads' ? 'Google Ads' : 'Meta Ads') + ' data yet</h3>' +
@@ -796,6 +898,7 @@ const Ads = {
   },
   wire(st){
     st.querySelectorAll('[data-src]').forEach(b => b.addEventListener('click', () => { this.tab = b.dataset.src; this.month = ''; this.render(); }));
+    st.querySelectorAll('[data-entry]').forEach(b => b.addEventListener('click', () => Entry.open({src: this.tab === 'social' ? 'facebook' : this.tab})));
     const ms = st.querySelector('[data-month]'); if (ms) ms.addEventListener('change', () => { this.month = ms.value; this.render(); });
     const q = st.querySelector('[data-q]'); if (q) q.addEventListener('input', () => { this.filter = q.value; clearTimeout(this._q); this._q = setTimeout(() => { const pos = q.selectionStart; this.render(); const q2 = $('adsStage').querySelector('[data-q]'); if (q2){ q2.focus(); try{ q2.setSelectionRange(pos, pos); }catch(e){} } }, 180); });
     st.querySelectorAll('[data-acct]').forEach(el => { const open = () => this.detail(el.dataset.acct); el.addEventListener('click', open); el.addEventListener('keydown', e => { if (e.key === 'Enter') open(); }); });
@@ -823,26 +926,24 @@ renders.ads = () => Ads.render();
 /* ======================================================================
    REPORTING
    ====================================================================== */
+/* EDGE's AgencyAnalytics template (Advance Construction & Demolition, October 2026), page for page:
+   Cover · Website Traffic · Website Events · SEO Score · AI Traffic, then Google Business Profile and the
+   paid and social pages for the channels a client actually has. */
 const TEMPLATE = [
   {type: 'cover', size: 'xl', cols: 12, h: 560, cfg: {heading: 'Monthly marketing report'}},
   {type: 'section', size: 'xl', cols: 12, h: 70, cfg: {heading: 'Website Traffic'}},
-  {type: 'traffic_kpis', size: 'xl', cols: 12}, {type: 'traffic_trend', size: 'l', cols: 8}, {type: 'gsc_devices', size: 's', cols: 4}, {type: 'traffic_channels', size: 'xl', cols: 12},
-  {type: 'section', size: 'xl', cols: 12, h: 70, cfg: {heading: 'Website Events & Leads'}},
-  {type: 'conv_kpi', size: 's', cols: 4}, {type: 'conv_by_event', size: 'm', cols: 8}, {type: 'conv_trend', size: 'xl', cols: 12}, {type: 'forms_kpi', size: 's', cols: 4}, {type: 'forms_latest', size: 'l', cols: 8},
-  {type: 'section', size: 'xl', cols: 12, h: 70, cfg: {heading: 'SEO'}},
-  {type: 'gsc_kpis', size: 'xl', cols: 12}, {type: 'kw_public', size: 'xl', cols: 12, h: 1300}, {type: 'gsc_queries', size: 'l', cols: 6}, {type: 'gsc_pages', size: 'l', cols: 6},
-  {type: 'section', size: 'xl', cols: 12, h: 70, cfg: {heading: 'Google Business Profile'}, only: 'gbp'},
-  {type: 'gbp_glance', size: 'l', cols: 12, only: 'gbp'}, {type: 'gbp_grids', size: 'xl', cols: 12, only: 'gbp'},
-  {type: 'section', size: 'xl', cols: 12, h: 70, cfg: {heading: 'AI visibility'}},
+  {type: 'aa_users', size: 's', cols: 4, h: 340}, {type: 'aa_source_donut', size: 'l', cols: 8, h: 340},
+  {type: 'aa_users_line', size: 'l', cols: 8, h: 380}, {type: 'aa_source_bars', size: 's', cols: 4, h: 380},
+  {type: 'section', size: 'xl', cols: 12, h: 70, cfg: {heading: 'Website Events'}},
+  {type: 'aa_events', size: 's', cols: 4, h: 340}, {type: 'aa_events_donut', size: 'l', cols: 8, h: 340},
+  {type: 'aa_events_line', size: 'xl', cols: 12, h: 360},
+  {type: 'section', size: 'xl', cols: 12, h: 70, cfg: {heading: 'SEO Score'}},
+  {type: 'kw_public', size: 'xl', cols: 12, h: 1300},
+  {type: 'section', size: 'xl', cols: 12, h: 70, cfg: {heading: 'AI Traffic'}},
   {type: 'aivr_kpi-visits', size: 's', cols: 4, h: 360}, {type: 'aivr_kpi-conv', size: 's', cols: 4, h: 360}, {type: 'aivr_kpi-gimpr', size: 's', cols: 4, h: 360},
   {type: 'aivr_conv-types', size: 'xl', cols: 12}, {type: 'aivr_visits-3m', size: 'xl', cols: 12}, {type: 'aivr_pages', size: 'xl', cols: 12},
-  {type: 'section', size: 'xl', cols: 12, h: 70, cfg: {heading: 'Google Ads'}, only: 'google_ads'},
-  {type: 'gads_kpis', size: 'xl', cols: 12, h: 200, only: 'google_ads'}, {type: 'gads_trend', size: 'l', cols: 12, only: 'google_ads'}, {type: 'gads_campaigns', size: 'xl', cols: 12, only: 'google_ads'},
-  {type: 'section', size: 'xl', cols: 12, h: 70, cfg: {heading: 'Facebook & Instagram Ads'}, only: 'meta_ads'},
-  {type: 'meta_kpis', size: 'xl', cols: 12, h: 200, only: 'meta_ads'}, {type: 'meta_campaigns', size: 'xl', cols: 12, only: 'meta_ads'},
-  {type: 'section', size: 'xl', cols: 12, h: 70, cfg: {heading: 'Social Media'}, only: 'social'},
-  {type: 'social_kpis', size: 'xl', cols: 12, only: 'social'}, {type: 'social_posts', size: 'l', cols: 12, only: 'social'},
-  {type: 'insight_summary', size: 'l', cols: 12}
+  {type: 'section', size: 'xl', cols: 12, h: 70, cfg: {heading: 'Google Business Profile'}, only: 'gbp'},
+  {type: 'gbp_glance', size: 'l', cols: 12, only: 'gbp'}, {type: 'gbp_grids', size: 'xl', cols: 12, only: 'gbp'}
 ];
 /* Reporting has no client list on the left: one client switcher in the header instead. */
 const Picker = {
@@ -916,6 +1017,11 @@ const Reporting = {
     const ch = Channels.forClient(c), social = !!(ch.facebook || ch.instagram || ch.linkedin);
     const hasGbp = !!gbpFor(c);
     const items = TEMPLATE.filter(t => !t.only || (t.only === 'social' ? social : t.only === 'gbp' ? hasGbp : ch[t.only])).filter(t => RA.W[t.type]).map(t => { const o = Object.assign({}, t); delete o.only; return o; });
+    /* Paid and social pages for the channels this client has (numbers read by Claude or typed in). */
+    const P = RA.CH_PAGES ? RA.CH_PAGES() : {};
+    ['google_ads', 'meta_ads', 'facebook', 'instagram', 'linkedin'].forEach(src => { if (!ch[src] || !P[src]) return;
+      items.push({type: 'section', size: 'xl', cols: 12, h: 70, cfg: {heading: P[src][0]}});
+      P[src][1].forEach(([t, cols]) => { if (RA.W[t]) items.push({type: t, size: cols === 12 ? 'xl' : cols >= 8 ? 'l' : 's', cols}); }); });
     try{ window.EDGE_aaBuilder && EDGE_aaBuilder.fitNext(); }catch(e){}
     RA.applyClient(c, items, c.name + ' — Monthly report');
     return items.length;
@@ -1232,6 +1338,12 @@ const AiSweep = {
     if (typeof fbDb === 'undefined' || !fbDb) return;
     this.done = true;
     (state.seoClients || []).forEach(c => { try{ if (c && c.reports && c.reports.client && !c.reports.client.kwp && RA.migrateKw) RA.migrateKw(c); }catch(e){ console.warn('keyword widget', c && c.name, e); } });
+    /* Paid and social: the team report gets every page once; a client report gets a channel's page when that channel has numbers. */
+    (state.seoClients || []).forEach(c => { try{
+      if (RA.addTeamChannelPages && c.reports && c.reports.team) RA.addTeamChannelPages(c);
+      const ch = Channels.forClient(c), have = Object.keys(ch).filter(k => (ch[k] || []).some(a => Object.keys(a.months || {}).length));
+      if (have.length && RA.addChannelPages) RA.addChannelPages(c, have);
+    }catch(e){ console.warn('channel pages', c && c.name, e); } });
     const todo = (state.seoClients || []).filter(c => c && c.reports && c.reports.client && (c.reports.client.items || []).length && !c.reports.client.aiv2);
     let n = 0;
     for (const c of todo){
