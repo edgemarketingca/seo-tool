@@ -142,3 +142,7 @@ body.aab-on #seoStage .mod-intro{display:none !important;}
 .aab .aab-canvas{padding-left:22px;padding-right:22px;}
 .aab .rp.rp-aa .rp-acts .rp-ib{font:500 12px Geist,Arial,sans-serif;color:#555;background:#fff;border:1px solid #EBEDF0;border-radius:6px;height:28px;padding:0 9px;}
 .aab .rp.rp-aa .rp-acts .rp-ib:hover{background:#F4F4F5;}
+
+/* Paged reports: each page is its own sheet, so the outer sheet steps back. */
+.aab-sheet:has(.rp-paged){background:transparent;border-color:transparent;box-shadow:none;padding-left:0;padding-right:0;}
+.aab-sheet:has(.rp-paged) > .aab-shead{display:none;}

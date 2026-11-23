@@ -847,6 +847,87 @@ const Entry = {
   }
 };
 window.EDGE_entry = o => Entry.open(o);
+/* ---------- Charts for the Google Ads and Meta account drawer ---------- */
+const AdViz = {
+  spark(vals, col){
+    const v = vals.length ? vals : [0], mx = Math.max(...v, 1), mn = Math.min(...v), W = 120, H = 34;
+    const pts = v.map((x, i) => [v.length > 1 ? i / (v.length - 1) * W : W / 2, H - 4 - (mx === mn ? 0.5 : (x - mn) / (mx - mn)) * (H - 8)]);
+    const d = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+    return '<svg class="adv-spark" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none"><path d="' + d + ' L' + W + ' ' + H + ' L0 ' + H + 'Z" fill="' + col + '" opacity=".12"/><path d="' + d + '" fill="none" stroke="' + col + '" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>' +
+      '<circle cx="' + pts[pts.length - 1][0] + '" cy="' + pts[pts.length - 1][1] + '" r="3" fill="' + col + '"/></svg>';
+  },
+  hero(list, vs){
+    return '<div class="adv-hero">' + list.map(([l, shown, v, p, hist, col, lowerBetter], i) => {
+      const dl = p ? Math.round((v - p) / p * 100) : null, good = dl == null ? null : (lowerBetter ? dl <= 0 : dl >= 0);
+      return '<div class="adv-k" style="--c:' + col + ';--d:' + (i * 60) + 'ms"><small>' + esc(l) + '</small><b>' + shown + '</b>' +
+        '<span class="adv-dl ' + (dl == null ? '' : good ? 'up' : 'down') + '">' + (dl == null ? 'no earlier month' : (dl > 0 ? '▲ ' : dl < 0 ? '▼ ' : '') + Math.abs(dl) + '% vs ' + esc(vs)) + '</span>' + this.spark(hist, col) + '</div>';
+    }).join('') + '</div>';
+  },
+  months(rows, isMoney, curM){
+    if (!rows.length) return '<div class="adv-empty">No months yet.</div>';
+    const W = 640, H = 220, P = 30, mx = Math.max(...rows.map(r => r[1]), 1), bw = (W - P * 2) / rows.length;
+    const f = v => isMoney ? money(v) : fmt(Math.round(v * 100) / 100);
+    const bars = rows.map((r, i) => { const h = r[1] / mx * (H - 60), x = P + i * bw + bw * 0.18, y = H - 28 - h, on = r[0] === curM;
+      return '<g class="adv-bar' + (on ? ' on' : '') + '" data-tip="' + esc(monthName(r[0]) + ': ' + f(r[1])) + '"><rect x="' + x.toFixed(1) + '" y="' + (H - 28) + '" width="' + (bw * 0.64).toFixed(1) + '" height="0" rx="6" style="--y:' + y.toFixed(1) + 'px;--h:' + h.toFixed(1) + 'px;--i:' + i + '"/>' +
+        '<text x="' + (x + bw * 0.32).toFixed(1) + '" y="' + (y - 8).toFixed(1) + '" class="v">' + esc(f(r[1])) + '</text><text x="' + (x + bw * 0.32).toFixed(1) + '" y="' + (H - 8) + '" class="m">' + esc(monthName(r[0]).slice(0, 3)) + '</text></g>'; }).join('');
+    const pts = rows.map((r, i) => [P + i * bw + bw / 2, H - 28 - r[1] / mx * (H - 60)]);
+    const line = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+    return '<svg viewBox="0 0 ' + W + ' ' + H + '" class="adv-msvg"><defs><linearGradient id="advg" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#4285F4"/><stop offset="1" stop-color="#8AB4F8"/></linearGradient></defs>' +
+      [0.25, 0.5, 0.75, 1].map(t => '<line x1="' + P + '" x2="' + (W - P) + '" y1="' + (H - 28 - t * (H - 60)).toFixed(1) + '" y2="' + (H - 28 - t * (H - 60)).toFixed(1) + '" class="g"/>').join('') +
+      bars + '<path d="' + line + '" class="ln"/>' + pts.map(p => '<circle cx="' + p[0].toFixed(1) + '" cy="' + p[1].toFixed(1) + '" r="3.5" class="dot"/>').join('') + '</svg>';
+  },
+  campaigns(camps){
+    const tot = camps.reduce((t, c) => t + num(c.spend), 0) || 1, cols = ['#4285F4', '#34A853', '#FBBC04', '#EA4335', '#A142F4', '#24C1E0', '#F538A0', '#5F6368', '#FA7B17', '#1E8E3E'];
+    let acc = 0; const R = 54, C = 2 * Math.PI * R;
+    const ring = camps.map((c, i) => { const f = num(c.spend) / tot, seg = '<circle r="' + R + '" cx="70" cy="70" fill="none" stroke="' + cols[i % cols.length] + '" stroke-width="20" stroke-dasharray="' + (f * C).toFixed(2) + ' ' + C.toFixed(2) + '" stroke-dashoffset="' + (-acc * C).toFixed(2) + '" data-tip="' + esc(c.name + ': ' + money(c.spend) + ' (' + Math.round(f * 100) + '%)') + '" class="adv-seg-arc" style="--i:' + i + '"/>'; acc += f; return seg; }).join('');
+    const mxc = Math.max(...camps.map(c => num(c.conversions)), 1);
+    return '<div class="adv-camp"><div class="adv-donut"><svg viewBox="0 0 140 140"><g transform="rotate(-90 70 70)">' + ring + '</g></svg><div class="adv-donut-c"><b>' + money(tot) + '</b><small>spend</small></div></div>' +
+      '<div class="adv-crows">' + camps.map((c, i) => { const cp = num(c.conversions) ? num(c.spend) / num(c.conversions) : 0;
+        return '<div class="adv-crow" style="--i:' + i + '"><i style="background:' + cols[i % cols.length] + '"></i><div class="t"><b>' + esc(c.name) + '</b><div class="adv-cbar"><span style="width:' + (num(c.spend) / tot * 100).toFixed(1) + '%;background:' + cols[i % cols.length] + '"></span></div></div>' +
+          '<div class="adv-cm"><span><b>' + money(c.spend) + '</b>spend</span><span><b>' + fmt(c.clicks) + '</b>clicks</span><span class="cv"><b>' + fmt(c.conversions) + '</b>conv.<em style="width:' + (num(c.conversions) / mxc * 100).toFixed(0) + '%"></em></span><span><b>' + (cp ? money(cp) : '—') + '</b>per conv.</span></div></div>'; }).join('') + '</div></div>';
+  },
+  bars(rows, col){
+    const mx = Math.max(...rows.map(r => r[1]), 1);
+    return '<div class="adv-bars">' + rows.slice(0, 10).map((r, i) => '<div class="adv-br" style="--i:' + i + '"><div class="l"><span>' + esc(r[0]) + '</span><em>' + esc(r[2]) + '</em></div><div class="b"><span style="width:' + (r[1] / mx * 100).toFixed(1) + '%;background:' + col + '"></span></div></div>').join('') + '</div>';
+  },
+  cloud(terms){
+    const mx = Math.max(...terms.map(t => num(t.clicks)), 1);
+    return '<div class="adv-cloud">' + terms.slice(0, 14).map((t, i) => { const w = num(t.clicks) / mx;
+      return '<span style="--w:' + w.toFixed(2) + ';--i:' + i + '" data-tip="' + esc(t.term + ': ' + fmt(t.clicks) + ' clicks' + (num(t.conversions) ? ', ' + fmt(t.conversions) + ' conv.' : '')) + '">' + esc(t.term) + (num(t.conversions) ? '<i>' + fmt(t.conversions) + '</i>' : '') + '</span>'; }).join('') + '</div>';
+  },
+  /* Desk band: all accounts' spend and conversions by month, and where this month's money went. */
+  desk(rows, accts, m, src){
+    if (!accts.length) return '';
+    const ms = []; let x = m; for (let i = 0; i < 6; i++){ ms.unshift(x); x = prevYm(x); }
+    const sum = (mm, k) => accts.reduce((t, a) => t + num(((a.months || {})[mm] || {})[k]), 0);
+    const sp = ms.map(mm => sum(mm, 'spend')), cv = ms.map(mm => sum(mm, 'conversions'));
+    const W = 560, H = 210, P = 26, bw = (W - P * 2) / ms.length, mx = Math.max(...sp, 1), mc = Math.max(...cv, 1);
+    const bars = ms.map((mm, i) => { const h = sp[i] / mx * (H - 64), bx = P + i * bw + bw * 0.2, y = H - 28 - h;
+      return '<g class="adv-bar' + (mm === m ? ' on' : '') + '" data-tip="' + esc(monthName(mm) + ': ' + money(sp[i]) + ' spent · ' + fmt(Math.round(cv[i])) + ' ' + (src === 'google_ads' ? 'conversions' : 'results')) + '"><rect x="' + bx.toFixed(1) + '" y="' + (H - 28) + '" width="' + (bw * 0.6).toFixed(1) + '" height="0" rx="7" style="--y:' + y.toFixed(1) + 'px;--h:' + h.toFixed(1) + 'px;--i:' + i + '"/>' +
+        '<text x="' + (bx + bw * 0.3).toFixed(1) + '" y="' + (H - 8) + '" class="m">' + esc(monthName(mm).slice(0, 3)) + '</text></g>'; }).join('');
+    const pts = ms.map((mm, i) => [P + i * bw + bw / 2, H - 28 - cv[i] / mc * (H - 64)]);
+    const line = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+    const top = rows.slice().sort((a, b) => num(b.cur.spend) - num(a.cur.spend)).filter(r => num(r.cur.spend) > 0).slice(0, 8), tmx = Math.max(...top.map(r => num(r.cur.spend)), 1);
+    const cols = ['#4285F4', '#34A853', '#FBBC04', '#EA4335', '#A142F4', '#24C1E0', '#F538A0', '#FA7B17'];
+    return '<div class="adv-desk"><div class="adv-card"><div class="adv-ch"><b>Spend and ' + (src === 'google_ads' ? 'conversions' : 'results') + ', all accounts</b><span class="adv-sub">last 6 months</span><span class="adv-key"><i class="b"></i>Spend<i class="l"></i>' + (src === 'google_ads' ? 'Conversions' : 'Results') + '</span></div>' +
+      '<svg viewBox="0 0 ' + W + ' ' + H + '" class="adv-msvg"><defs><linearGradient id="advg" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#4285F4"/><stop offset="1" stop-color="#8AB4F8"/></linearGradient></defs>' +
+      [0.33, 0.66, 1].map(t => '<line x1="' + P + '" x2="' + (W - P) + '" y1="' + (H - 28 - t * (H - 64)).toFixed(1) + '" y2="' + (H - 28 - t * (H - 64)).toFixed(1) + '" class="g"/>').join('') + bars +
+      '<path d="' + line + '" class="adv-cvl"/>' + pts.map((p, i) => '<circle cx="' + p[0].toFixed(1) + '" cy="' + p[1].toFixed(1) + '" r="4" class="adv-cvd" data-tip="' + esc(monthName(ms[i]) + ': ' + fmt(Math.round(cv[i])) + (src === 'google_ads' ? ' conversions' : ' results')) + '"/>').join('') + '</svg></div>' +
+      '<div class="adv-card"><div class="adv-ch"><b>Where the money went</b><span class="adv-sub">' + esc(monthName(m)) + '</span></div><div class="adv-race">' +
+      top.map((r, i) => '<button type="button" class="adv-rr" data-acct="' + esc(Channels.key(src, r.a.id)) + '" style="--i:' + i + '"><span class="n">' + esc(r.c ? r.c.name : r.a.name) + '</span><span class="b"><span style="width:' + (num(r.cur.spend) / tmx * 100).toFixed(1) + '%;background:' + cols[i % cols.length] + '"></span></span><span class="v">' + money(r.cur.spend) + '</span></button>').join('') +
+      (top.length ? '' : '<div class="adv-empty">No spend this month.</div>') + '</div></div></div>';
+  },
+  wireTips(root){
+    let tip = document.querySelector('.adv-tip');
+    if (!tip){ tip = document.createElement('div'); tip.className = 'adv-tip'; document.body.appendChild(tip); }
+    root.querySelectorAll('[data-tip]').forEach(el => {
+      if (el._tw) return; el._tw = 1;
+      el.addEventListener('mouseenter', () => { tip.textContent = el.dataset.tip; tip.classList.add('on'); });
+      el.addEventListener('mousemove', e => { tip.style.left = e.clientX + 'px'; tip.style.top = (e.clientY - 12) + 'px'; });
+      el.addEventListener('mouseleave', () => tip.classList.remove('on'));
+    });
+  }
+};
 const Ads = {
   tab: 'google_ads', filter: '', month: '',
   render(){
@@ -881,6 +962,7 @@ const Ads = {
     st.innerHTML += '<div class="os-kpis">' + (src === 'google_ads'
       ? kpi('Spend', sp, psp, money) + kpi('Clicks', cl, pcl, fmt) + kpi('Impressions', im, pim, fmt) + kpi('CTR', pct(cl, im), pct(pcl, pim), v => v.toFixed(2) + '%') + kpi('Conversions', cv, pcv, v => (Math.round(v * 10) / 10).toLocaleString()) + kpi('Cost / conv.', cv ? sp / cv : 0, pcv ? psp / pcv : 0, money, true)
       : kpi('Amount spent', sp, psp, money) + kpi('Reach', tot(m, 'reach'), tot(pm, 'reach'), fmt) + kpi('Impressions', im, pim, fmt) + kpi('Link clicks', cl, pcl, fmt) + kpi('Results', cv, pcv, fmt) + kpi('Cost / result', cv ? sp / cv : 0, pcv ? psp / pcv : 0, money, true)) + '</div>' +
+      AdViz.desk(rows, accts, m, src) +
       '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><input class="os-in" data-q placeholder="Find an account or client" value="' + esc(this.filter) + '" style="width:260px"><span class="os-grow"></span>' +
       '<span class="os-sync-line' + (stale ? ' stale' : '') + '"><i></i>Read from ' + (src === 'google_ads' ? 'Google Ads' : 'Ads Manager') + ' ' + (last ? new Date(last).toLocaleDateString('en-CA', {month: 'short', day: 'numeric'}) : '') + (lastBy ? ' by ' + esc(lastBy) : '') + (stale ? ' · due for a new read' : '') + '</span></div>' +
       (attn.length ? '<div class="os-h2">Needs attention <span class="n">' + attn.length + '</span></div><div class="os-attn">' + attn.slice(0, 9).map(r => '<div class="os-attn-c ' + (Attention.level(r.att) === 'bad' ? '' : 'warn') + '" data-acct="' + esc(Channels.key(src, r.a.id)) + '">' +
@@ -901,22 +983,44 @@ const Ads = {
     st.querySelectorAll('[data-entry]').forEach(b => b.addEventListener('click', () => Entry.open({src: this.tab === 'social' ? 'facebook' : this.tab})));
     const ms = st.querySelector('[data-month]'); if (ms) ms.addEventListener('change', () => { this.month = ms.value; this.render(); });
     const q = st.querySelector('[data-q]'); if (q) q.addEventListener('input', () => { this.filter = q.value; clearTimeout(this._q); this._q = setTimeout(() => { const pos = q.selectionStart; this.render(); const q2 = $('adsStage').querySelector('[data-q]'); if (q2){ q2.focus(); try{ q2.setSelectionRange(pos, pos); }catch(e){} } }, 180); });
+    AdViz.wireTips(st);
     st.querySelectorAll('[data-acct]').forEach(el => { const open = () => this.detail(el.dataset.acct); el.addEventListener('click', open); el.addEventListener('keydown', e => { if (e.key === 'Enter') open(); }); });
   },
   detail(key){
     const a = Channels.map[key]; if (!a) return;
     const src = a.source, m = this.month || Channels.latestMonth(src), cur = (a.months || {})[m] || {}, c = Channels.link(a), att = Attention.of(a);
     const camps = (cur.campaigns || []).slice().sort((x, y) => num(y.spend) - num(x.spend));
-    const months = Object.keys(a.months || {}).sort().reverse();
+    const months = Object.keys(a.months || {}).sort();
+    const pm = prevYm(m), prev = (a.months || {})[pm] || {};
+    const cpa = x => num(x.conversions) ? num(x.spend) / num(x.conversions) : 0;
+    const resLbl = src === 'google_ads' ? 'Conversions' : 'Results';
     const d = Drawer.open(dHead(c ? c.name : a.name, esc(SOURCES[src].l) + ' · ' + esc(a.name) + (a.id ? ' · ' + esc(a.id) : '') + ' · read only') +
-      '<div class="os-db">' + (att.length ? '<div class="os-attn" style="grid-template-columns:1fr;margin-bottom:14px"><div class="os-attn-c ' + (Attention.level(att) === 'bad' ? '' : 'warn') + '" style="cursor:default"><div><b>Needs attention</b><ul>' + att.map(x => '<li>' + esc(x.t) + '</li>').join('') + '</ul></div></div></div>' : '') +
-      '<div class="os-h2" style="margin-top:0">Month by month</div><table class="os-table"><thead><tr><th>Month</th><th class="n">Spend</th><th class="n">' + (src === 'google_ads' ? 'Clicks' : 'Link clicks') + '</th><th class="n">Impr.</th><th class="n">' + (src === 'google_ads' ? 'Conv.' : 'Results') + '</th><th class="n">Cost / conv.</th></tr></thead><tbody>' +
-      months.map(k => { const x = a.months[k]; return '<tr><td>' + esc(monthName(k)) + '</td><td class="n">' + money(x.spend) + '</td><td class="n">' + fmt(x.clicks) + '</td><td class="n">' + fmt(x.impressions) + '</td><td class="n">' + fmt(x.conversions) + '</td><td class="n">' + (num(x.conversions) ? money(x.spend / x.conversions) : '—') + '</td></tr>'; }).join('') + '</tbody></table>' +
-      '<div class="os-h2">Campaigns · ' + esc(monthName(m)) + ' <span class="n">' + camps.length + '</span></div>' + (camps.length ? '<table class="os-table"><thead><tr><th>Campaign</th><th class="n">Spend</th><th class="n">Clicks</th><th class="n">Conv.</th><th class="n">Cost / conv.</th></tr></thead><tbody>' +
-        camps.map(cp => '<tr><td><b style="font-weight:600">' + esc(cp.name) + '</b><div style="font-size:11px;color:var(--os-ink3)">' + esc([cp.type, cp.status].filter(Boolean).join(' · ')) + '</div></td><td class="n">' + money(cp.spend) + '</td><td class="n">' + fmt(cp.clicks) + '</td><td class="n">' + fmt(cp.conversions) + '</td><td class="n">' + (num(cp.conversions) ? money(cp.spend / cp.conversions) : '—') + '</td></tr>').join('') + '</tbody></table>' : '<div class="os-note">No campaigns recorded for this month.</div>') +
-      '<div class="os-h2">Client</div><div class="os-form"><select class="os-sel" data-link><option value="">Not linked</option>' + seoClients().slice().sort((x, y) => String(x.name).localeCompare(String(y.name))).map(s => '<option value="' + esc(s.id) + '"' + (c && c.id === s.id ? ' selected' : '') + '>' + esc(s.name) + '</option>').join('') + '</select>' +
-      '<div class="os-note">Linking puts this account’s numbers in the client’s reports and uses the client’s logo here.</div></div></div>' +
+      '<div class="os-db adv">' +
+      AdViz.hero([
+        ['Spend', money(cur.spend), num(cur.spend), num(prev.spend), months.map(k => num(a.months[k].spend)), '#4285F4', false],
+        [src === 'google_ads' ? 'Clicks' : 'Link clicks', fmt(cur.clicks), num(cur.clicks), num(prev.clicks), months.map(k => num(a.months[k].clicks)), '#34A853', false],
+        [resLbl, fmt(cur.conversions), num(cur.conversions), num(prev.conversions), months.map(k => num(a.months[k].conversions)), '#FBBC04', false],
+        ['Cost / ' + (src === 'google_ads' ? 'conv.' : 'result'), cpa(cur) ? money(cpa(cur)) : '—', cpa(cur), cpa(prev), months.map(k => cpa(a.months[k])), '#EA4335', true]
+      ], monthName(pm).split(' ')[0]) +
+      (att.length ? '<div class="adv-attn ' + (Attention.level(att) === 'bad' ? 'bad' : 'warn') + '"><div class="adv-attn-ic">!</div><div><b>Needs attention</b><div class="adv-attn-l">' + att.map(x => '<span>' + esc(x.t) + '</span>').join('') + '</div></div></div>' : '') +
+      '<div class="adv-card"><div class="adv-ch"><b>Month by month</b><div class="adv-seg" data-mseg>' + [['spend', 'Spend'], ['clicks', 'Clicks'], ['conversions', resLbl], ['cpa', 'Cost / conv.'], ['impressions', 'Impr.']].map((x, i) => '<button type="button" data-k="' + x[0] + '"' + (i ? '' : ' class="on"') + '>' + x[1] + '</button>').join('') + '</div></div>' +
+        '<div class="adv-mchart" data-mchart></div>' +
+        '<details class="adv-tbl"><summary>Show the numbers</summary><table class="os-table"><thead><tr><th>Month</th><th class="n">Spend</th><th class="n">Clicks</th><th class="n">Impr.</th><th class="n">Conv.</th><th class="n">Cost / conv.</th></tr></thead><tbody>' +
+        months.slice().reverse().map(k => { const x = a.months[k]; return '<tr><td>' + esc(monthName(k)) + '</td><td class="n">' + money(x.spend) + '</td><td class="n">' + fmt(x.clicks) + '</td><td class="n">' + fmt(x.impressions) + '</td><td class="n">' + fmt(x.conversions) + '</td><td class="n">' + (cpa(x) ? money(cpa(x)) : '—') + '</td></tr>'; }).join('') +
+        '</tbody></table></details></div>' +
+      (camps.length ? '<div class="adv-card"><div class="adv-ch"><b>Campaigns · ' + esc(monthName(m)) + '</b><span class="adv-n">' + camps.length + '</span></div>' + AdViz.campaigns(camps) + '</div>' : '<div class="adv-card adv-empty">No campaign detail for ' + esc(monthName(m)) + ' yet. Claude reads campaigns on the monthly run.</div>') +
+      ((cur.conversionActions || []).length ? '<div class="adv-card"><div class="adv-ch"><b>What people did</b><span class="adv-sub">conversion actions</span></div>' + AdViz.bars((cur.conversionActions || []).map(x => [x.name, num(x.conversions), fmt(x.conversions)]), '#FBBC04') + '</div>' : '') +
+      ((cur.keywords || []).length || (cur.searchTerms || []).length ? '<div class="adv-two">' +
+        ((cur.keywords || []).length ? '<div class="adv-card"><div class="adv-ch"><b>Top keywords</b><span class="adv-sub">by clicks</span></div>' + AdViz.bars(cur.keywords.map(k => [k.keyword, num(k.clicks), fmt(k.clicks) + ' clicks' + (num(k.conversions) ? ' · ' + fmt(k.conversions) + ' conv.' : '')]), '#4285F4') + '</div>' : '') +
+        ((cur.searchTerms || []).length ? '<div class="adv-card"><div class="adv-ch"><b>What people searched</b><span class="adv-sub">search terms</span></div>' + AdViz.cloud(cur.searchTerms) + '</div>' : '') + '</div>' : '') +
+      '<div class="adv-card"><div class="adv-ch"><b>Client</b></div><div class="os-form"><select class="os-sel" data-link><option value="">Not linked</option>' + seoClients().slice().sort((x, y) => String(x.name).localeCompare(String(y.name))).map(s2 => '<option value="' + esc(s2.id) + '"' + (c && c.id === s2.id ? ' selected' : '') + '>' + esc(s2.name) + '</option>').join('') + '</select>' +
+      '<div class="os-note">Linking puts this account’s numbers in the client’s reports and uses the client’s logo here.</div></div></div></div>' +
       '<div class="os-df"><button type="button" class="os-btn go" data-task>' + ICON.tasks + 'Add a task</button>' + (a.url ? '<a class="os-btn" href="' + esc(a.url) + '" target="_blank" rel="noopener">Open in ' + esc(SOURCES[src].l) + ' ' + ICON.ext + '</a>' : '') + '</div>', {wide: true});
+    const mc = d.querySelector('[data-mchart]');
+    const drawM = k => { mc.innerHTML = AdViz.months(months.map(mm => { const x = a.months[mm]; return [mm, k === 'cpa' ? cpa(x) : num(x[k])]; }), k === 'spend' || k === 'cpa', m); AdViz.wireTips(mc); };
+    drawM('spend');
+    d.querySelectorAll('[data-mseg] button').forEach(bt => bt.addEventListener('click', () => { d.querySelectorAll('[data-mseg] button').forEach(x => x.classList.toggle('on', x === bt)); drawM(bt.dataset.k); }));
+    AdViz.wireTips(d);
     d.querySelector('[data-link]').addEventListener('change', e => { Channels.setLink(a, e.target.value); FX.toast(e.target.value ? 'Linked to ' + e.target.selectedOptions[0].text : 'Unlinked', e.target.value ? 'ok' : 'del'); this.render(); });
     d.querySelector('[data-task]').addEventListener('click', () => Tasks.open({title: (c ? c.name : a.name) + ' — Google Ads: ' + (att[0] ? att[0].t : 'review account'), notes: att.map(x => '• ' + x.t).join('\n')}));
   }

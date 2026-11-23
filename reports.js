@@ -334,12 +334,31 @@ button.rp-kpi{cursor:pointer;} button.rp-kpi:hover{border-color:var(--a-ink3);bo
 .rp-grid.free{display:block;position:relative;min-height:120px;}
 .rp-grid.free > .rp-w{position:absolute;margin:0;box-sizing:border-box;
   left:calc((100% - 176px) / 12 * var(--x,0) + 16px * var(--x,0));width:calc((100% - 176px) / 12 * var(--c,6) + 16px * (var(--c,6) - 1));
-  top:calc(var(--y,0) * 1px);height:calc(var(--h,320) * 1px);transition:left .18s ease,top .18s ease,width .18s ease,height .18s ease;}
+  top:calc((var(--y,0) + var(--py,0)) * 1px);height:calc(var(--h,320) * 1px);transition:left .18s ease,top .18s ease,width .18s ease,height .18s ease;}
 .rp-grid.free > .rp-w > [data-body]{overflow:auto;}
+/* AgencyAnalytics pages */
+.rp-paged .rp.rp-aa{background:transparent;}
+.rp-paged .rp-grid.free{margin:0 34px;}
+.rp-sheet{position:absolute;left:-34px;right:-34px;z-index:0;background:#fff;border:1px solid #E6E8EB;border-radius:6px;box-shadow:0 1px 2px rgba(16,24,40,.05),0 18px 40px -28px rgba(16,24,40,.35);pointer-events:none;animation:rpSheetIn .45s cubic-bezier(.2,.8,.2,1) both;}
+@keyframes rpSheetIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.rp-grid.free > .rp-w{z-index:1;}
+.rp-sheet-h{position:absolute;left:34px;right:34px;top:22px;display:flex;align-items:center;justify-content:space-between;gap:16px;}
+.rp-sheet-h img{max-height:34px;max-width:160px;object-fit:contain;}
+.rp-sheet-h .rp-brand,.rp-sheet-h > *:first-child{display:flex;align-items:center;gap:10px;}
+.rp-brand > .rp-x2:first-child{display:none;}
+.rp-tpl-pages{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 14px;}
+.rp-tpl-pages span{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;padding:5px 10px 5px 5px;border:1px solid #E6E8EB;border-radius:99px;background:#fff;}
+.rp-tpl-pages i{font-style:normal;font-weight:700;font-size:11px;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;background:#171614;color:#fff;}
+.rp-sheet-m{text-align:right;font:500 12.5px/1.45 'Geist','Helvetica Neue',sans-serif;color:#55606A;}
+.rp-sheet-m b{display:block;font-weight:600;color:#222A30;}
+.rp-sheet-f{position:absolute;left:34px;right:34px;bottom:18px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid #F0F1F3;padding-top:12px;font:500 11.5px 'Geist','Helvetica Neue',sans-serif;color:#8A949C;}
+.rp-sheet-n{font-weight:600;color:#55606A;background:#F4F4F5;border-radius:99px;padding:3px 10px;}
+@media (max-width:760px){.rp-sheet{display:none;}.rp-paged .rp-grid.free{margin:0;}}
+@media print{.rp-sheet{box-shadow:none;break-inside:avoid;}}
 .rp-grid.free > .rp-empty{position:static;}
 .rp-ph{position:absolute;border:2px dashed var(--a-brand);background:color-mix(in srgb,var(--a-brand) 7%,transparent);border-radius:18px;pointer-events:none;box-sizing:border-box;
   left:calc((100% - 176px) / 12 * var(--x,0) + 16px * var(--x,0));width:calc((100% - 176px) / 12 * var(--c,6) + 16px * (var(--c,6) - 1));
-  top:calc(var(--y,0) * 1px);height:calc(var(--h,320) * 1px);transition:left .12s,top .12s,width .12s,height .12s;}
+  top:calc((var(--y,0) + var(--py,0)) * 1px);height:calc(var(--h,320) * 1px);transition:left .12s,top .12s,width .12s,height .12s;}
 .rp-grid.free > .rp-w.moving{transition:none !important;z-index:20;box-shadow:0 24px 50px -20px rgba(20,28,36,.45);opacity:.94;cursor:grabbing;}
 .rp-grid.free > .rp-w.resizing{transition:none !important;z-index:20;}
 .rp.editing .rp-grid.free .rp-wh{cursor:grab;}
@@ -4545,6 +4564,9 @@ function renderBoard(root, o){
   if (o.clientName && !ctx.clientName) ctx.clientName = o.clientName;
   let free = aa || !!o.free;
   let editing = !!o.startEditing;
+  /* AgencyAnalytics pages: the cover and every section start a new page, drawn as its own
+     sheet with the logo, client and month on top and "Page 2 of 7" at the bottom. */
+  const paged = aa && o.paged !== false;
   const items = o.items;
   ctx.items = items;
   const brand = o.brand || {};
@@ -4615,12 +4637,52 @@ function renderBoard(root, o){
   ctx.redraw = () => drawAll();
 
   const elOf = it => grid.querySelector('.rp-w[data-id="' + cssEsc(it.id) + '"]');
+  const PG_HEAD = 84, PG_FOOT = 58, PG_GAP = 40;
+  const pageStarts = skip => {
+    const st = items.filter(i => i !== skip && (i.type === 'section' || i.type === 'cover')).map(i => i.y || 0).sort((a, b) => a - b);
+    if (!st.length || st[0] > 0) st.unshift(0);
+    return st.filter((v, i) => !i || v !== st[i - 1]);
+  };
+  const pageOfY = (st, y) => { let k = 0; for (let i = 0; i < st.length; i++) if (y >= st[i]) k = i; return k; };
+  const pageOff = k => PG_HEAD + k * (PG_HEAD + PG_FOOT + PG_GAP);
+  const isPaged = () => paged && free && !mobile();
+  /* Screen position inside the grid -> layout position (drops in a page's header land at its top). */
+  const toLayoutY = (d, skip) => {
+    if (!isPaged()) return d;
+    const st = pageStarts(skip); let k = 0;
+    st.forEach((v, i) => { if (v + pageOff(i) - PG_HEAD <= d) k = i; });
+    return Math.max(st[k], d - pageOff(k));
+  };
+  function drawSheets(){
+    grid.querySelectorAll(':scope > .rp-sheet').forEach(n => n.remove());
+    root.classList.toggle('rp-paged', isPaged());
+    if (!isPaged() || !items.length) return 0;
+    const st = pageStarts(), n = st.length, month = aaMonth(ctx.R), who = esc(o.clientName || ctx.clientName || '');
+    const brand = brandHtml(o);
+    let bottom = 0;
+    st.forEach((y0, k) => {
+      const mine = items.filter(i => pageOfY(st, i.y || 0) === k);
+      const end = mine.length ? Math.max(...mine.map(i => (i.y || 0) + (i.h || 0))) : y0 + 120;
+      const top = y0 + pageOff(k) - PG_HEAD, h = end - y0 + PG_HEAD + PG_FOOT;
+      const sh = document.createElement('div');
+      sh.className = 'rp-sheet'; sh.style.top = top + 'px'; sh.style.height = h + 'px'; sh.dataset.page = k + 1;
+      sh.innerHTML = '<div class="rp-sheet-h">' + brand + '<div class="rp-sheet-m"><b>' + who + '</b><span>' + esc(month) + '</span></div></div>' +
+        '<div class="rp-sheet-f"><span>' + who + (month ? ' · ' + esc(month) : '') + '</span><span class="rp-sheet-n">Page ' + (k + 1) + ' of ' + n + '</span></div>';
+      grid.insertBefore(sh, grid.firstChild);
+      bottom = top + h;
+    });
+    return bottom;
+  }
   const mobile = () => window.matchMedia && window.matchMedia('(max-width:760px)').matches;
   function place(el, it){
     if (!el) return;
     el.style.setProperty('--x', it.x); el.style.setProperty('--c', it.cols); el.style.setProperty('--y', it.y); el.style.setProperty('--h', it.h);
+    el.style.setProperty('--py', isPaged() ? pageOff(pageOfY(pageStarts(), it.y || 0)) : 0);
   }
-  const setGridH = () => { grid.style.height = items.length ? (Math.max(...items.map(i => i.y + i.h)) + 4) + 'px' : ''; };
+  const setGridH = () => {
+    const sb = drawSheets();
+    grid.style.height = items.length ? (Math.max(sb, ...items.map(i => i.y + i.h)) + 4) + 'px' : '';
+  };
   function layoutAll(){ items.forEach(it => place(elOf(it), it)); setGridH(); }
   function ensureLayout(){
     items.forEach(normPos);
@@ -4640,7 +4702,7 @@ function renderBoard(root, o){
     }
     if (free) ensureLayout();
     items.forEach(it => grid.appendChild(drawWidget(it)));
-    if (free) setGridH();
+    if (free){ items.forEach(it => place(elOf(it), it)); setGridH(); }
   }
 
   /* The first move or resize of a flowing layout: every widget keeps the place and size it has on screen. */
@@ -4918,7 +4980,7 @@ function renderBoard(root, o){
       const g = grid.getBoundingClientRect();
       const left = ev.clientX - g.left - offX, top = ev.clientY - g.top - offY;
       el.style.left = left + 'px'; el.style.top = top + 'px';
-      const nx = Math.max(0, Math.min(12 - it.cols, Math.round(left / (colW() + GAP)))), ny = Math.max(0, Math.round(top / SNAP) * SNAP);
+      const nx = Math.max(0, Math.min(12 - it.cols, Math.round(left / (colW() + GAP)))), ny = Math.max(0, Math.round(toLayoutY(top, it) / SNAP) * SNAP);
       if (nx !== tx || ny !== ty){
         tx = nx; ty = ny;
         items.forEach((x, i) => { if (x !== it){ x.x = snap[i].x; x.y = snap[i].y; } });
@@ -5074,10 +5136,15 @@ async function exportPdf(root, btn, name){
     const M = 10, PW = 210 - M * 2, PH = 297 - M * 2 - 6;
     const k = PW / canvas.width, pageH = Math.floor(PH / k);
     const safe = y => cuts.every(c => !(c[0] < y - 2 && c[1] > y + 2));
-    let y = 0, page = 0;
-    while (y < canvas.height - 4){
-      let end = Math.min(canvas.height, y + pageH);
-      if (end < canvas.height && !safe(end)){
+    /* Paged reports: every report page starts a new PDF page (a long one carries on over several). */
+    const sheets = [...rp.querySelectorAll('.rp-sheet')].map(sh => { const r = sh.getBoundingClientRect(); return [Math.max(0, (r.top - base.top) * scale), (r.bottom - base.top) * scale]; }).sort((a, b) => a[0] - b[0]);
+    const regions = sheets.length ? sheets.map((r, i) => [i ? r[0] : 0, Math.min(canvas.height, r[1] + 4)]) : [[0, canvas.height]];
+    let page = 0;
+    for (const [rTop, rEnd] of regions){
+    let y = rTop;
+    while (y < rEnd - 4){
+      let end = Math.min(rEnd, y + pageH);
+      if (end < rEnd && !safe(end)){
         const cands = cuts.flatMap(c => [c[0] - 8 * scale, c[1] + 2]).filter(v => v > y + pageH * 0.35 && v < end && safe(v));
         if (cands.length) end = Math.max(...cands);
       }
@@ -5089,6 +5156,7 @@ async function exportPdf(root, btn, name){
       pdf.addImage(slice.toDataURL('image/jpeg', 0.92), 'JPEG', M, M, PW, h * k);
       page++;
       y = end;
+    }
     }
     const total = page;
     for (let i = 1; i <= total; i++){ pdf.setPage(i); pdf.setFontSize(8); pdf.setTextColor(140); pdf.text(name + '   ·   ' + i + ' / ' + total, 105, 297 - 6, {align: 'center'}); }
@@ -6119,16 +6187,11 @@ function openTemplates(c, startOn){
   const wire = () => back.querySelector('.aiv-x').addEventListener('click', close);
 
   function home(){
-    const list = tplAll(), RR = reportsOf(c), stT = tplStatus(RR.team, 'team'), stC = tplStatus(RR.client, 'client');
+    const list = tplAll().filter(t => t.monthly), RR = reportsOf(c), stT = tplStatus(RR.team, 'team'), stC = tplStatus(RR.client, 'client');
     const badge = (t, which, st) => st && st.t.id === t.id ? '<span class="rp-tpl-on' + (st.edited ? ' ed' : '') + '">' + (st.edited ? '◐ ' : '● ') + (which === 'team' ? 'Team report' : 'Client report') + (st.edited ? ' · edited' : ' · active') + '</span>' : '';
-    back.innerHTML = '<div class="rp-cat aiv" role="dialog" aria-modal="true" aria-label="Report templates">' + head('Report templates', 'Save a layout once, then give it to as many clients as you like. Each client’s widgets show that client’s own data.') +
-      '<div class="rp-panel" style="margin:16px 0 0"><h4>' + glyph('page', 16) + 'Save ' + esc(c.name || 'this client') + '’s layout as a template</h4>' +
-      '<div class="row"><input type="text" data-name placeholder="Template name, e.g. Monthly SEO + AI" style="flex:1;min-width:220px">' +
-      '<label class="rp-chipx on"><input type="checkbox" data-p="team" checked>Team report</label><label class="rp-chipx on"><input type="checkbox" data-p="client" checked>Client report</label>' +
-      '<button class="aiv-btn go" type="button" data-save>Save template</button></div>' +
-      '<div class="aiv-cap">Saves widgets, sizes, titles, text blocks, the client’s allowed date ranges and branding. A logo uploaded for one client isn’t copied; each client shows its own.</div></div>' +
+    back.innerHTML = '<div class="rp-cat aiv" role="dialog" aria-modal="true" aria-label="Report templates">' + head('Report template', 'One layout for every client, the same as AgencyAnalytics. Each client’s pages show that client’s own data, and channels without numbers are left out.') +
       '<div class="rp-tpl-now"><span><b>' + esc(c.name || 'This client') + '</b> now uses:</span><span><em>Team report</em> ' + esc(tplLabel(stT)) + '</span><span><em>Client report</em> ' + esc(tplLabel(stC)) + '</span></div>' +
-      '<div class="rp-cat-g"><b>Saved templates</b><div class="rp-cat-list">' + list.map(t => '<div class="rp-cat-i' + ((stT && stT.t.id === t.id) || (stC && stC.t.id === t.id) ? ' rp-tpl-act' : '') + '"><div style="min-width:0"><strong>' + esc(t.name) + '</strong>' +
+      '<div class="rp-cat-g"><b>Pages in the report</b><div class="rp-tpl-pages">' + ['Cover', 'Website Traffic', 'Website Events', 'SEO Score', 'AI Traffic', 'Google Business Profile', 'Google Ads', 'Meta Ads', 'Facebook', 'Instagram', 'LinkedIn'].map((n, i) => '<span><i>' + (i + 1) + '</i>' + n + '</span>').join('') + '</div><div class="rp-cat-list">' + list.map(t => '<div class="rp-cat-i' + ((stT && stT.t.id === t.id) || (stC && stC.t.id === t.id) ? ' rp-tpl-act' : '') + '"><div style="min-width:0"><strong>' + esc(t.name) + '</strong>' +
         (badge(t, 'team', stT) || badge(t, 'client', stC) ? '<div style="display:flex;gap:4px;flex-wrap:wrap;margin:4px 0 2px">' + badge(t, 'team', stT) + badge(t, 'client', stC) + '</div>' : '') + '<small>' + esc(tplSummary(t)) +
         (t.updatedAt ? ' · saved ' + esc(new Date(t.updatedAt).toLocaleDateString('en-CA', {month: 'short', day: 'numeric'})) : '') + '</small>' +
         '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:8px"><button class="rp-ib go" type="button" data-apply="' + esc(t.id) + '">Apply to clients…</button>' +
@@ -6137,7 +6200,7 @@ function openTemplates(c, startOn){
         '</div></div></div>').join('') + '</div></div></div>';
     wire();
     back.querySelectorAll('.rp-chipx input').forEach(x => x.addEventListener('change', () => x.parentNode.classList.toggle('on', x.checked)));
-    back.querySelector('[data-save]').addEventListener('click', () => {
+    if (back.querySelector('[data-save]')) back.querySelector('[data-save]').addEventListener('click', () => {
       const name = back.querySelector('[data-name]').value.trim();
       const parts = {team: back.querySelector('[data-p=team]').checked, client: back.querySelector('[data-p=client]').checked};
       if (!name){ back.querySelector('[data-name]').focus(); return; }
