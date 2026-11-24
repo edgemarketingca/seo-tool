@@ -6488,7 +6488,7 @@ body.embed-clean .rank-dot.wide{box-shadow:0 0 0 2px #fff,0 0 0 3.5px rgba(212,6
         <div class="mod-intro-ico"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/></svg></div>
         <div class="mod-intro-txt">
           <h3>Live SERP</h3>
-          <p>Nothing here is stored against a client — it's a scratchpad for looking at real Google results from an exact place, and for pulling a site's existing keyword footprint. Send anything useful straight over to GBP Tracker.</p>
+          <p>Nothing here is stored against a client — it's a scratchpad for looking at real Google results from an exact place. Send anything useful straight over to GBP Tracker.</p>
         </div>
       </div>
 
@@ -26647,7 +26647,8 @@ window.EDGE_showHub = showHub;
 
 /* ---------- Live SERP: section switching ---------- */
 function serpShowView(v){
-  const view = (v === 'keywords') ? 'keywords' : 'checker';
+  /* The keyword finder has been retired: Live SERP always opens the search preview. */
+  const view = 'checker';
   state.serpView = view; save();
   document.querySelectorAll('#serpRailNav .rail-nav-btn, #serpStage .serp-mode').forEach(b =>
     b.classList.toggle('on', b.dataset.serpview === view));
@@ -29317,7 +29318,7 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
 <script src="report-nav.js?v=20261106b"></script>
 <script src="edge-os.js?v=9"></script>
 <script src="edge-viz.js?v=1"></script>
-<script src="edge-serp-viz.js?v=1"></script>
+<script src="edge-serp-viz.js?v=2"></script>
 <script src="edge-aa.js?v=6"></script>
 <style>/* Keyword report inside AgencyAnalytics (or any iframe): the whole report is its own scroll area.
    AgencyAnalytics' frame doesn't scroll, so the page itself can't; an element that scrolls still does,
@@ -29354,6 +29355,6 @@ html.kwr-embedded body::-webkit-scrollbar-thumb:hover{background:#9aa7b3;backgro
 <link rel="stylesheet" href="edge-aa.css?v=5"/>
 <link rel="stylesheet" href="edge-studio.css?v=4"/>
 <link rel="stylesheet" href="edge-viz.css?v=1"/>
-<link rel="stylesheet" href="edge-serp-viz.css?v=1"/>
+<link rel="stylesheet" href="edge-serp-viz.css?v=2"/>
 </body>
 </html>

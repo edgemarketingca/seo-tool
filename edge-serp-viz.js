@@ -28,9 +28,13 @@
       '<div class="sv-hero-l"><span class="sv-eyebrow">' + PIN + 'Live SERP</span><h2>See Google exactly as someone in that town does</h2>' +
         '<p>Pick a search and a place. The pin travels with every page of results, so you see the real local pack and rankings for that spot.</p>' +
         '<div class="sv-stats" data-stats></div></div>' +
-      '<div class="sv-hero-r"><div class="sv-gbar"><span class="sv-g">' + G + '</span><span class="sv-q" data-pq></span><span class="sv-caret"></span></div>' +
-        '<div class="sv-chips"><span class="sv-chip" data-ploc>' + PIN + '<b></b></span><span class="sv-chip" data-plang></span><span class="sv-chip" data-pcoord></span></div>' +
-        '<div class="sv-fake"><i style="--w:92%"></i><i style="--w:70%"></i><i style="--w:84%"></i><i style="--w:58%"></i></div></div>';
+      '<div class="sv-hero-r"><label class="sv-gbar"><span class="sv-g">' + G + '</span><input class="sv-qin" data-in-q type="text" placeholder="Type a search, e.g. best coffee shop" autocomplete="off" aria-label="Search"/><span class="sv-kbd">Enter</span></label>' +
+        '<div class="sv-place"><span class="sv-place-ic">' + PIN + '</span><input data-in-loc type="text" placeholder="Where? Red Deer, Alberta or a street address" autocomplete="off" aria-label="Place"/><button type="button" class="sv-find" data-sv-find>Find</button></div>' +
+        '<div class="sv-geo" data-sv-geo></div>' +
+        '<div class="sv-chips"><label class="sv-chip sv-chip-sel"><svg viewBox="0 0 24 24" width="13" height="13"><path fill="currentColor" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm6.9 6h-2.9a15.6 15.6 0 0 0-1.4-3.6A8 8 0 0 1 18.9 8zM12 4c.8 1.2 1.5 2.5 1.9 4h-3.8c.4-1.5 1.1-2.8 1.9-4zM4.3 14a8.2 8.2 0 0 1 0-4h3.4a16.5 16.5 0 0 0 0 4H4.3zm.8 2h2.9c.3 1.3.8 2.5 1.4 3.6A8 8 0 0 1 5.1 16zM8 8H5.1a8 8 0 0 1 4.3-3.6C8.8 5.5 8.4 6.7 8 8zm4 12c-.8-1.2-1.5-2.5-1.9-4h3.8c-.4 1.5-1.1 2.8-1.9 4zm2.3-6H9.7a14.7 14.7 0 0 1 0-4h4.6a14.7 14.7 0 0 1 0 4zm.3 5.6c.6-1.1 1.1-2.3 1.4-3.6h2.9a8 8 0 0 1-4.3 3.6zm1.7-5.6a16.5 16.5 0 0 0 0-4h3.4a8.2 8.2 0 0 1 0 4h-3.4z"/></svg><select data-in-region aria-label="Country and language"></select></label>' +
+          '<span class="sv-chip" data-pcoord></span></div>' +
+        '<div class="sv-radius"><span>Pin radius</span><input type="range" min="1" max="200" step="1" data-in-radius aria-label="Pin radius in km"/><b data-radius-l></b></div>' +
+        '<button type="button" class="sv-go" data-sv-go><span>Open this search</span><svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M13.2 5.3a1 1 0 0 1 1.4 0l6 6a1 1 0 0 1 0 1.4l-6 6a1 1 0 1 1-1.4-1.4l4.3-4.3H4a1 1 0 1 1 0-2h13.5l-4.3-4.3a1 1 0 0 1 0-1.4z"/></svg></button></div>';
     anchor.parentElement.insertBefore(h, anchor);
   }
 
@@ -42,14 +46,52 @@
       .map(([n, l], i) => '<div style="--i:' + i + '"><b>' + esc(n) + '</b><span>' + esc(l) + '</span></div>').join('');
   }
 
+  /* The hero inputs mirror the original form fields both ways; the form stays the source of truth. */
+  const BIND = [['data-in-q', 'q'], ['data-in-loc', 'loc'], ['data-in-region', 'region']];
+  function mirrorIn(){
+    BIND.forEach(([a, id]) => { const h = document.querySelector('.sv-hero [' + a + ']'), f = $(id); if (h && f && document.activeElement !== h && h.value !== f.value) h.value = f.value; });
+    const r = document.querySelector('.sv-hero [data-in-radius]'), rf = $('radius');
+    if (r && rf){ const km = Math.max(1, Math.min(200, Math.round((parseFloat(rf.value) || 0) / 1000) || 1)); if (document.activeElement !== r) r.value = km; const l = document.querySelector('.sv-hero [data-radius-l]'); if (l) l.textContent = km + ' km'; }
+  }
   function preview(){
-    const q = ($('q') || {}).value || '', loc = ($('loc') || {}).value || '', lat = parseFloat(($('lat') || {}).value), lng = parseFloat(($('lng') || {}).value);
-    const pq = document.querySelector('.sv-hero [data-pq]');
-    if (pq){ pq.textContent = q || 'best coffee shop'; pq.classList.toggle('ph', !q); }
-    const pl = document.querySelector('.sv-hero [data-ploc] b'); if (pl) pl.textContent = loc || (isNaN(lat) ? 'No place yet' : 'Dropped pin');
-    const lg = document.querySelector('.sv-hero [data-plang]'); if (lg) lg.textContent = regionLabel() || 'Language';
-    const pc = document.querySelector('.sv-hero [data-pcoord]'); if (pc) pc.textContent = isNaN(lat) || isNaN(lng) ? 'no coordinates' : lat.toFixed(4) + ', ' + lng.toFixed(4);
-    syncPin();
+    const lat = parseFloat(($('lat') || {}).value), lng = parseFloat(($('lng') || {}).value);
+    const pc = document.querySelector('.sv-hero [data-pcoord]');
+    if (pc){ pc.classList.toggle('on', !(isNaN(lat) || isNaN(lng))); pc.innerHTML = isNaN(lat) || isNaN(lng) ? 'No pin yet: type a place or click the map' : PIN + lat.toFixed(4) + ', ' + lng.toFixed(4); }
+    mirrorIn(); syncPin();
+  }
+  function wireHero(){
+    const sel = document.querySelector('.sv-hero [data-in-region]'), reg = $('region');
+    if (sel && reg){ sel.innerHTML = reg.innerHTML; sel.value = reg.value;
+      new MutationObserver(() => { sel.innerHTML = reg.innerHTML; sel.value = reg.value; }).observe(reg, {childList: true}); }
+    BIND.forEach(([a, id]) => { const h = document.querySelector('.sv-hero [' + a + ']'); if (!h) return;
+      const push = () => { const f = $(id); if (f && f.value !== h.value){ f.value = h.value; f.dispatchEvent(new Event('input', {bubbles: true})); f.dispatchEvent(new Event('change', {bubbles: true})); } preview(); };
+      h.addEventListener('input', push); h.addEventListener('change', push); });
+    const q = document.querySelector('.sv-hero [data-in-q]'), loc = document.querySelector('.sv-hero [data-in-loc]');
+    const go = () => { const b = $('goBtn'); if (!b) return; b.click(); const res = document.querySelector('#view-checker .sv-split'); if (res) setTimeout(() => res.scrollIntoView({behavior: 'smooth', block: 'start'}), 250); };
+    const find = () => { const b = $('geocodeBtn'); if (b){ b.click(); const fb = document.querySelector('.sv-hero [data-sv-find]'); if (fb){ fb.classList.add('busy'); setTimeout(() => fb.classList.remove('busy'), 1400); } } };
+    if (q) q.addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); go(); } });
+    if (loc) loc.addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); find(); } });
+    const fb = document.querySelector('.sv-hero [data-sv-find]'); if (fb) fb.addEventListener('click', find);
+    const gb = document.querySelector('.sv-hero [data-sv-go]'); if (gb) gb.addEventListener('click', go);
+    const r = document.querySelector('.sv-hero [data-in-radius]');
+    if (r) r.addEventListener('input', () => { const rf = $('radius'); if (rf){ rf.value = String(r.value * 1000); rf.dispatchEvent(new Event('input', {bubbles: true})); rf.dispatchEvent(new Event('change', {bubbles: true})); } const l = document.querySelector('.sv-hero [data-radius-l]'); if (l) l.textContent = r.value + ' km'; syncPin(); });
+    // Geocoding messages and place choices appear right under the place box.
+    const geo = document.querySelector('.sv-hero [data-sv-geo]');
+    ['geoStatus', 'geoOut'].forEach(id => { const n = $(id); if (n && geo) geo.appendChild(n); });
+    // The original inputs now live in the hero; the card keeps advanced options and the results.
+    const card = document.querySelector('#view-checker .sv-split > .card:not(.sv-mapcard)');
+    if (card){
+      ['q', 'region', 'loc', 'lat'].forEach(id => { const f = $(id); const box = f && f.closest('.f'); if (box) box.classList.add('sv-hidden'); });
+      const gob = $('goBtn'); if (gob) gob.classList.add('sv-hidden');
+      if (!card.querySelector('.sv-cardhead')){ const hd = document.createElement('div'); hd.className = 'sv-cardhead';
+        hd.innerHTML = '<b>Results</b><span>Open a search above and every page of results appears here, pinned to the same spot.</span>'; card.insertBefore(hd, card.firstChild); }
+    }
+    const sh = document.querySelector('#view-checker .section-h h2'); if (sh) sh.textContent = 'Map and results';
+  }
+  function dropKeywordFinder(){
+    document.querySelectorAll('[data-serpview="keywords"]').forEach(b => b.classList.add('sv-hidden'));
+    const kv = $('view-keywords'); if (kv) kv.classList.add('sv-hidden');
+    if (kv && kv.classList.contains('on') && typeof serpShowView === 'function'){ try{ serpShowView('checker'); }catch(e){} }
   }
 
   function layout(){
@@ -139,24 +181,13 @@
     stats();
   }
 
-  function kwHero(){
-    const v = $('view-keywords'); if (!v || v.querySelector('.sv-hero')) return;
-    const anchor = v.querySelector('.section-h'); if (!anchor) return;
-    const h = document.createElement('section');
-    h.className = 'sv-hero sv-hero-kw';
-    h.innerHTML = '<div class="sv-orbs"><i></i><i></i><i></i></div><div class="sv-hero-l"><span class="sv-eyebrow">Keyword finder</span><h2>Everything a site already ranks for, in one pull</h2>' +
-      '<p>Enter a website and a place. You get the searches it shows up for, how high, and how often people search them, ready to send to GBP Tracker.</p></div>' +
-      '<div class="sv-hero-r"><div class="sv-rankviz">' + [[1, 92], [3, 78], [4, 70], [7, 55], [9, 46], [12, 34], [18, 22]].map(([p, w], i) => '<div style="--i:' + i + '"><em>#' + p + '</em><span style="--w:' + w + '%"></span></div>').join('') + '</div></div>';
-    anchor.parentElement.insertBefore(h, anchor);
-  }
-
   function init(){
     if (built) return;
     const v = $('view-checker'); if (!v) return;
     built = true;
-    hero(); kwHero();
-    const mc = layout();
-    ['q', 'loc', 'lat', 'lng', 'radius', 'region'].forEach(id => { const f = $(id); if (f){ f.addEventListener('input', preview); f.addEventListener('change', preview); } });
+    hero(); dropKeywordFinder();
+    const mc = layout(); wireHero();
+    ['q', 'loc', 'lat', 'lng', 'radius', 'region', 'canonical'].forEach(id => { const f = $(id); if (f){ f.addEventListener('input', preview); f.addEventListener('change', preview); } });
     preview(); drawRecents();
     const tryMap = () => { buildMap(mc); if (map) setTimeout(() => map.invalidateSize(), 60); };
     tryMap();

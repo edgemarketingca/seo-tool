@@ -1,5 +1,5 @@
 /* EDGE — Live SERP visuals */
-.sv-hero{position:relative;overflow:hidden;display:grid;grid-template-columns:1.1fr 1fr;gap:28px;align-items:center;margin:4px 0 22px;padding:30px 32px;border-radius:24px;color:#fff;
+.sv-hero{position:relative;overflow:hidden;display:grid;grid-template-columns:1fr 1.05fr;gap:28px;align-items:center;margin:4px 0 22px;padding:30px 32px;border-radius:24px;color:#fff;
   background:radial-gradient(120% 140% at 0% 0%,#2b2a28 0%,#171614 55%,#0e0d0c 100%);box-shadow:0 30px 60px -36px rgba(23,22,20,.65);animation:svIn .6s cubic-bezier(.2,.8,.2,1) both;}
 .sv-orbs{position:absolute;inset:0;pointer-events:none;}
 .sv-orbs i{position:absolute;border-radius:50%;filter:blur(40px);opacity:.55;animation:svFloat 14s ease-in-out infinite;}
@@ -78,3 +78,51 @@
 @media (max-width:1100px){.sv-split{grid-template-columns:1fr;}.sv-mapcard{position:static;}}
 @media (max-width:760px){.sv-hero{grid-template-columns:1fr;padding:22px;}.sv-hero h2{font-size:23px;}.sv-stats{grid-template-columns:repeat(2,minmax(0,1fr));}.sv-map{height:260px;}.sv-recent-strip{grid-template-columns:1fr;}}
 @media (prefers-reduced-motion:reduce){.sv-hero,.sv-orbs i,.sv-stats div,.sv-fake i::after,.sv-rc,.sv-pin span,.sv-rankviz div,.sv-rankviz span,#serpRecents .recent-row .dot{animation:none !important;}}
+
+/* ---------- hero = the search form ---------- */
+.sv-hidden{display:none !important;}
+.sv-gbar{cursor:text;transition:box-shadow .25s,transform .25s;}
+.sv-gbar:focus-within{box-shadow:0 22px 44px -18px rgba(0,0,0,.65),0 0 0 6px rgba(66,133,244,.35);transform:translateY(-1px);}
+.sv-qin{flex:1;min-width:0;border:0;outline:0;background:transparent;font:inherit;font-size:17px;color:#202124;padding:0;}
+.sv-qin::placeholder{color:#9aa0a6;}
+.sv-kbd{flex:none;font-size:10.5px;font-weight:700;color:#5f6368;border:1px solid #dadce0;border-bottom-width:2px;border-radius:6px;padding:2px 6px;opacity:0;transition:opacity .2s;}
+.sv-gbar:focus-within .sv-kbd{opacity:1;}
+.sv-place{display:flex;align-items:center;gap:8px;margin-top:12px;padding:6px 6px 6px 14px;border-radius:99px;background:rgba(232,119,46,.16);border:1px solid rgba(232,119,46,.45);transition:background .25s,box-shadow .25s;}
+.sv-place:focus-within{background:rgba(232,119,46,.24);box-shadow:0 0 0 5px rgba(232,119,46,.18);}
+.sv-place-ic{color:#F6B37E;display:grid;place-items:center;}
+.sv-place input{flex:1;min-width:0;border:0;outline:0;background:transparent;color:#fff;font:inherit;font-size:14px;font-weight:600;}
+.sv-place input::placeholder{color:rgba(255,255,255,.55);font-weight:500;}
+.sv-find{flex:none;font:inherit;font-size:12.5px;font-weight:700;border:0;border-radius:99px;padding:7px 14px;background:#E8772E;color:#fff;cursor:pointer;transition:transform .15s,background .2s;}
+.sv-find:hover{background:#f08a45;transform:translateY(-1px);}
+.sv-find.busy{background:linear-gradient(90deg,#E8772E,#F6B37E,#E8772E);background-size:200% 100%;animation:svBusy 1s linear infinite;}
+@keyframes svBusy{to{background-position:-200% 0}}
+.sv-geo{margin:6px 6px 0;font-size:12px;color:rgba(255,255,255,.75);}
+.sv-geo:empty{display:none;}
+.sv-geo .status{color:rgba(255,255,255,.75) !important;margin:4px 0;}
+.sv-geo .geo-out{background:rgba(255,255,255,.96);color:#1c1917;border-radius:14px;max-height:180px;overflow:auto;}
+.sv-geo .geo-out:empty{display:none;}
+.sv-chip-sel{position:relative;cursor:pointer;padding-right:26px;}
+.sv-chip-sel::after{content:"";position:absolute;right:11px;top:50%;width:6px;height:6px;border-right:2px solid #fff;border-bottom:2px solid #fff;transform:translateY(-70%) rotate(45deg);opacity:.8;}
+.sv-chip-sel select{appearance:none;-webkit-appearance:none;border:0;outline:0;background:transparent;color:#fff;font:inherit;font-weight:700;cursor:pointer;max-width:190px;}
+.sv-chip-sel select option{color:#1c1917;}
+.sv-chip[data-pcoord]{color:rgba(255,255,255,.7);font-weight:500;}
+.sv-chip[data-pcoord].on{color:#fff;font-weight:700;background:rgba(52,168,83,.2);border-color:rgba(52,168,83,.5);}
+.sv-radius{display:flex;align-items:center;gap:12px;margin:14px 4px 0;font-size:12px;color:rgba(255,255,255,.7);}
+.sv-radius b{color:#fff;min-width:52px;text-align:right;}
+.sv-radius input{flex:1;accent-color:#E8772E;height:4px;cursor:pointer;}
+.sv-go{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;margin-top:16px;font:inherit;font-size:15px;font-weight:800;border:0;border-radius:16px;padding:14px 18px;color:#fff;cursor:pointer;
+  background:linear-gradient(135deg,#F59E5B,#E8772E 55%,#d4621c);box-shadow:0 16px 30px -14px rgba(232,119,46,.9),inset 0 1px 0 rgba(255,255,255,.3);transition:transform .2s,box-shadow .2s;position:relative;overflow:hidden;}
+.sv-go::after{content:"";position:absolute;inset:0;background:linear-gradient(100deg,transparent 30%,rgba(255,255,255,.35),transparent 70%);transform:translateX(-120%);transition:transform .6s;}
+.sv-go:hover{transform:translateY(-2px);box-shadow:0 22px 36px -14px rgba(232,119,46,.95),inset 0 1px 0 rgba(255,255,255,.3);}
+.sv-go:hover::after{transform:translateX(120%);}
+.sv-go:hover svg{transform:translateX(3px);}
+.sv-go svg{transition:transform .2s;}
+.sv-cardhead{margin-bottom:12px;}
+.sv-cardhead b{display:block;font-size:15px;}
+.sv-cardhead span{font-size:12.5px;color:#78716c;}
+/* The app styles every input; inside the hero they must stay borderless and transparent. */
+#serpStage .sv-hero input[type=text],#serpStage .sv-hero select{background:transparent !important;border:0 !important;box-shadow:none !important;outline:0 !important;height:auto !important;min-height:0 !important;padding:0 !important;margin:0 !important;border-radius:0 !important;width:auto;}
+#serpStage .sv-hero .sv-qin{color:#202124 !important;font-size:17px !important;flex:1;}
+#serpStage .sv-hero .sv-place input{color:#fff !important;font-size:14px !important;font-weight:600;flex:1;}
+#serpStage .sv-hero .sv-chip-sel select{color:#fff !important;font-weight:700;font-size:12.5px !important;padding-right:4px !important;}
+#serpStage .sv-hero input[type=range]{background:transparent !important;border:0 !important;box-shadow:none !important;padding:0 !important;height:18px !important;}
