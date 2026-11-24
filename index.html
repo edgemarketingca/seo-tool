@@ -22529,52 +22529,84 @@ function seoPackIsClient(it, client){
 /* The results one scan saw, shown in a panel: the map pack, then the
    website results around the client, the client's own rows highlighted. */
 function seoOpenSnapshot(loc, k, c, liveUrl){
+  /* "view the search": opens, inside the tool, the results page this rank came
+     from, laid out like a search results page. Every result is a real link to
+     the page Google listed; the client's result is highlighted. These are the
+     saved results from the scan, so whoever opens it sees the same page. */
   const s = loc && loc.snap;
   const old = document.getElementById('seoSnap');
   if (old) old.remove();
   const live = seoFreshUule(liveUrl || (loc && loc.sourceUrl ? seoRankPageUrl(loc) || loc.sourceUrl : '') || '');
-  /* No saved results (a reading from before snapshots, or a pinned report):
-     the live search, opened on the right page with the client's result
-     highlighted, is the best view there is. */
   if (!s){ if (live) window.open(live, '_blank', 'noopener'); return; }
-  const who = esc(c && c.name ? c.name : 'Your result');
-  const rank = Number(loc.rank) || 0, page = rank > 0 ? seoRankPage(loc) : 1;
-  const rows = Array.isArray(s.r) ? s.r : [];
-  const first = rows.length ? rows[0][0] : 1, last = rows.length ? rows[rows.length - 1][0] : 0;
-  const fav = d => '<img class="fav" alt="" loading="lazy" src="https://www.google.com/s2/favicons?domain=' + encodeURIComponent(String(d || '').split('/')[0]) + '&sz=32" onerror="this.style.visibility=\'hidden\'">';
-  const crumb = u => { const p = String(u || '').split('/'); return esc(p[0]) + (p.length > 1 && p.slice(1).join('/') ? ' <span>› ' + esc(p.slice(1).join(' › ')) + '</span>' : ''); };
-  const rowHtml = r => r[2]
-    ? '<li class="me"><span class="pos">' + esc(String(r[0])) + '</span><div class="res">' + fav(r[1]) + '<div class="txt"><div class="cr">' + crumb(r[1]) + '</div><div class="ti">' + esc(r[3] || r[1] || '') + '</div></div></div><span class="tag">' + glyphCheck() + who + '</span></li>'
-    : '<li><span class="pos">' + esc(String(r[0])) + '</span><div class="res">' + fav(r[1]) + '<div class="txt"><div class="cr">' + esc(r[1] || '') + '</div></div></div></li>';
-  const packHtml = Array.isArray(s.m) && s.m.length
-    ? '<div class="seo-snap-h">' + seoMapIcon() + 'Map pack</div><ol class="seo-snap-list pack">' + s.m.map(m =>
-        '<li' + (m[2] ? ' class="me"' : '') + '><span class="pos">' + esc(String(m[0])) + '</span><div class="res"><div class="txt"><div class="ti">' + esc(m[1] || '') + '</div></div></div>' + (m[2] ? '<span class="tag">' + glyphCheck() + who + '</span>' : '') + '</li>').join('') + '</ol>'
+  const q = (k && k.text) || '', who = c && c.name ? c.name : 'Your client';
+  const rank = Number(loc.rank) || 0, rows = Array.isArray(s.r) ? s.r : [];
+  const page = s.p || (rank > 0 ? seoRankPage(loc) : 1);
+  const when = s.at ? fmtWhen(s.at) : '';
+  const host = u => String(u || '').split('/')[0];
+  const site = d => { const h = host(d).replace(/^www\./, ''); const b = h.split('.').slice(0, -1).join('.') || h; return b.split(/[.-]/).filter(Boolean).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') || h; };
+  const href = u => { u = String(u || ''); if (!u) return '#'; return /^https?:\/\//i.test(u) ? u : 'https://' + u; };
+  const crumb = u => { const p = String(u || '').split('/').filter(Boolean); return '<span class="h">https://' + esc(p[0] || '') + '</span>' + (p.length > 1 ? ' › ' + esc(p.slice(1).join(' › ')) : ''); };
+  const fav = d => '<img alt="" loading="lazy" src="https://www.google.com/s2/favicons?domain=' + encodeURIComponent(host(d)) + '&sz=64" onerror="this.replaceWith(Object.assign(document.createElement(\'i\'),{textContent:\'' + esc(site(d).charAt(0) || '•') + '\'}))">';
+  const withStart = (u, p) => { if (!u) return ''; try{ const x = new URL(u); if (p > 1) x.searchParams.set('start', String((p - 1) * 10)); else x.searchParams.delete('start'); return x.toString(); }catch(e){ return u; } };
+  const withTbm = (u, t) => { if (!u) return ''; try{ const x = new URL(u); x.searchParams.delete('start'); if (t) x.searchParams.set('tbm', t); else x.searchParams.delete('tbm'); return x.toString(); }catch(e){ return u; } };
+  const icon = {
+    search: '<svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M15.5 14h-.8l-.3-.3A6.5 6.5 0 1 0 9.5 16a6.5 6.5 0 0 0 4.2-1.6l.3.3v.8l5 5 1.5-1.5-5-5zm-6 0a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9z"/></svg>',
+    x: '<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M19 6.4 17.6 5 12 10.6 6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12z"/></svg>',
+    lock: '<svg viewBox="0 0 24 24" width="13" height="13"><path fill="currentColor" d="M17 9h-1V7a4 4 0 0 0-8 0v2H7a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2zm-7-2a2 2 0 0 1 4 0v2h-4V7z"/></svg>',
+    pin: '<svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg>',
+    star: '<svg viewBox="0 0 24 24" width="12" height="12"><path fill="currentColor" d="m12 17.3 6.2 3.7-1.6-7 5.4-4.7-7.1-.6L12 2 9.1 8.7 2 9.3l5.4 4.7-1.6 7z"/></svg>',
+    back: '<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M20 11H7.8l5.6-5.6L12 4l-8 8 8 8 1.4-1.4L7.8 13H20z"/></svg>',
+    fwd: '<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="m12 4-1.4 1.4 5.6 5.6H4v2h12.2l-5.6 5.6L12 20l8-8z"/></svg>',
+    ref: '<svg viewBox="0 0 24 24" width="17" height="17"><path fill="currentColor" d="M17.7 6.3A8 8 0 1 0 19.9 14h-2.1a6 6 0 1 1-1.4-6.2L13 11h7V4z"/></svg>'
+  };
+  /* The site name shown above a result: the brand at the end of its title when
+     there is one ("… | Goldridge Industries"), otherwise the domain tidied up. */
+  const siteOf = (url, ti) => { const m = String(ti || '').split(/\s[|\u2013\u2014-]\s/); const tail = m.length > 1 ? m[m.length - 1].trim() : ''; return tail && tail.length <= 32 ? tail : site(url); };
+  const res = r => {
+    const me = r[2] === 1, url = r[1] || '', ti = r[3] || site(url), sn = r[4] || '';
+    return '<div class="gs-r' + (me ? ' me' : '') + '" data-pos="' + esc(String(r[0])) + '">' +
+      (me ? '<div class="gs-me-tag">' + icon.star + esc(who) + ' · position ' + esc(String(r[0])) + '</div>' : '') +
+      '<a class="gs-src" href="' + esc(href(url)) + '" target="_blank" rel="noopener noreferrer"><span class="gs-fav">' + fav(url) + '</span><span class="gs-site"><b>' + esc(siteOf(url, r[3])) + '</b><cite>' + crumb(url) + '</cite></span></a>' +
+      '<a class="gs-t" href="' + esc(href(url)) + '" target="_blank" rel="noopener noreferrer"><h3>' + esc(ti) + '</h3></a>' +
+      (sn ? '<div class="gs-sn">' + esc(sn) + '</div>' : '') +
+      '<span class="gs-pos">#' + esc(String(r[0])) + '</span></div>';
+  };
+  const pack = Array.isArray(s.m) && s.m.length
+    ? '<div class="gs-pack"><div class="gs-pack-map"><svg viewBox="0 0 400 150" preserveAspectRatio="xMidYMid slice"><rect width="400" height="150" fill="#e8eef3"/><path d="M0 95 C80 80 120 120 200 98 S330 60 400 78" stroke="#fff" stroke-width="10" fill="none"/><path d="M140 0 L170 150 M290 0 L250 150" stroke="#fff" stroke-width="6"/><path d="M0 40 H400" stroke="#d7e3ec" stroke-width="4"/>' +
+        s.m.map((m, i) => '<g transform="translate(' + [110, 215, 315][i % 3] + ',' + [80, 68, 98][i % 3] + ')"><path d="M0 0c-7-10-11-15-11-20a11 11 0 1 1 22 0c0 5-4 10-11 20z" fill="' + (m[2] ? '#E8772E' : '#EA4335') + '" stroke="#fff" stroke-width="2"/><text x="0" y="-17" font-size="10" font-weight="700" fill="#fff" text-anchor="middle">' + esc(String(m[0])) + '</text></g>').join('') + '</svg></div>' +
+      '<div class="gs-pack-h">Places</div>' + s.m.map(m => '<div class="gs-pl' + (m[2] ? ' me' : '') + '"><span class="gs-pl-n">' + esc(String(m[0])) + '</span><div><b>' + esc(m[1] || '') + '</b>' + (m[2] ? '<span class="gs-me-pill">' + icon.star + 'Your client</span>' : '') + '</div></div>').join('') +
+      (live ? '<a class="gs-more" href="' + esc(withTbm(live, 'lcl')) + '" target="_blank" rel="noopener noreferrer">More places →</a>' : '') + '</div>'
     : '';
-  const verdict = rank > 0
-    ? '<div class="seo-snap-hero win"><div class="big">#' + rank + '</div><div><b>' + who + ' ranked #' + rank + '</b><span>' + (page > 1 ? 'Page ' + page + ' of Google' : 'Page one of Google') + (s.at ? ' · scanned ' + esc(fmtWhen(s.at)) : '') + '</span></div></div>'
-    : '<div class="seo-snap-hero miss"><div class="big">—</div><div><b>Not in the ' + (s.n ? 'first ' + s.n + ' results' : 'results') + ' Google returned</b><span>The top results are below' + (s.at ? ' · scanned ' + esc(fmtWhen(s.at)) : '') + '</span></div></div>';
+  const pages = Math.max(page, Math.min(10, Math.ceil((s.n || 10) / 10)));
+  const pager = '<nav class="gs-pager">' + (page > 1 && live ? '<a href="' + esc(withStart(live, page - 1)) + '" target="_blank" rel="noopener noreferrer">‹ Previous</a>' : '') +
+    Array.from({length: pages}, (_, i) => i + 1).map(n => n === page ? '<b>' + n + '</b>' : (live ? '<a href="' + esc(withStart(live, n)) + '" target="_blank" rel="noopener noreferrer" title="Opens live Google, page ' + n + '">' + n + '</a>' : '<span>' + n + '</span>')).join('') +
+    (page < pages && live ? '<a href="' + esc(withStart(live, page + 1)) + '" target="_blank" rel="noopener noreferrer">Next ›</a>' : '') + '</nav>';
+  const tabs = [['All', ''], ['Maps', 'lcl'], ['Images', 'isch'], ['News', 'nws'], ['Videos', 'vid'], ['Shopping', 'shop']];
+  const verdict = rank > 0 ? who + ' is at position ' + rank + (page > 1 ? ' (page ' + page + ')' : ' on page one') : who + ' isn’t in the ' + (s.n ? 'first ' + s.n + ' results' : 'results');
   const ov = document.createElement('div');
-  ov.id = 'seoSnap';
-  ov.className = 'seo-snap-ov';
-  ov.innerHTML = '<div class="seo-snap" role="dialog" aria-label="What the scan saw">' +
-    '<header><div><div class="seo-snap-q">' + seoSearchIcon() + '<span>' + esc(k && k.text ? k.text : '') + '</span></div><div class="seo-snap-sub">' + (loc.label ? seoPinIcon() + esc(loc.label) : '') + '</div></div><button type="button" class="seo-snap-x" aria-label="Close">×</button></header>' +
-    verdict + packHtml +
-    '<div class="seo-snap-h">' + seoSearchIcon() + 'Website results' + (rows.length ? ' #' + first + '–' + last : '') + (s.n ? ' <span>of ' + s.n + ' read</span>' : '') + '</div>' +
-    '<ol class="seo-snap-list">' + (first > 1 ? '<li class="gap">⋮</li>' : '') + rows.map(rowHtml).join('') + (last && s.n && last < s.n ? '<li class="gap">⋮</li>' : '') + '</ol>' +
-    '<p class="seo-snap-note">These are the exact results Google returned to the scan. Live Google reshuffles a little between searches and for signed-in users, so a live page can show the result a few places higher or lower.</p>' +
-    '<footer>' + (live ? '<a class="btn btn-sm" target="_blank" rel="noopener" data-snap-live href="' + esc(live) + '" title="Opens Google pinned to this location, on the right page, with the result highlighted (Chrome and Edge)">Open on Google' + (page > 1 ? ' (page ' + page + ')' : '') + ' ↗</a>' : '') +
-    '<button type="button" class="btn btn-sm btn-go seo-snap-done">Done</button></footer></div>';
+  ov.id = 'seoSnap'; ov.className = 'gs-ov';
+  ov.innerHTML = '<div class="gs-win" role="dialog" aria-label="Search results for ' + esc(q) + '">' +
+    '<div class="gs-chrome"><div class="gs-tabbar"><div class="gs-tab"><span class="gs-tab-ic">' + icon.search + '</span><span>' + esc(q) + ' – Search results</span></div><span class="gs-sp"></span><button type="button" class="gs-x" aria-label="Close">' + icon.x + '</button></div>' +
+      '<div class="gs-bar"><span class="gs-nav">' + icon.back + icon.fwd + icon.ref + '</span><div class="gs-addr">' + icon.lock + '<span><b>Saved results</b> · ' + esc(q) + (loc.label ? ' · ' + esc(loc.label) : '') + (when ? ' · ' + esc(when) : '') + '</span></div>' +
+      (live ? '<a class="gs-live" href="' + esc(withStart(live, page)) + '" target="_blank" rel="noopener noreferrer" data-snap-live>Open live Google ↗</a>' : '') + '</div></div>' +
+    '<div class="gs-page"><div class="gs-top"><div class="gs-box">' + icon.search + '<span>' + esc(q) + '</span></div></div>' +
+      '<div class="gs-tabs">' + tabs.map((t, i) => i === 0 ? '<span class="on">' + t[0] + '</span>' : (live ? '<a href="' + esc(withTbm(live, t[1])) + '" target="_blank" rel="noopener noreferrer">' + t[0] + '</a>' : '<span>' + t[0] + '</span>')).join('') + '</div>' +
+      '<div class="gs-body"><div class="gs-main">' +
+        '<div class="gs-stats">' + (s.n ? 'About ' + s.n + ' results read' : 'Results') + (loc.label ? ' · ' + icon.pin + esc(loc.label) : '') + (page > 1 ? ' · page ' + page : '') + '</div>' +
+        '<div class="gs-verdict ' + (rank > 0 ? 'win' : 'miss') + '"><b>' + (rank > 0 ? '#' + rank : '—') + '</b><span>' + esc(verdict) + '.<small>These are the exact results the scan read' + (when ? ' on ' + esc(when) : '') + ', so everyone who opens this page sees the same thing.</small></span></div>' +
+        (page === 1 ? pack : '') +
+        (rows.length ? rows.map(res).join('') : '<div class="gs-empty">No results were saved for this search.</div>') +
+        pager + '</div>' +
+        (page > 1 && pack ? '<aside class="gs-side">' + pack + '</aside>' : '') +
+      '</div></div></div>';
   const onKey = e => { if (e.key === 'Escape') close(); };
-  const close = () => { ov.remove(); document.removeEventListener('keydown', onKey, true); };
-  ov.addEventListener('click', e => {
-    if (e.target === ov || e.target.closest('.seo-snap-x') || e.target.closest('.seo-snap-done')) close();
-  });
+  const close = () => { ov.classList.add('out'); setTimeout(() => ov.remove(), 180); document.removeEventListener('keydown', onKey, true); };
+  ov.addEventListener('click', e => { if (e.target === ov || e.target.closest('.gs-x')) close(); });
   document.addEventListener('keydown', onKey, true);
   document.body.appendChild(ov);
-  const sl = ov.querySelector('[data-snap-live]');
-  if (sl){ const f = () => { sl.href = seoFreshUule(sl.href); }; sl.addEventListener('pointerdown', f); sl.addEventListener('click', f); }
-  const me = ov.querySelector('.seo-snap-list:not(.pack) li.me') || ov.querySelector('.seo-snap-list li.me');
-  if (me){ if (me.scrollIntoView) me.scrollIntoView({block: 'center'}); setTimeout(() => me.classList.add('ping'), 120); }
+  ov.querySelectorAll('a[data-snap-live], .gs-pager a, .gs-tabs a, .gs-more').forEach(a => { const f = () => { a.href = seoFreshUule(a.href); }; a.addEventListener('pointerdown', f); });
+  const me = ov.querySelector('.gs-r.me') || ov.querySelector('.gs-pl.me');
+  if (me){ setTimeout(() => { const pg = ov.querySelector('.gs-page'); if (pg && me.offsetTop > pg.clientHeight * 0.6) pg.scrollTo({top: me.offsetTop - pg.clientHeight / 3, behavior: 'smooth'}); me.classList.add('ping'); }, 220); }
 }
 function glyphCheck(){ return '<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg>'; }
 function seoSearchIcon(){ return '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>'; }
@@ -23166,21 +23198,24 @@ async function seoScanOne(client, kw, loc, hooks){
     loc.weak = weak;
     /* Best map-pack position the client had in any read of this search. */
     loc.mapPack = packBest;
-    /* What this search showed around the client, kept so "view the search" can
-       show the very results the rank came from (see seoOpenSnapshot). Kept
-       small: three results either side, domains only for everyone else. */
+    /* What this search showed, kept so "view the search" can open the very
+       results page the rank came from (see seoOpenSnapshot): every result on
+       the client's page with its link, title and description, plus the map
+       pack. Trimmed so a page stays around 3 KB. */
     try{
       const short = u => String(u || '').replace(/^[a-z]+:\/\//i, '').replace(/^www\./, '').replace(/[?#].*$/, '').replace(/\/$/, '');
-      const row = (r, j) => scored[j] && scored[j].counts
-        ? [r.position != null ? r.position : j + 1, short(r.url).slice(0, 90), 1, String(r.title || '').slice(0, 70)]
-        : [r.position != null ? r.position : j + 1, cleanDomain(r.domain || r.url).slice(0, 40)];
-      const lo = found ? Math.max(0, idx - 3) : 0, hi = found ? Math.min(organic.length, idx + 4) : Math.min(organic.length, 5);
+      const pgOf = j => (organic[j] && organic[j].page) ? organic[j].page : Math.floor(j / 10) + 1;
+      const cp = found ? pgOf(idx) : 1;
       const rows = [];
-      for (let j = lo; j < hi; j++) rows.push(row(organic[j], j));
+      for (let j = 0; j < organic.length && rows.length < 12; j++){
+        if (pgOf(j) !== cp) continue;
+        const r = organic[j];
+        rows.push([r.position != null ? r.position : j + 1, short(r.url || r.domain).slice(0, 90), scored[j] && scored[j].counts ? 1 : 0, String(r.title || '').slice(0, 72), String(r.snippet || '').replace(/\s+/g, ' ').slice(0, 130)]);
+      }
       const pack = Array.isArray(data.localPack) && data.localPack.length
         ? data.localPack.slice(0, 3).map(it => [it.rank, String(it.title || '').slice(0, 45), seoPackIsClient(it, client) ? 1 : 0])
         : null;
-      loc.snap = {at: Date.now(), n: organic.length, r: rows, m: pack};
+      loc.snap = {v: 2, at: Date.now(), n: organic.length, p: cp, r: rows, m: pack};
     }catch(e){ loc.snap = null; }
     /* Which shape of request actually answered. 'country' means the pin was
        refused and this is a nationwide reading, not a local one. */
@@ -29358,5 +29393,6 @@ html.kwr-embedded body::-webkit-scrollbar-thumb:hover{background:#9aa7b3;backgro
 <link rel="stylesheet" href="edge-viz.css?v=2"/>
 <link rel="stylesheet" href="edge-serp-viz.css?v=2"/>
 <link rel="stylesheet" href="edge-wild.css?v=2"/>
+<link rel="stylesheet" href="edge-serp-page.css?v=1"/>
 </body>
 </html>
