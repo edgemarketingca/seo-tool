@@ -94,7 +94,10 @@
       (ser.length > 1 ? '<svg class="ev-ai-chart" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none"><defs><linearGradient id="evai" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#A8E6EE" stop-opacity=".55"/><stop offset="1" stop-color="#A8E6EE" stop-opacity="0"/></linearGradient></defs><path d="' + area + '" fill="url(#evai)"/><path d="' + line + '" fill="none" stroke="#A8E6EE" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/></svg>' +
         '<div class="ev-ai-x"><span>' + esc(labels[0] || '') + '</span><span>' + esc(labels[labels.length - 1] || '') + '</span></div>' : '') + '</div>' +
       '<div class="ev-ai-r"><div class="ev-ai-ring"><svg viewBox="0 0 140 140"><circle r="' + R + '" cx="70" cy="70" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="18"/>' + segs + '</svg><div><b>' + plats.length + '</b><small>AI sources</small></div></div>' +
-        '<ul>' + plats.map((p, i) => '<li><i style="background:' + (PC[p.name] || cols[i % cols.length]) + '"></i><span>' + esc(p.name) + '</span><b>' + U.fmt(p.s) + '</b></li>').join('') + '</ul></div></section>';
+        '<ul>' + plats.map((p, i) => '<li><i style="background:' + (PC[p.name] || cols[i % cols.length]) + '"></i><span>' + esc(p.name) + '</span><b>' + U.fmt(p.s) + '</b></li>').join('') + '</ul></div>' +
+      /* one small ring per assistant: its share of all AI visits */
+      (plats.length ? '<div class="ev-ai-minis">' + plats.map((p, i) => { const f = p.s / tot, r = 17, c2 = 2 * Math.PI * r, col = PC[p.name] || cols[i % cols.length];
+        return '<div class="ev-ai-mini" style="--i:' + i + '"><svg viewBox="0 0 44 44"><circle r="' + r + '" cx="22" cy="22" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="5"/><circle r="' + r + '" cx="22" cy="22" fill="none" stroke="' + col + '" stroke-width="5" stroke-linecap="round" stroke-dasharray="' + (f * c2).toFixed(2) + ' ' + c2.toFixed(2) + '" transform="rotate(-90 22 22)" class="ev-ai-arc"/></svg><b>' + Math.round(f * 100) + '%</b><span>' + esc(p.name) + '</span></div>'; }).join('') + '</div>' : '') + '</section>';
   }
 
   /* ---------- placement ---------- */
