@@ -339,7 +339,7 @@ button.rp-kpi{cursor:pointer;} button.rp-kpi:hover{border-color:var(--a-ink3);bo
 /* AgencyAnalytics pages */
 .rp-paged .rp.rp-aa{background:transparent;}
 .rp-paged .rp-grid.free{margin:0 34px;}
-.rp-sheet{position:absolute;left:-34px;right:-34px;z-index:0;background:#fff;border:1px solid #E6E8EB;border-radius:6px;box-shadow:0 1px 2px rgba(16,24,40,.05),0 18px 40px -28px rgba(16,24,40,.35);pointer-events:none;animation:rpSheetIn .45s cubic-bezier(.2,.8,.2,1) both;}
+.rp-sheet{position:absolute;left:-34px;right:-34px;z-index:0;background:#fff;border:1px solid #E6E8EB;border-radius:6px;box-shadow:0 1px 2px rgba(16,24,40,.05),0 18px 40px -28px rgba(16,24,40,.35);pointer-events:none;transition:top .35s cubic-bezier(.2,.8,.2,1),height .35s cubic-bezier(.2,.8,.2,1);}
 @keyframes rpSheetIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 .rp-grid.free > .rp-w{z-index:1;}
 .rp-sheet-h{position:absolute;left:34px;right:34px;top:22px;display:flex;align-items:center;justify-content:space-between;gap:16px;}
@@ -925,7 +925,23 @@ button.rp-lead{cursor:pointer;} button.rp-lead:hover{border-color:#b8c2cc;}
 .rp.rp-aa.editing .rp-w.sec:hover{box-shadow:none;outline:1px dashed #A1A1AA;outline-offset:2px;}
 .rp.rp-aa .rp-rz{opacity:0;transition:opacity .15s;} .rp.rp-aa.editing .rp-w:hover .rp-rz{opacity:1;}
 .rp-grid.free > .rp-w{transition:left .28s cubic-bezier(.2,.8,.2,1),top .28s cubic-bezier(.2,.8,.2,1),width .28s cubic-bezier(.2,.8,.2,1),height .28s cubic-bezier(.2,.8,.2,1),box-shadow .2s,border-color .2s;}
-body.rp-moving .rp-grid.free > .rp-w,.rp-grid.free > .rp-w.moving,.rp-grid.free > .rp-w.placing{transition:none !important;}
+.rp-grid.rp-settle > *{transition:none !important;}
+/* ---------- editing that feels physical ---------- */
+.rp.editing .rp-grid.free > .rp-w{cursor:grab;}
+.rp.editing .rp-grid.free > .rp-w:hover{outline:2px solid color-mix(in srgb,#E8772E 55%,transparent);outline-offset:4px;box-shadow:0 18px 40px -26px rgba(23,22,20,.45);}
+.rp.editing .rp-grid.free > .rp-w:focus-within{outline:2px solid #E8772E;outline-offset:4px;}
+.rp-grid.free > .rp-w.moving{z-index:30 !important;cursor:grabbing;transform:scale(1.025) rotate(-.4deg);box-shadow:0 40px 80px -30px rgba(23,22,20,.55),0 0 0 2px #E8772E !important;transition:transform .18s cubic-bezier(.2,.9,.3,1.3),box-shadow .18s !important;}
+.rp-grid.free > .rp-w.placing{transform:none;transition:transform .25s cubic-bezier(.2,.9,.3,1.2) !important;}
+.rp-grid.free > .rp-w.resizing{z-index:25 !important;box-shadow:0 0 0 2px #E8772E,0 0 0 8px rgba(232,119,46,.14),0 30px 60px -30px rgba(23,22,20,.45) !important;}
+.rp-ph{border:2px dashed #E8772E !important;background:repeating-linear-gradient(135deg,rgba(232,119,46,.07) 0 12px,rgba(232,119,46,.02) 12px 24px) !important;border-radius:10px !important;animation:rpPh 1.4s ease-in-out infinite;transition:left .22s cubic-bezier(.2,.9,.25,1.1),top .22s cubic-bezier(.2,.9,.25,1.1),width .22s cubic-bezier(.2,.9,.25,1.1),height .22s cubic-bezier(.2,.9,.25,1.1) !important;}
+@keyframes rpPh{50%{box-shadow:0 0 0 6px rgba(232,119,46,.12)}}
+.rp.editing .rp-rz.se{transition:transform .2s,background .2s;}
+.rp.editing .rp-w:hover .rp-rz.se{transform:scale(1.25);background:#E8772E;color:#fff;}
+.rp.editing .rp-rz.e,.rp.editing .rp-rz.s{transition:background .2s;}
+.rp.editing .rp-rz.e:hover,.rp.editing .rp-rz.s:hover{background:rgba(232,119,46,.25);}
+@media (prefers-reduced-motion:reduce){.rp-ph{animation:none;}.rp-grid.free > .rp-w.moving{transform:none;}}
+.rp-grid.free > .rp-w.moving,.rp-grid.free > .rp-w.placing{transition:none !important;}
+body.rp-moving .rp-grid.free > .rp-w:not(.moving){transition:left .32s cubic-bezier(.2,.9,.25,1.1),top .32s cubic-bezier(.2,.9,.25,1.1),width .32s cubic-bezier(.2,.9,.25,1.1),height .32s cubic-bezier(.2,.9,.25,1.1) !important;}
 .rp-grid.free > .rp-w.moving{box-shadow:0 22px 50px -20px rgba(24,24,27,.45) !important;z-index:5;}
 /* ---- AI VISIBILITY SIZE: every client and team report widget drawn like the AI Visibility tab ----
    Big standalone number cards whose numbers scale with the card, quiet 14px titles, roomy cards,
@@ -4597,6 +4613,9 @@ function renderBoard(root, o){
         (o.editable ? '<div class="rp-tools">' + editBtns + tlBtn + fsBtn + '<span class="rp-tsp"></span>' + (o.actionsHtml || '') + '</div>' : '') + '</div>'
     : '<div class="rp-head' + (brand.banner ? ' rp-banner' : '') + '"><div>' + brandHtml(o) + (o.whoHtml || '') + '<h2 class="rp-title">' + esc(o.title || '') + '</h2>' + (sub ? '<div class="rp-sub">' + sub + '</div>' : '') + '</div>' +
         '<div class="rp-bar">' + seg + editBtns + tlBtn + fsBtn + (o.actionsHtml || '') + '</div></div>';
+  /* A redraw (a refresh, a sync from a teammate) keeps the board's height until
+     the new one is laid out, so the page never collapses and loses your place. */
+  const keepH = root.offsetHeight; if (keepH > 200){ root.style.minHeight = keepH + 'px'; clearTimeout(root._keepT); root._keepT = setTimeout(() => { root.style.minHeight = ''; }, 2500); }
   root.innerHTML = '<div class="aiv rp' + (aa ? ' rp-aa' : ' rp-aia') + (editing ? ' editing' : '') + '"' + (brand.accent && /^#[0-9a-f]{3,8}$/i.test(brand.accent) && !aa ? ' style="--a-brand:' + esc(brand.accent) + ';--a-deep:' + esc(brand.accent) + ';--a-wash:color-mix(in srgb,' + esc(brand.accent) + ' 10%,#fff)"' : '') + '>' +
     head + '<div data-panel></div>' + (o.topHtml || '') +
     '<div class="rp-grid' + (free ? ' free' : '') + '" data-grid></div></div>';
@@ -4644,40 +4663,55 @@ function renderBoard(root, o){
     return st.filter((v, i) => !i || v !== st[i - 1]);
   };
   const pageOfY = (st, y) => { let k = 0; for (let i = 0; i < st.length; i++) if (y >= st[i]) k = i; return k; };
-  const pageOff = k => PG_HEAD + k * (PG_HEAD + PG_FOOT + PG_GAP);
   const isPaged = () => paged && free && !mobile();
+  /* Every page is at least one full page long, like an AgencyAnalytics page:
+     the sheet keeps a US-letter shape (11 / 8.5) and only grows when its widgets
+     need more room. Pages stack one after another with a gap between. */
+  const sheetW = () => (grid.clientWidth || 1100) + 68;
+  const minPageH = () => Math.round(sheetW() * 11 / 8.5);
+  function pageLayout(skip){
+    const st = pageStarts(skip), top = [], H = [], off = [], end = [];
+    let y = 0; const mh = minPageH();
+    st.forEach((y0, k) => {
+      const mine = items.filter(i => i !== skip && pageOfY(st, i.y || 0) === k);
+      const e = mine.length ? Math.max(...mine.map(i => (i.y || 0) + (i.h || 0))) : y0 + 120;
+      top[k] = y; H[k] = Math.max(e - y0 + PG_HEAD + PG_FOOT, mh); off[k] = y + PG_HEAD - y0; end[k] = e;
+      y += H[k] + PG_GAP;
+    });
+    return {st, top, H, off, end};
+  }
   /* Screen position inside the grid -> layout position (drops in a page's header land at its top). */
   const toLayoutY = (d, skip) => {
     if (!isPaged()) return d;
-    const st = pageStarts(skip); let k = 0;
-    st.forEach((v, i) => { if (v + pageOff(i) - PG_HEAD <= d) k = i; });
-    return Math.max(st[k], d - pageOff(k));
+    const L = pageLayout(skip); let k = 0;
+    L.top.forEach((t, i) => { if (t <= d) k = i; });
+    return Math.max(L.st[k], d - L.off[k]);
   };
+  /* Sheets are kept and moved, not rebuilt, so a refresh or a drag never makes the pages flash or jump. */
   function drawSheets(){
-    grid.querySelectorAll(':scope > .rp-sheet').forEach(n => n.remove());
     root.classList.toggle('rp-paged', isPaged());
-    if (!isPaged() || !items.length) return 0;
-    const st = pageStarts(), n = st.length, month = aaMonth(ctx.R), who = esc(o.clientName || ctx.clientName || '');
+    const have = [...grid.querySelectorAll(':scope > .rp-sheet')];
+    if (!isPaged() || !items.length){ have.forEach(n => n.remove()); return 0; }
+    const L = pageLayout(), n = L.st.length, month = aaMonth(ctx.R), who = esc(o.clientName || ctx.clientName || '');
     const brand = brandHtml(o);
     let bottom = 0;
-    st.forEach((y0, k) => {
-      const mine = items.filter(i => pageOfY(st, i.y || 0) === k);
-      const end = mine.length ? Math.max(...mine.map(i => (i.y || 0) + (i.h || 0))) : y0 + 120;
-      const top = y0 + pageOff(k) - PG_HEAD, h = end - y0 + PG_HEAD + PG_FOOT;
-      const sh = document.createElement('div');
-      sh.className = 'rp-sheet'; sh.style.top = top + 'px'; sh.style.height = h + 'px'; sh.dataset.page = k + 1;
-      sh.innerHTML = '<div class="rp-sheet-h">' + brand + '<div class="rp-sheet-m"><b>' + who + '</b><span>' + esc(month) + '</span></div></div>' +
+    L.st.forEach((y0, k) => {
+      let sh = have[k];
+      const head = '<div class="rp-sheet-h">' + brand + '<div class="rp-sheet-m"><b>' + who + '</b><span>' + esc(month) + '</span></div></div>' +
         '<div class="rp-sheet-f"><span>' + who + (month ? ' · ' + esc(month) : '') + '</span><span class="rp-sheet-n">Page ' + (k + 1) + ' of ' + n + '</span></div>';
-      grid.insertBefore(sh, grid.firstChild);
-      bottom = top + h;
+      if (!sh){ sh = document.createElement('div'); sh.className = 'rp-sheet'; grid.insertBefore(sh, grid.firstChild); }
+      if (sh._k !== head){ sh.innerHTML = head; sh._k = head; }
+      sh.style.top = L.top[k] + 'px'; sh.style.height = L.H[k] + 'px'; sh.dataset.page = k + 1;
+      bottom = L.top[k] + L.H[k];
     });
+    have.slice(n).forEach(x => x.remove());
     return bottom;
   }
   const mobile = () => window.matchMedia && window.matchMedia('(max-width:760px)').matches;
   function place(el, it){
     if (!el) return;
     el.style.setProperty('--x', it.x); el.style.setProperty('--c', it.cols); el.style.setProperty('--y', it.y); el.style.setProperty('--h', it.h);
-    el.style.setProperty('--py', isPaged() ? pageOff(pageOfY(pageStarts(), it.y || 0)) : 0);
+    if (isPaged()){ const L = pageLayout(); el.style.setProperty('--py', L.off[pageOfY(L.st, it.y || 0)]); } else el.style.setProperty('--py', 0);
   }
   const setGridH = () => {
     const sb = drawSheets();
@@ -4692,10 +4726,13 @@ function renderBoard(root, o){
   }
 
   function drawAll(){
+    const keep = grid.offsetHeight;
     grid.innerHTML = '';
-    grid.style.height = '';
+    grid.style.height = keep > 0 ? keep + 'px' : '';
+    grid.classList.add('rp-settle');
     grid.classList.toggle('free', free);
     if (!items.length){
+      grid.style.height = ''; grid.classList.remove('rp-settle');
       grid.innerHTML = '<div class="rp-empty">' + (o.emptyHtml || '<h3>No widgets yet</h3>Click “Customize”, then “Add widget”.') + '</div>';
       const eh = grid.querySelector('[data-empty-add]'); if (eh) eh.addEventListener('click', () => openCatalog(o, () => drawAll()));
       return;
@@ -4703,6 +4740,7 @@ function renderBoard(root, o){
     if (free) ensureLayout();
     items.forEach(it => grid.appendChild(drawWidget(it)));
     if (free){ items.forEach(it => place(elOf(it), it)); setGridH(); }
+    requestAnimationFrame(() => requestAnimationFrame(() => grid.classList.remove('rp-settle')));
   }
 
   /* The first move or resize of a flowing layout: every widget keeps the place and size it has on screen. */
