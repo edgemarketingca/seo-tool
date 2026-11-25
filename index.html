@@ -22534,7 +22534,11 @@ function seoOpenSnapshot(loc, k, c, liveUrl){
      the page Google listed; the client's result is highlighted. These are the
      saved results from the scan, so whoever opens it sees the same page. */
   const s = loc && loc.snap;
-  const old = document.getElementById('seoSnap');
+  /* Inside an embedded report (the keyword table in a report preview or a
+     client report), open over the whole page, not inside the embed. */
+  const D = (() => { try{ const p = window.parent; if (p && p !== window && p.location.origin === location.origin && p.document.body) return p.document; }catch(e){} return document; })();
+  if (D !== document && !D.querySelector('link[href*="edge-serp-page.css"]')){ const ln = D.createElement('link'); ln.rel = 'stylesheet'; ln.href = new URL('edge-serp-page.css?v=2', location.href).href; D.head.appendChild(ln); }
+  const old = D.getElementById('seoSnap');
   if (old) old.remove();
   const live = seoFreshUule(liveUrl || (loc && loc.sourceUrl ? seoRankPageUrl(loc) || loc.sourceUrl : '') || '');
   if (!s){ if (live) window.open(live, '_blank', 'noopener'); return; }
@@ -22583,7 +22587,7 @@ function seoOpenSnapshot(loc, k, c, liveUrl){
     (page < pages && live ? '<a href="' + esc(withStart(live, page + 1)) + '" target="_blank" rel="noopener noreferrer">Next ›</a>' : '') + '</nav>';
   const tabs = [['All', ''], ['Maps', 'lcl'], ['Images', 'isch'], ['News', 'nws'], ['Videos', 'vid'], ['Shopping', 'shop']];
   const verdict = rank > 0 ? who + ' is at position ' + rank + (page > 1 ? ' (page ' + page + ')' : ' on page one') : who + ' isn’t in the ' + (s.n ? 'first ' + s.n + ' results' : 'results');
-  const ov = document.createElement('div');
+  const ov = D.createElement('div');
   ov.id = 'seoSnap'; ov.className = 'gs-ov';
   ov.innerHTML = '<div class="gs-win" role="dialog" aria-label="Search results for ' + esc(q) + '">' +
     '<div class="gs-chrome"><div class="gs-tabbar"><div class="gs-tab"><span class="gs-tab-ic">' + icon.search + '</span><span>' + esc(q) + ' – Search results</span></div><span class="gs-sp"></span><button type="button" class="gs-x" aria-label="Close">' + icon.x + '</button></div>' +
@@ -22600,10 +22604,10 @@ function seoOpenSnapshot(loc, k, c, liveUrl){
         (page > 1 && pack ? '<aside class="gs-side">' + pack + '</aside>' : '') +
       '</div></div></div>';
   const onKey = e => { if (e.key === 'Escape') close(); };
-  const close = () => { ov.classList.add('out'); setTimeout(() => ov.remove(), 180); document.removeEventListener('keydown', onKey, true); };
+  const close = () => { ov.classList.add('out'); setTimeout(() => ov.remove(), 180); D.removeEventListener('keydown', onKey, true); };
   ov.addEventListener('click', e => { if (e.target === ov || e.target.closest('.gs-x')) close(); });
-  document.addEventListener('keydown', onKey, true);
-  document.body.appendChild(ov);
+  D.addEventListener('keydown', onKey, true);
+  D.body.appendChild(ov);
   ov.querySelectorAll('a[data-snap-live], .gs-pager a, .gs-tabs a, .gs-more').forEach(a => { const f = () => { a.href = seoFreshUule(a.href); }; a.addEventListener('pointerdown', f); });
   const me = ov.querySelector('.gs-r.me') || ov.querySelector('.gs-pl.me');
   if (me){ setTimeout(() => { const pg = ov.querySelector('.gs-page'); if (pg && me.offsetTop > pg.clientHeight * 0.6) pg.scrollTo({top: me.offsetTop - pg.clientHeight / 3, behavior: 'smooth'}); me.classList.add('ping'); }, 220); }
@@ -29393,6 +29397,6 @@ html.kwr-embedded body::-webkit-scrollbar-thumb:hover{background:#9aa7b3;backgro
 <link rel="stylesheet" href="edge-viz.css?v=2"/>
 <link rel="stylesheet" href="edge-serp-viz.css?v=2"/>
 <link rel="stylesheet" href="edge-wild.css?v=2"/>
-<link rel="stylesheet" href="edge-serp-page.css?v=1"/>
+<link rel="stylesheet" href="edge-serp-page.css?v=2"/>
 </body>
 </html>
