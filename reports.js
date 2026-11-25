@@ -926,20 +926,22 @@ button.rp-lead{cursor:pointer;} button.rp-lead:hover{border-color:#b8c2cc;}
 .rp.rp-aa .rp-rz{opacity:0;transition:opacity .15s;} .rp.rp-aa.editing .rp-w:hover .rp-rz{opacity:1;}
 .rp-grid.free > .rp-w{transition:left .28s cubic-bezier(.2,.8,.2,1),top .28s cubic-bezier(.2,.8,.2,1),width .28s cubic-bezier(.2,.8,.2,1),height .28s cubic-bezier(.2,.8,.2,1),box-shadow .2s,border-color .2s;}
 .rp-grid.rp-settle > *{transition:none !important;}
-/* ---------- editing that feels physical ---------- */
-.rp.editing .rp-grid.free > .rp-w{cursor:grab;}
-.rp.editing .rp-grid.free > .rp-w:hover{outline:2px solid color-mix(in srgb,#E8772E 55%,transparent);outline-offset:4px;box-shadow:0 18px 40px -26px rgba(23,22,20,.45);}
-.rp.editing .rp-grid.free > .rp-w:focus-within{outline:2px solid #E8772E;outline-offset:4px;}
-.rp-grid.free > .rp-w.moving{z-index:30 !important;cursor:grabbing;transform:scale(1.025) rotate(-.4deg);box-shadow:0 40px 80px -30px rgba(23,22,20,.55),0 0 0 2px #E8772E !important;transition:transform .18s cubic-bezier(.2,.9,.3,1.3),box-shadow .18s !important;}
-.rp-grid.free > .rp-w.placing{transform:none;transition:transform .25s cubic-bezier(.2,.9,.3,1.2) !important;}
-.rp-grid.free > .rp-w.resizing{z-index:25 !important;box-shadow:0 0 0 2px #E8772E,0 0 0 8px rgba(232,119,46,.14),0 30px 60px -30px rgba(23,22,20,.45) !important;}
-.rp-ph{border:2px dashed #E8772E !important;background:repeating-linear-gradient(135deg,rgba(232,119,46,.07) 0 12px,rgba(232,119,46,.02) 12px 24px) !important;border-radius:10px !important;animation:rpPh 1.4s ease-in-out infinite;transition:left .22s cubic-bezier(.2,.9,.25,1.1),top .22s cubic-bezier(.2,.9,.25,1.1),width .22s cubic-bezier(.2,.9,.25,1.1),height .22s cubic-bezier(.2,.9,.25,1.1) !important;}
-@keyframes rpPh{50%{box-shadow:0 0 0 6px rgba(232,119,46,.12)}}
-.rp.editing .rp-rz.se{transition:transform .2s,background .2s;}
-.rp.editing .rp-w:hover .rp-rz.se{transform:scale(1.25);background:#E8772E;color:#fff;}
-.rp.editing .rp-rz.e,.rp.editing .rp-rz.s{transition:background .2s;}
-.rp.editing .rp-rz.e:hover,.rp.editing .rp-rz.s:hover{background:rgba(232,119,46,.25);}
-@media (prefers-reduced-motion:reduce){.rp-ph{animation:none;}.rp-grid.free > .rp-w.moving{transform:none;}}
+/* ---------- editing: quiet and smooth ---------- */
+.rp.editing .rp-w{outline:0 !important;}
+.rp.editing .rp-grid.free > .rp-w{cursor:default;box-shadow:0 0 0 1px transparent;transition-property:left,top,width,height,box-shadow;transition-duration:.28s;transition-timing-function:cubic-bezier(.22,.61,.36,1);}
+.rp.editing .rp-grid.free > .rp-w:hover{box-shadow:0 0 0 1px rgba(23,22,20,.16),0 10px 24px -18px rgba(23,22,20,.35);}
+.rp-grid.free > .rp-w.moving{z-index:30 !important;box-shadow:0 0 0 1px rgba(23,22,20,.18),0 26px 50px -26px rgba(23,22,20,.4) !important;opacity:.97;}
+.rp-grid.free > .rp-w.resizing{z-index:25 !important;transition:none !important;box-shadow:0 0 0 1px rgba(23,22,20,.3),0 22px 44px -26px rgba(23,22,20,.35) !important;}
+.rp-grid.free > .rp-w.rp-settling{transition:width .28s cubic-bezier(.22,.61,.36,1),height .28s cubic-bezier(.22,.61,.36,1) !important;}
+.rp-ph{border:1.5px dashed rgba(23,22,20,.22) !important;background:rgba(23,22,20,.025) !important;border-radius:6px !important;box-shadow:none !important;animation:none !important;
+  transition:left .2s cubic-bezier(.22,.61,.36,1),top .2s cubic-bezier(.22,.61,.36,1),width .2s cubic-bezier(.22,.61,.36,1),height .2s cubic-bezier(.22,.61,.36,1) !important;}
+.rp-ph.rz{z-index:24;background:transparent !important;}
+body.rp-moving .rp-grid.free > .rp-w:not(.moving),body.rp-resizing .rp-grid.free > .rp-w:not(.resizing){transition:left .28s cubic-bezier(.22,.61,.36,1),top .28s cubic-bezier(.22,.61,.36,1),width .28s cubic-bezier(.22,.61,.36,1),height .28s cubic-bezier(.22,.61,.36,1) !important;}
+.rp.editing .rp-rz.se{opacity:.55;transition:opacity .2s;}
+.rp.editing .rp-w:hover .rp-rz.se,.rp-w.resizing .rp-rz.se{opacity:1;}
+.rp-rzbadge{transition:opacity .2s;}
+.rp-aa .rp-rz.e::after,.rp-aa .rp-rz.s::after{background:rgba(23,22,20,.28) !important;width:3px;}
+.rp-aa .rp-rz.s::after{height:3px;width:auto;}
 .rp-grid.free > .rp-w.moving,.rp-grid.free > .rp-w.placing{transition:none !important;}
 body.rp-moving .rp-grid.free > .rp-w:not(.moving){transition:left .32s cubic-bezier(.2,.9,.25,1.1),top .32s cubic-bezier(.2,.9,.25,1.1),width .32s cubic-bezier(.2,.9,.25,1.1),height .32s cubic-bezier(.2,.9,.25,1.1) !important;}
 .rp-grid.free > .rp-w.moving{box-shadow:0 22px 50px -20px rgba(24,24,27,.45) !important;z-index:5;}
@@ -5080,22 +5082,34 @@ function renderBoard(root, o){
     const badge = document.createElement('div'); badge.className = 'rp-rzbadge'; el.appendChild(badge);
     const show = () => { badge.textContent = it.cols + ' of 12 wide · ' + it.h + 'px tall'; };
     el.classList.add('resizing'); document.body.classList.add('rp-resizing'); show();
+    /* The widget follows the pointer pixel by pixel; a faint outline shows the size it
+       will settle on (whole columns, 10 px steps), and on release it glides into it. */
+    let ph = null;
+    const maxW = (12 - it.x) * (colW + GAP) - GAP;
     const move = ev => {
-      moved = true;
+      if (!moved){ moved = true; ph = ghost(it); ph.classList.add('rz'); }
+      const w = Math.max(colW, Math.min(maxW, r0.width + (ev.clientX - e.clientX))), hpx = Math.max(80, r0.height + (ev.clientY - e.clientY));
+      if (dir !== 's') el.style.width = w + 'px';
+      if (dir !== 'e') el.style.height = hpx + 'px';
       let c = it.cols, hh = it.h;
-      if (dir !== 's') c = Math.max(1, Math.min(12 - it.x, Math.round((r0.width + (ev.clientX - e.clientX) + GAP) / (colW + GAP))));
-      if (dir !== 'e') hh = Math.max(80, Math.min(4000, Math.round((r0.height + (ev.clientY - e.clientY)) / SNAP) * SNAP));
+      if (dir !== 's') c = Math.max(1, Math.min(12 - it.x, Math.round((w + GAP) / (colW + GAP))));
+      if (dir !== 'e') hh = Math.max(80, Math.min(4000, Math.round(hpx / SNAP) * SNAP));
       if (c !== it.cols || hh !== it.h){
         it.cols = c; it.h = hh;
         items.forEach((x, i) => { if (x !== it){ x.x = snap[i].x; x.y = snap[i].y; } });
         compact(items, it);
         layoutAll();
+        if (ph) place(ph, it);
         show();
       }
       autoScroll(ev);
     };
     const end = () => {
       document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', end); document.removeEventListener('pointercancel', end);
+      if (ph){ ph.remove(); ph = null; }
+      /* drop the pixel size: the transition carries it into the snapped size */
+      el.classList.add('rp-settling'); el.style.width = ''; el.style.height = '';
+      setTimeout(() => el.classList.remove('rp-settling'), 320);
       el.classList.remove('resizing'); document.body.classList.remove('rp-resizing'); badge.remove();
       if (!moved || (it.cols === c0 && it.h === h0)) return;
       const near = Object.keys(SIZE_COLS).find(k => SIZE_COLS[k] === it.cols);
