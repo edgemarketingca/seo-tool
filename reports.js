@@ -4695,11 +4695,10 @@ function renderBoard(root, o){
     const have = [...grid.querySelectorAll(':scope > .rp-sheet')];
     if (!isPaged() || !items.length){ have.forEach(n => n.remove()); return 0; }
     const L = pageLayout(), n = L.st.length, month = aaMonth(ctx.R), who = esc(o.clientName || ctx.clientName || '');
-    const brand = brandHtml(o);
     let bottom = 0;
     L.st.forEach((y0, k) => {
       let sh = have[k];
-      const head = '<div class="rp-sheet-h">' + brand + '<div class="rp-sheet-m"><b>' + who + '</b><span>' + esc(month) + '</span></div></div>' +
+      const head = '<div class="rp-sheet-h"><span></span><div class="rp-sheet-m"><b>' + who + '</b><span>' + esc(month) + '</span></div></div>' +
         '<div class="rp-sheet-f"><span>' + who + (month ? ' · ' + esc(month) : '') + '</span><span class="rp-sheet-n">Page ' + (k + 1) + ' of ' + n + '</span></div>';
       if (!sh){ sh = document.createElement('div'); sh.className = 'rp-sheet'; grid.insertBefore(sh, grid.firstChild); }
       if (sh._k !== head){ sh.innerHTML = head; sh._k = head; }

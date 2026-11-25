@@ -297,12 +297,27 @@ const css = `
 .mt-ck-h h3{margin:0;font:600 18px var(--display,Poppins,sans-serif);color:var(--ink,#1b222a)}
 .mt-ck-h p{margin:3px 0 0;font-size:12.5px;color:var(--ink-3,#8b98a3)}
 .mt-ck-h .grow{flex:1}
-.mt-grp{margin-top:16px}
-.mt-grp-h{display:flex;align-items:center;gap:9px;font:700 12px/1 var(--ui,Inter,sans-serif);letter-spacing:.07em;text-transform:uppercase;color:var(--ink-2,#57646f);margin:0 0 8px}
-.mt-grp-h span{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;background:#f1f4f7;color:var(--ink-2,#57646f)}
-.mt-grp-h span svg{width:14px;height:14px}
-.mt-grp-h em{margin-left:auto;font-style:normal;letter-spacing:0;text-transform:none;font-weight:600;color:var(--ink-3,#8b98a3)}
-.mt-grp-h em.all{color:#0f7a58}
+.mt-grp{margin-top:10px;border:1px solid #e9edf0;border-radius:16px;background:#fff;overflow:hidden;transition:border-color .25s,box-shadow .25s}
+.mt-grp:hover{border-color:#dbe2e7}
+.mt-grp.open{box-shadow:0 14px 30px -24px rgba(16,24,40,.35);border-color:#dbe2e7}
+.mt-grp-h{all:unset;box-sizing:border-box;width:100%;display:flex;align-items:center;gap:12px;padding:12px 14px;cursor:pointer;font:600 14px/1.2 var(--ui,Inter,sans-serif);color:var(--ink,#1b222a)}
+.mt-grp-h:focus-visible{outline:2px solid #0f9d6b;outline-offset:-2px;border-radius:16px}
+.mt-grp-h > span{flex:none;width:32px;height:32px;border-radius:10px;display:grid;place-items:center;background:#f1f4f7;color:var(--ink-2,#57646f);transition:background .25s,color .25s}
+.mt-grp.all .mt-grp-h > span{background:#e6f6ef;color:#0f7a58}
+.mt-grp-h > span svg{width:15px;height:15px}
+.mt-grp-l{flex:none;min-width:84px}
+.mt-grp-bar{flex:1;height:6px;border-radius:99px;background:#eef2f5;overflow:hidden;font-style:normal}
+.mt-grp-bar > i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#f5a524,#e5484d);transition:width .5s cubic-bezier(.22,.61,.36,1)}
+.mt-grp.all .mt-grp-bar > i{background:linear-gradient(90deg,#34c48b,#0f9d6b)}
+.mt-grp-h em{flex:none;display:inline-flex;align-items:center;gap:4px;font-style:normal;font-size:12.5px;font-weight:700;color:var(--ink-2,#57646f);background:#f4f6f8;padding:4px 10px;border-radius:99px;min-width:44px;justify-content:center}
+.mt-grp-h em.all{color:#0f7a58;background:#e6f6ef}
+.mt-grp-h em svg{width:12px;height:12px}
+.mt-grp-chev{flex:none;color:#8b98a3;transition:transform .3s cubic-bezier(.22,.61,.36,1)}
+.mt-grp.open .mt-grp-chev{transform:rotate(180deg)}
+.mt-grp-b{display:grid;grid-template-rows:0fr;transition:grid-template-rows .32s cubic-bezier(.22,.61,.36,1)}
+.mt-grp.open .mt-grp-b{grid-template-rows:1fr}
+.mt-grp-in{min-height:0;overflow:hidden;padding:0 8px}
+.mt-grp.open .mt-grp-in{padding-bottom:8px}
 .mt-item{display:flex;align-items:flex-start;gap:12px;padding:11px 12px;border-radius:14px;border:1px solid transparent;cursor:pointer;transition:background .15s,border-color .15s;user-select:none}
 .mt-item:hover{background:#f7f9fb;border-color:var(--line-2,#eef2f5)}
 .mt-item input{position:absolute;opacity:0;pointer-events:none}
@@ -525,7 +540,11 @@ function renderOverview(stg){
   const a2 = stg.querySelector('[data-add2]'); if (a2) a2.onclick = addSite;
 }
 
+/* Which checklist sections are open (kept while you tick; everything starts collapsed). */
+const OPEN_GRP = new Set();
+let OPEN_FOR = '';
 function renderSite(stg, c){
+  if (OPEN_FOR !== c.id){ OPEN_GRP.clear(); OPEN_FOR = c.id; }
   const s = statusOf(c), m = c.maint || {}, k = cur(c, false), done = new Set(k.done), now = Date.now();
   const tone = s.key === 'due' ? 'red' : s.key === 'ok' ? 'green' : 'grey';
   stg.className = 'stage mt-stage ' + (tone === 'red' ? 'mt-red' : tone === 'green' ? 'mt-green' : '');
@@ -536,11 +555,14 @@ function renderSite(stg, c){
     : s.key === 'ok'
       ? '<div class="mt-big"><span>' + svg(IC.check) + '</span><div>Maintained for ' + esc(monthName(now)) + '<small>Done ' + esc(dLong(s.last)) + (s.by ? ' by ' + esc(s.by) : '') + ' · next due ' + esc(dShort(monthEnd(now) + 1)) + '</small></div></div>'
       : '<div class="mt-big"><span>' + svg(IC.pause) + '</span><div>Client is paused<small>No reminders while paused' + (s.last ? ' · last done ' + esc(dShort(s.last)) : '') + '</small></div></div>';
+  /* Sections start collapsed: each shows its progress, and opens with a click. What you open stays open while you tick. */
   const groups = GROUPS.map(g => {
-    const dn = g.items.filter(i => done.has(i[0])).length;
-    return '<div class="mt-grp"><div class="mt-grp-h"><span>' + svg(g.icon) + '</span>' + esc(g.label) + '<em class="' + (dn === g.items.length ? 'all' : '') + '">' + dn + ' / ' + g.items.length + '</em></div>' +
-      g.items.map(i => '<label class="mt-item' + (done.has(i[0]) ? ' on' : '') + '" data-i="' + i[0] + '"><input type="checkbox"' + (done.has(i[0]) ? ' checked' : '') + '><span class="mt-box">' + svg(IC.check) + '</span>' +
-        '<span class="mt-it"><b>' + esc(i[1]) + '</b><small>' + esc(i[2]) + '</small></span>' + (done.has(i[0]) && k.who && k.who[i[0]] ? '<span class="mt-who">' + esc(k.who[i[0]]) + '</span>' : '') + '</label>').join('') + '</div>';
+    const dn = g.items.filter(i => done.has(i[0])).length, all = dn === g.items.length, open = OPEN_GRP.has(g.label);
+    return '<div class="mt-grp' + (open ? ' open' : '') + (all ? ' all' : '') + '" data-grp="' + esc(g.label) + '"><button type="button" class="mt-grp-h" aria-expanded="' + open + '"><span>' + svg(g.icon) + '</span><b class="mt-grp-l">' + esc(g.label) + '</b>' +
+      '<i class="mt-grp-bar"><i style="width:' + Math.round(dn / g.items.length * 100) + '%"></i></i>' +
+      '<em class="' + (all ? 'all' : '') + '">' + (all ? svg(IC.check) + 'Done' : dn + ' / ' + g.items.length) + '</em><svg class="mt-grp-chev" viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M8.6 9.4 12 12.8l3.4-3.4L16.8 10.8 12 15.6 7.2 10.8z"/></svg></button>' +
+      '<div class="mt-grp-b"><div class="mt-grp-in">' + g.items.map(i => '<label class="mt-item' + (done.has(i[0]) ? ' on' : '') + '" data-i="' + i[0] + '"><input type="checkbox"' + (done.has(i[0]) ? ' checked' : '') + '><span class="mt-box">' + svg(IC.check) + '</span>' +
+        '<span class="mt-it"><b>' + esc(i[1]) + '</b><small>' + esc(i[2]) + '</small></span>' + (done.has(i[0]) && k.who && k.who[i[0]] ? '<span class="mt-who">' + esc(k.who[i[0]]) + '</span>' : '') + '</label>').join('') + '</div></div></div>';
   }).join('');
   const log = (m.log || []).slice().sort((a, b) => (b.at || 0) - (a.at || 0));
   const color = tone === 'red' ? '#e5484d' : '#0f9d6b';
@@ -556,7 +578,7 @@ function renderSite(stg, c){
     '<div class="mt-cols">' +
       '<section class="mt-panel"><div class="mt-ck-h"><div class="mt-mini">' + ring(n, TOTAL, 64, 7, n === TOTAL ? '#0f9d6b' : color) + '<b>' + Math.round(n / TOTAL * 100) + '%</b></div>' +
         '<div class="grow"><h3>' + esc(monthName(now, true)) + ' checklist</h3><p>Tick each one as it’s done. Ticks save straight away and your team sees them. A new month starts a fresh list.</p></div>' +
-        '<button class="mt-btn sm line" type="button" data-all>' + (n === TOTAL ? 'Clear all' : 'Tick all') + '</button></div>' + groups + '</section>' +
+        '<button class="mt-btn sm line" type="button" data-openall>' + (OPEN_GRP.size === GROUPS.length ? 'Collapse all' : 'Expand all') + '</button><button class="mt-btn sm line" type="button" data-all>' + (n === TOTAL ? 'Clear all' : 'Tick all') + '</button></div>' + groups + '</section>' +
       '<aside class="mt-side">' +
         '<section class="mt-panel"><h4>At a glance</h4><div class="mt-facts">' +
           '<div><span>This month</span><b class="' + (s.key === 'due' ? 'r' : s.key === 'ok' ? 'g' : '') + '">' + (s.key === 'due' ? 'Due' : s.key === 'ok' ? 'Done' : 'Paused') + '</b></div>' +
@@ -576,6 +598,18 @@ function renderSite(stg, c){
     if (i > -1){ kk.done.splice(i, 1); if (kk.who) delete kk.who[id]; } else { kk.done.push(id); (kk.who = kk.who || {})[id] = me(); }
     commit();
   }));
+  stg.querySelectorAll('.mt-grp-h').forEach(h => h.addEventListener('click', () => {
+    const g = h.closest('.mt-grp'), lab = g.dataset.grp, open = !g.classList.contains('open');
+    g.classList.toggle('open', open); h.setAttribute('aria-expanded', open);
+    if (open) OPEN_GRP.add(lab); else OPEN_GRP.delete(lab);
+    const b = stg.querySelector('[data-openall]'); if (b) b.textContent = OPEN_GRP.size === GROUPS.length ? 'Collapse all' : 'Expand all';
+  }));
+  stg.querySelector('[data-openall]').onclick = () => {
+    const openAll = OPEN_GRP.size !== GROUPS.length;
+    OPEN_GRP.clear(); if (openAll) GROUPS.forEach(g => OPEN_GRP.add(g.label));
+    stg.querySelectorAll('.mt-grp').forEach(g => { g.classList.toggle('open', openAll); g.querySelector('.mt-grp-h').setAttribute('aria-expanded', openAll); });
+    stg.querySelector('[data-openall]').textContent = openAll ? 'Collapse all' : 'Expand all';
+  };
   stg.querySelector('[data-all]').onclick = () => {
     const kk = cur(c, true), all = ITEMS.every(i => kk.done.indexOf(i) > -1);
     if (all){ kk.done = []; kk.who = {}; } else { const w = me(); kk.who = kk.who || {}; ITEMS.forEach(i => { if (kk.done.indexOf(i) < 0){ kk.done.push(i); kk.who[i] = w; } }); }

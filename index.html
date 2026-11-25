@@ -27092,6 +27092,18 @@ async function publishSeoReport(c, opts){
   try{ scanTs = payload.asOf || ((seoScanRunsFor(c)[0] || {}).ts) || null; }catch(e){ scanTs = null; }
   return seoWriteReport(c, payload, {scanTs});
 }
+/* Re-sends every published keyword link with the options it was published
+   with (same link, same settings), so links made before saved Google pages
+   existed pick them up. Returns one line per client. */
+window.EDGE_republishKeywordLinks = async function(){
+  const out = [];
+  for (const c of ((state && state.seoClients) || [])){
+    if (!c || !c.reportPublished || !c.reportOpts) continue;
+    try{ const r = await publishSeoReport(c, c.reportOpts); out.push({client:c.name, ok:!!(r && r.ok), reason:r && r.reason}); }
+    catch(e){ out.push({client:c.name, ok:false, reason:String(e && e.message || e)}); }
+  }
+  return out;
+};
 
 /* ---------- share dialog ---------- */
 let seoShareClientId = null;
@@ -29350,10 +29362,10 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
 <script src="ai-visibility.js?v=20261109w"></script>
 <script src="ai-report2.js?v=15"></script>
 <script src="gsc-widgets.js"></script>
-<script src="reports.js?v=20261125b"></script>
+<script src="reports.js?v=20261125c"></script>
 <script src="connections.js?v=20261106e"></script>
 <script src="edge-ui.js"></script>
-<script src="maintenance.js?v=20261120a"></script>
+<script src="maintenance.js?v=20261125a"></script>
 <script src="report-nav.js?v=20261106b"></script>
 <script src="edge-os.js?v=9"></script>
 <script src="edge-viz.js?v=2"></script>
