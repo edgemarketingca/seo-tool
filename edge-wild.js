@@ -95,12 +95,25 @@
     const avg = rs.reduce((a, b) => a + b, 0) / rs.length;
     return avg <= 3 ? 'great' : avg <= 10 ? 'good' : avg <= 20 ? 'ok' : 'weak';
   }
+  let sparkN = 0;
+  function smoothPath(pts){
+    if (pts.length < 2) return '';
+    let d = 'M' + pts[0][0].toFixed(1) + ' ' + pts[0][1].toFixed(1);
+    for (let i = 0; i < pts.length - 1; i++){
+      const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
+      const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6], c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+      d += ' C' + c1.map(n => n.toFixed(1)).join(' ') + ' ' + c2.map(n => n.toFixed(1)).join(' ') + ' ' + p2[0].toFixed(1) + ' ' + p2[1].toFixed(1);
+    }
+    return d;
+  }
+  /* A soft, smoothed line with a faint fill: green when the average position improved, muted rose when it slipped. */
   function sparkSvg(ser){
-    if (!ser.length) return '<svg viewBox="0 0 44 16"><path d="M2 8 H42" class="z"/></svg>';
+    if (!ser.length) return '';
     const v = ser.length === 1 ? [ser[0], ser[0]] : ser, mx = Math.max(...v), mn = Math.min(...v);
-    const pts = v.map((r, i) => [2 + i * 40 / (v.length - 1), mx === mn ? 8 : 2 + (r - mn) / (mx - mn) * 12]);
-    const better = v[v.length - 1] <= v[0];
-    return '<svg viewBox="0 0 44 16"><path class="' + (better ? 'u' : 'd') + '" d="' + pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ') + '"/><circle cx="' + pts[pts.length - 1][0].toFixed(1) + '" cy="' + pts[pts.length - 1][1].toFixed(1) + '" r="1.8" class="' + (better ? 'u' : 'd') + '"/></svg>';
+    const pts = v.map((r, i) => [1 + i * 42 / (v.length - 1), mx === mn ? 9 : 3 + (r - mn) / (mx - mn) * 11]);
+    const better = v[v.length - 1] <= v[0], cls = better ? 'u' : 'd', id = 'ewsp' + (++sparkN), line = smoothPath(pts), last = pts[pts.length - 1];
+    return '<svg viewBox="0 0 44 18" preserveAspectRatio="none"><defs><linearGradient id="' + id + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="' + cls + '" stop-opacity=".28"/><stop offset="1" class="' + cls + '" stop-opacity="0"/></linearGradient></defs>' +
+      '<path class="a" fill="url(#' + id + ')" d="' + line + ' L' + last[0].toFixed(1) + ' 18 L1 18 Z"/><path class="l ' + cls + '" d="' + line + '"/><circle cx="' + last[0].toFixed(1) + '" cy="' + last[1].toFixed(1) + '" r="1.9" class="' + cls + '"/></svg>';
   }
   function decorateTree(){
     const tree = document.getElementById('seoClientTree'); if (!tree) return;

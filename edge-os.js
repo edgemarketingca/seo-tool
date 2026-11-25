@@ -172,13 +172,14 @@ function paintBar(){
   const mod = (window.EDGE && EDGE.current && EDGE.current()) || state.seoModule;
   document.querySelectorAll('.os-sub-b').forEach(b => b.classList.toggle('on', b.dataset.sub === mod));
   ['seo', 'ads', 'maint', 'report'].forEach(k => document.body.classList.toggle('os-sec-' + k, k === section));
-  if (section !== 'report') document.body.classList.remove('aab-on');
+  if (section !== 'report'){ document.body.classList.remove('aab-on'); document.body.classList.remove('os-rhome'); }
   requestAnimationFrame(movePill);
 }
 
 let routing = false;
 const origGo = window.EDGE && window.EDGE.go;
 function go(sec, sub){
+  const prevSection = section;
   section = SECTIONS.some(s => s.k === sec) ? sec : 'seo';
   localPref('section', section);
   routing = true;
@@ -192,6 +193,8 @@ function go(sec, sub){
       Reporting.enter();
     } else {
       origGo.call(window.EDGE, section);
+      /* Coming into Web Maintenance from elsewhere always starts on the overview. */
+      if (section === 'maint' && (prevSection !== 'maint' || !sub) && window.EDGE_maint && EDGE_maint.home) EDGE_maint.home();
     }
   } finally { routing = false; }
   paintBar();
@@ -1050,6 +1053,81 @@ const TEMPLATE = [
   {type: 'gbp_glance', size: 'l', cols: 12, only: 'gbp'}, {type: 'gbp_grids', size: 'xl', cols: 12, only: 'gbp'}
 ];
 /* Reporting has no client list on the left: one client switcher in the header instead. */
+/* Reporting opens on every client, with a card to add a new one. Picking a
+   card opens that client's report; the bar at the top always shows who it is. */
+const Home = {
+  seg: 'all', q: '',
+  on(){ return document.body.classList.contains('os-rhome'); },
+  host(){
+    const st = $('seoStage'); if (!st) return null;
+    let h = $('osRHome');
+    if (!h){ h = document.createElement('div'); h.id = 'osRHome'; const bar = st.querySelector(':scope > .topbar'); st.insertBefore(h, bar ? bar.nextSibling : st.firstChild); }
+    return h;
+  },
+  button(){
+    const bar = document.querySelector('#seoStage > .topbar'); if (!bar || bar.querySelector('.os-rhome-btn')) return;
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'os-rhome-btn'; b.title = 'Every client report';
+    b.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg>All clients';
+    b.addEventListener('click', () => { if (section === 'report') this.show(); });
+    const pk = bar.querySelector('.os-rpick'); bar.insertBefore(b, pk ? pk : bar.firstChild);
+  },
+  show(){
+    this.button();
+    const h = this.host(); if (!h) return;
+    document.body.classList.add('os-rhome');
+    this.render();
+    Picker.paint();
+    try{ window.scrollTo({top: 0}); }catch(e){}
+  },
+  hide(){ if (!this.on()) return; document.body.classList.remove('os-rhome'); Picker.paint(); },
+  render(){
+    const h = this.host(); if (!h) return;
+    const RA = window.EdgeReportsApp, cfg = Reporting.cfg();
+    const all = Picker.list();
+    const info = c => {
+      const ch = Channels.forClient(c), pub = !!(RA && RA.isPublished(c)), sc = cfg.clients[c.id] || {};
+      let n = 0; try{ n = RA ? RA.clientItems(c).length : 0; }catch(e){}
+      return {c, ch, pub, mail: !!(sc.on && (sc.to || []).length), n, at: pub && RA.publishedAt ? RA.publishedAt(c) : 0};
+    };
+    const rows = all.map(info);
+    const live = rows.filter(r => r.pub).length, mail = rows.filter(r => r.mail).length, built = rows.filter(r => r.n).length;
+    const q = norm(this.q);
+    const shown = rows.filter(r => (this.seg === 'all' || (this.seg === 'live' ? r.pub : !r.pub)) && (!q || norm(r.c.name).indexOf(q) > -1));
+    const dom = u => String(u || '').replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/$/, '');
+    h.innerHTML = '<section class="rh-hero"><div><span class="ey">Reporting · ' + esc(new Date().toLocaleDateString('en-CA', {month: 'long', year: 'numeric'})) + '</span><h1>Client reports</h1><p>Every client in one place. Open one to edit its pages, or add a new client and start from the monthly template.</p></div><span class="sp"></span>' +
+      '<div class="rh-stats">' + [[all.length, 'clients'], [live, 'live links'], [built, 'reports built'], [mail, 'monthly emails']].map((x, i) => '<div style="--i:' + i + '"><b class="ew-count">' + x[0] + '</b><small>' + x[1] + '</small></div>').join('') + '</div></section>' +
+      '<div class="rh-bar"><h2>All clients</h2><span class="n">' + shown.length + '</span><span class="sp"></span>' +
+      '<div class="rh-seg">' + [['all', 'All'], ['live', 'Live link'], ['draft', 'Not shared']].map(x => '<button type="button" data-seg="' + x[0] + '"' + (this.seg === x[0] ? ' class="on"' : '') + '>' + x[1] + '</button>').join('') + '</div>' +
+      '<label class="rh-q"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#a8a29e" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" placeholder="Find a client" data-rhq value="' + esc(this.q) + '"></label></div>' +
+      '<div class="rh-grid">' +
+        '<button type="button" class="rh-card add" data-add style="--i:0"><span class="plus"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span><b>Add a client</b><small>Starts a new client and opens their report</small></button>' +
+        shown.map((r, i) => {
+          const ic = ['google_ads', 'meta_ads', 'facebook', 'instagram', 'linkedin'].filter(k => r.ch[k]).map(k => chIcon(k, 16)).join('');
+          const pct = Math.min(100, Math.round(r.n / 30 * 100));
+          return '<button type="button" class="rh-card" data-cid="' + esc(r.c.id) + '" style="--i:' + (i + 1) + '">' +
+            '<div class="h">' + logoHtml(logoOf(r.c), r.c.name) + '<div style="min-width:0"><b>' + esc(r.c.name) + '</b><small>' + esc(dom(r.c.website) || (isAdsOnly(r.c) ? 'Ads client' : 'No website on file')) + '</small></div></div>' +
+            '<div class="chips">' + (r.pub ? '<span class="chip live"><i></i>Live link</span>' : '<span class="chip">Not shared yet</span>') + (r.mail ? '<span class="chip mail">Monthly email</span>' : '') + '</div>' +
+            '<span class="rh-meter" title="' + r.n + ' widgets"><i style="--w:' + (r.n ? Math.max(pct, 8) : 0) + '%"></i></span>' +
+            '<div class="f"><span>' + (r.n ? r.n + ' widgets' : 'No report yet') + (r.at ? ' · ' + esc(new Date(r.at).toLocaleDateString('en-CA', {month: 'short', day: 'numeric'})) : '') + '</span><span class="ic">' + ic + '</span><span class="go">Open <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h13M13 6l6 6-6 6"/></svg></span></div></button>';
+        }).join('') + '</div>' +
+      (shown.length ? '' : '<div class="rh-empty">No clients match.</div>');
+    h.querySelectorAll('[data-cid]').forEach(b => b.addEventListener('click', () => Picker.pick(b.dataset.cid)));
+    h.querySelectorAll('[data-seg]').forEach(b => b.addEventListener('click', () => { this.seg = b.dataset.seg; this.render(); }));
+    const qi = h.querySelector('[data-rhq]'); if (qi) qi.addEventListener('input', () => { this.q = qi.value; clearTimeout(this._q); this._q = setTimeout(() => { const pos = qi.selectionStart; this.render(); const q2 = h.querySelector('[data-rhq]'); if (q2){ q2.focus(); try{ q2.setSelectionRange(pos, pos); }catch(e){} } }, 140); });
+    const add = h.querySelector('[data-add]'); if (add) add.addEventListener('click', () => this.add());
+  },
+  add(){
+    const btn = $('seoAddClientBtn'); if (!btn) return;
+    const before = new Set(seoClients().map(c => c.id));
+    btn.click();
+    let n = 0; const t = setInterval(() => {
+      const fresh = seoClients().find(c => !before.has(c.id));
+      if (fresh){ clearInterval(t); if (section === 'report') Picker.pick(fresh.id); FX.toast(fresh.name + ' added. Use the monthly template to start their report', 'ok'); }
+      else if (++n > 240) clearInterval(t);
+    }, 250);
+  }
+};
+
 const Picker = {
   el: null, pop: null,
   list(){ return seoClients().filter(c => !isArchived(c)).sort((a, b) => String(a.name).localeCompare(String(b.name))); },
@@ -1067,7 +1145,7 @@ const Picker = {
     if (!this.el) return;
     const c = activeClient(), ch = c ? Channels.forClient(c) : {};
     const icons = ['google_ads', 'meta_ads', 'facebook', 'instagram', 'linkedin'].filter(k => ch[k]).map(k => chIcon(k, 16)).join('');
-    this.el.innerHTML = (c ? logoHtml(logoOf(c), c.name) : '<span class="os-logo mono">?</span>') + '<span class="os-rpick-t"><small>Reporting for</small><b>' + esc(c ? c.name : 'Choose a client') + '</b></span>' +
+    this.el.innerHTML = (c && !Home.on() ? logoHtml(logoOf(c), c.name) : '<span class="os-logo mono">?</span>') + '<span class="os-rpick-t"><small>Reporting for</small><b>' + esc(Home.on() ? 'All clients' : c ? c.name : 'Choose a client') + '</b></span>' +
       (icons ? '<span class="os-rpick-ch">' + icons + '</span>' : '') + '<svg class="car" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>';
   },
   open(){
@@ -1093,6 +1171,7 @@ const Picker = {
   close(){ if (this.pop){ this.pop.remove(); this.pop = null; } if (this._away){ document.removeEventListener('mousedown', this._away, true); this._away = null; } },
   pick(id){
     this.close();
+    Home.hide();
     if (state.activeSeoClientId !== id){ state.activeSeoClientId = id; try{ save(); }catch(e){} try{ seoApi().renderTree(); }catch(e){} }
     this.paint();
     const want = localPref('reportTab') === 'rteam' ? 'rteam' : 'rclient';
@@ -1106,6 +1185,7 @@ const Reporting = {
   scheduledCount(){ const c = this.cfg().clients || {}; return Object.keys(c).filter(k => c[k] && c[k].on && (c[k].to || []).length).length; },
   enter(){
     Picker.mount();
+    Home.show();
     let want = localPref('reportTab'); if (!/^(rteam|rclient)$/.test(want || '')) want = 'rclient';
     setTimeout(() => {
       const b = document.querySelector('#seoModes [data-seoview="' + want + '"]') || document.querySelector('#seoModes [data-seoview="rclient"]');

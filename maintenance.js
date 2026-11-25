@@ -421,7 +421,7 @@ const st = document.createElement('style'); st.id = 'mt-css'; st.textContent = c
 
 /* ---------- view state (per browser, not shared) ---------- */
 const VIEW_KEY = 'edgeMaintView';
-let view = (() => { try{ return JSON.parse(localStorage.getItem(VIEW_KEY) || 'null') || {site: ''}; }catch(e){ return {site: ''}; } })();
+let view = {site: ''};
 const setView = v => { view = Object.assign(view, v); try{ localStorage.setItem(VIEW_KEY, JSON.stringify(view)); }catch(e){} };
 let q = '', pop = null;
 
@@ -888,5 +888,7 @@ document.addEventListener('keydown', e => {
   e.preventDefault(); if (window.EDGE) window.EDGE.go('maint');
 });
 
-window.EDGE_maint = {render, open: openSite, due: () => dueSites().map(c => c.name), notify: () => notifyDue(true), sites, statusOf};
+/* Coming into Web Maintenance always starts on the overview. */
+const home = () => { setView({site: ''}); render(); };
+window.EDGE_maint = {render, home, open: openSite, due: () => dueSites().map(c => c.name), notify: () => notifyDue(true), sites, statusOf};
 })();

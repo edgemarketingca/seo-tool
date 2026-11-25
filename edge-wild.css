@@ -106,11 +106,6 @@ html body.ew-on:not(.report-mode):not(.embed-mode){
 
 /* ---------- client list tiles ---------- */
 .tree-row.ew-tile{position:relative;padding-bottom:12px !important;}
-.ew-tspark{position:absolute;left:52px;bottom:3px;width:56px;height:10px;display:block;opacity:.85;pointer-events:none;}
-.ew-tspark svg{width:56px;height:10px;overflow:visible;}
-.ew-tspark path{fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:80;stroke-dashoffset:80;animation:ewDraw 1s .2s ease forwards;}
-.ew-tspark path.u{stroke:#16a34a;}.ew-tspark path.d{stroke:#dc2626;}.ew-tspark path.z{stroke:#d6d3d1;stroke-dasharray:2 3;animation:none;stroke-dashoffset:0;}
-.ew-tspark circle.u{fill:#16a34a;}.ew-tspark circle.d{fill:#dc2626;}
 .tree-row.ew-tile .seo-tree-logo{position:relative;}
 .tree-row.ew-tile .seo-tree-logo::after{content:"";position:absolute;inset:-3px;border-radius:inherit;border:2px solid transparent;pointer-events:none;}
 .tree-row.ew-tile[data-ew-health="great"] .seo-tree-logo::after{border-color:#F6C744;box-shadow:0 0 10px rgba(246,199,68,.55);}
@@ -191,3 +186,12 @@ html body.ew-on:not(.report-mode):not(.embed-mode){
 /* confetti pieces live on <body>, outside any app scope */
 .ew-confetti{position:fixed;z-index:100001;width:8px;height:12px;border-radius:2px;pointer-events:none;}
 @media (prefers-reduced-motion:reduce){.ew-orbit-p,.ew-orbit-ring,.ew-orbit-core,.ew-ghost path,.seo-lg-row-busy::before,.ev-movers li,.ev-movers .ev-mk{animation:none !important;}}
+
+.ew-tspark{position:relative;flex:none;margin-left:auto;margin-right:6px;width:40px;height:16px;display:block;pointer-events:none;opacity:.9;transition:opacity .3s ease;}
+.ew-tspark:empty{display:none;}
+.ew-tspark svg{width:40px;height:16px;overflow:visible;display:block;}
+.ew-tspark path.l{fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:120;stroke-dashoffset:120;animation:ewDraw 1.1s .15s cubic-bezier(.22,1,.36,1) forwards;}
+.ew-tspark path.a{opacity:0;animation:ewFadeIn .8s .5s ease forwards;}
+.ew-tspark .u{stroke:#22a06b;stop-color:#22a06b;fill:#22a06b;}.ew-tspark .d{stroke:#e0707a;stop-color:#e0707a;fill:#e0707a;}
+.ew-tspark path.l.u,.ew-tspark path.l.d{fill:none;}
+@keyframes ewFadeIn{to{opacity:1}}
