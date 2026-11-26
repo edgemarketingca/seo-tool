@@ -36,7 +36,7 @@
   if (aiHead){
     let box = aiHead; for (let i = 0; i < 8 && box && T(box).length < 220; i++) box = box.parentElement;
     if (box){
-      const refs = []; box.querySelectorAll('a[href^="http"]').forEach(a => { const u = clean(a.href); if (!u || isG(u) || refs.some(r => r[1] === u) || refs.length >= 5) return; const t = a.getAttribute('aria-label') || T(a); refs.push([clip(t, 80), u, clip(new URL(u).hostname.replace(/^www\./, ''), 40)]); });
+      const refs = []; box.querySelectorAll('a[href^="http"]').forEach(a => { const u = clean(a.href); if (!u || isG(u) || refs.some(r => r[1] === u) || refs.length >= 8) return; const t = a.getAttribute('aria-label') || T(a); refs.push([clip(t, 80), u, clip(new URL(u).hostname.replace(/^www\./, ''), 40)]); });
       /* The answer only: source cards, buttons and icons are taken out of a
          copy before its text is read, so card titles don't pile into it. */
       const cl = box.cloneNode(true);
@@ -45,7 +45,7 @@
       const hold = document.createElement('div'); hold.style.cssText = 'position:fixed;left:-10000px;top:0;width:680px;'; hold.appendChild(cl); document.body.appendChild(hold);
       let txt = (cl.innerText || '').replace(/^AI Overview\s*/i, '').replace(/\n(Show (more|less|all)|Dive deeper in AI Mode|AI responses may include mistakes\.?.*|Learn more)$/gim, '').replace(/\n{3,}/g, '\n\n').trim();
       hold.remove();
-      out.ai = {t: clip(txt, 900), r: refs, a: 1};
+      out.ai = {t: clip(txt, 3200), r: refs, a: 1};
     }
   }
   /* Map pack: each place has a heading and usually a Directions button. */

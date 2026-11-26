@@ -22202,9 +22202,9 @@ function seoSerpFeatures(result, items){
   if (ai){
     let text = ai.markdown || '';
     if (!text && Array.isArray(ai.items)) text = ai.items.map(x => (x.title ? '**' + x.title + '**\n' : '') + (x.markdown || x.text || '')).join('\n\n');
-    text = String(text).replace(/\[(\d+)\]\([^)]*\)/g, '').replace(/!\[[^\]]*\]\([^)]*\)/g, '').replace(/\n{3,}/g, '\n\n').trim().slice(0, 900);
+    text = String(text).replace(/\[(\d+)\]\([^)]*\)/g, '').replace(/!\[[^\]]*\]\([^)]*\)/g, '').replace(/\n{3,}/g, '\n\n').trim().slice(0, 3200);
     const refs = [];
-    const addRef = r => { if (!r || !r.url || refs.some(x => x[1] === r.url) || refs.length >= 5) return; refs.push([clip(r.title, 80), String(r.url).slice(0, 140), clip(r.source || r.domain || '', 40)]); };
+    const addRef = r => { if (!r || !r.url || refs.some(x => x[1] === r.url) || refs.length >= 8) return; refs.push([clip(r.title, 80), String(r.url).slice(0, 140), clip(r.source || r.domain || '', 40)]); };
     (ai.references || []).forEach(addRef);
     (ai.items || []).forEach(x => (x.references || []).forEach(addRef));
     if (text || refs.length) f.ai = {t: text, r: refs, a: ai.asynchronous_ai_overview ? 1 : 0};
@@ -22615,7 +22615,7 @@ function seoOpenSnapshot(loc, k, c, liveUrl){
      the client's own result is marked. */
   const s = loc && loc.snap;
   const D = (() => { try{ const p = window.parent; if (p && p !== window && p.location.origin === location.origin && p.document.body) return p.document; }catch(e){} return document; })();
-  if (D !== document && !D.querySelector('link[href*="edge-serp-page.css"]')){ const ln = D.createElement('link'); ln.rel = 'stylesheet'; ln.href = new URL('edge-serp-page.css?v=6', location.href).href; D.head.appendChild(ln); }
+  if (D !== document && !D.querySelector('link[href*="edge-serp-page.css"]')){ const ln = D.createElement('link'); ln.rel = 'stylesheet'; ln.href = new URL('edge-serp-page.css?v=7', location.href).href; D.head.appendChild(ln); }
   const old = D.getElementById('seoSnap'); if (old) old.remove();
   const live = seoFreshUule(liveUrl || (loc && loc.sourceUrl ? seoRankPageUrl(loc) || loc.sourceUrl : '') || '');
   if (!s){ if (live) window.open(live, '_blank', 'noopener'); return; }
@@ -22669,7 +22669,9 @@ function seoOpenSnapshot(loc, k, c, liveUrl){
   const P = Array.isArray(s.m) ? s.m : [];
   const ll = Array.isArray(s.ll) ? s.ll : null;
   const mapHtml = () => {
-    const W = 720, H = 225;
+    /* A fixed 900 x 225 px map, centred in the box and cropped at its sides:
+       tiles and pins keep real pixel positions at any box width, so no gaps. */
+    const W = 900, H = 225;
     const pts = P.map((m, i) => (m[9] != null && m[10] != null) ? [m[9], m[10]] : null);
     const known = pts.filter(Boolean);
     let cLat = ll ? ll[0] : known.length ? known[0][0] : 52.27, cLng = ll ? ll[1] : known.length ? known[0][1] : -113.81, z = 11;
@@ -22685,16 +22687,16 @@ function seoOpenSnapshot(loc, k, c, liveUrl){
     let tiles = '';
     for (let tx = Math.floor(x0 / 256); tx <= Math.floor((x0 + W) / 256); tx++) for (let ty = Math.floor(y0 / 256); ty <= Math.floor((y0 + H) / 256); ty++){
       const n = Math.pow(2, z), wx = ((tx % n) + n) % n; if (ty < 0 || ty >= n) continue;
-      tiles += '<img alt="" src="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/' + z + '/' + ty + '/' + wx + '" style="left:' + ((tx * 256 - x0) / W * 100).toFixed(3) + '%;top:' + (ty * 256 - y0).toFixed(1) + 'px;width:' + (256 / W * 100).toFixed(3) + '%">';
+      tiles += '<img alt="" src="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/' + z + '/' + ty + '/' + wx + '" style="left:' + (tx * 256 - x0).toFixed(1) + 'px;top:' + (ty * 256 - y0).toFixed(1) + 'px;width:256px;height:256px">';
     }
     const spread = [[-.16, -.05], [.12, .18], [.05, -.22]];
     const pins = P.map((m, i) => {
       const p = pts[i];
-      const left = p ? (X(p[1]) - x0) / W * 100 : 50 + spread[i % 3][0] * 100, top = p ? (Y(p[0]) - y0) : H / 2 + spread[i % 3][1] * H;
-      return '<a class="gx-pin' + (m[2] ? ' me' : '') + '" style="left:' + left.toFixed(2) + '%;top:' + top.toFixed(1) + 'px" href="' + esc(m[8] ? 'https://maps.google.com/?cid=' + m[8] : gq(m[1])) + '" ' + A + '><svg viewBox="0 0 27 43"><path d="M13.5 0C6 0 0 6 0 13.5 0 23.6 13.5 43 13.5 43S27 23.6 27 13.5C27 6 21 0 13.5 0z"/><circle cx="13.5" cy="13.5" r="5" fill="#B31412"/></svg><span>' + esc(String(m[1]).replace(/\s*(My Ad Center|Sponsored)\s*/gi, ' ').trim()) + '</span></a>';
+      const left = p ? (X(p[1]) - x0) : W / 2 + spread[i % 3][0] * 720, top = p ? (Y(p[0]) - y0) : H / 2 + spread[i % 3][1] * H;
+      return '<a class="gx-pin' + (m[2] ? ' me' : '') + '" style="left:' + left.toFixed(1) + 'px;top:' + top.toFixed(1) + 'px" href="' + esc(m[8] ? 'https://maps.google.com/?cid=' + m[8] : gq(m[1])) + '" ' + A + '><svg viewBox="0 0 27 43"><path d="M13.5 0C6 0 0 6 0 13.5 0 23.6 13.5 43 13.5 43S27 23.6 27 13.5C27 6 21 0 13.5 0z"/><circle cx="13.5" cy="13.5" r="5" fill="#B31412"/></svg><span>' + esc(String(m[1]).replace(/\s*(My Ad Center|Sponsored)\s*/gi, ' ').trim()) + '</span></a>';
     }).join('');
-    const me = ll ? '<i class="gx-you" style="left:' + ((X(ll[1]) - x0) / W * 100).toFixed(2) + '%;top:' + (Y(ll[0]) - y0).toFixed(1) + 'px"></i>' : '';
-    return '<div class="gx-map">' + tiles + me + pins + '<span class="gx-attr">Tiles © Esri</span></div>';
+    const me = ll ? '<i class="gx-you" style="left:' + (X(ll[1]) - x0).toFixed(1) + 'px;top:' + (Y(ll[0]) - y0).toFixed(1) + 'px"></i>' : '';
+    return '<div class="gx-map"><div class="gx-map-in">' + tiles + me + pins + '</div><span class="gx-attr">Tiles © Esri</span></div>';
   };
   const placeHtml = m0 => {
     /* Google's ad-settings label can stick to a sponsored place's name. */
@@ -22766,9 +22768,14 @@ function seoOpenSnapshot(loc, k, c, liveUrl){
     if (list) h += '</ul>';
     return h;
   };
-  const aiHtml = F.ai ? '<section class="gx-ai" data-ai><div class="gx-ai-h">' + I.spark + '<b>AI Overview</b></div>' +
+  /* The client named in the AI Overview gets its own highlight and a tag. */
+  const cNames = [c && c.name, cDom && brand(cDom)].filter(x => x && String(x).trim().length > 2).map(x => String(x).trim());
+  const markClient = h => { let hit = false; cNames.forEach(n => { const re = new RegExp('(' + esc(n).replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+') + '(?:\\s*&amp;\\s*\\w+)?)', 'gi'); h = h.replace(/(<[^>]+>)|([^<]+)/g, (m, tag, txt) => tag ? tag : txt.replace(re, x => { hit = true; return '<span class="gx-ai-me">' + x + '</span>'; })); }); return {h, hit}; };
+  const aiBody = F.ai ? markClient(mdLite(F.ai.t).replace(/<mark>((?:(?!<\/mark>).)*)$/, '<mark>$1</mark>')) : null;
+  const aiCited = F.ai && F.ai.r ? F.ai.r.some(r => cDom && host(r[1]).replace(/^www\./, '').indexOf(cDom) > -1) : false;
+  const aiHtml = F.ai ? '<section class="gx-ai" data-ai><div class="gx-ai-h">' + I.spark + '<b>AI Overview</b>' + (aiBody.hit || aiCited ? '<span class="gx-tag gx-ai-tag">' + I.star + esc(who) + (aiBody.hit ? ' mentioned' : '') + (aiBody.hit && aiCited ? ' and cited' : aiCited ? ' cited as a source' : '') + '</span>' : '') + '</div>' +
       '<div class="gx-ai-load" aria-hidden="true"><i></i><i></i><i></i><i></i><span>Searching and generating…</span></div>' +
-      '<div class="gx-ai-body"><div class="gx-ai-t">' + mdLite(F.ai.t).replace(/<mark>((?:(?!<\/mark>).)*)$/, '<mark>$1</mark>') + '</div>' +
+      '<div class="gx-ai-body"><div class="gx-ai-t">' + aiBody.h + '</div>' +
       (F.ai.r && F.ai.r.length ? '<div class="gx-ai-refs">' + F.ai.r.map(r => { const me = cDom && host(r[1]).replace(/^www\./, '').indexOf(cDom) > -1; return '<a class="gx-ai-ref' + (me ? ' me' : '') + '" href="' + esc(href(r[1])) + '" ' + A + '><b>' + esc(r[0] || brand(r[1])) + '</b><span><span class="gx-fav sm">' + fav(r[1]) + '</span>' + esc(r[2] || brand(r[1])) + '</span>' + (me ? '<em>' + esc(who) + ' cited</em>' : '') + '</a>'; }).join('') + '</div>' : '') +
       '</div><button type="button" class="gx-ai-more" data-ai-more>Show more' + I.chev + '</button><div class="gx-ai-foot">AI responses may include mistakes. <a href="https://support.google.com/websearch/answer/14901683" ' + A + '>Learn more</a></div></section>' : '';
   const adsHtml = F.ads && F.ads.length ? '<section class="gx-ads" data-ads><h2 class="gx-h2">Sponsored Result' + (F.ads.length > 1 ? 's' : '') + '</h2><div class="gx-ads-in">' + F.ads.map(a => '<div class="gx-r gx-ad" data-href="' + esc(href(a[1])) + '">' +
