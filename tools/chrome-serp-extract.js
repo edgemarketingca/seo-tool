@@ -37,7 +37,14 @@
     let box = aiHead; for (let i = 0; i < 8 && box && T(box).length < 220; i++) box = box.parentElement;
     if (box){
       const refs = []; box.querySelectorAll('a[href^="http"]').forEach(a => { const u = clean(a.href); if (!u || isG(u) || refs.some(r => r[1] === u) || refs.length >= 5) return; const t = a.getAttribute('aria-label') || T(a); refs.push([clip(t, 80), u, clip(new URL(u).hostname.replace(/^www\./, ''), 40)]); });
-      let txt = (box.innerText || '').replace(/^AI Overview\s*/i, '').replace(/\n(Show (more|less)|AI responses may include mistakes\.?.*)$/gim, '').replace(/\n{3,}/g, '\n\n').trim();
+      /* The answer only: source cards, buttons and icons are taken out of a
+         copy before its text is read, so card titles don't pile into it. */
+      const cl = box.cloneNode(true);
+      cl.querySelectorAll('button, [role="button"], svg, img, style, script, [aria-hidden="true"]').forEach(n => n.remove());
+      cl.querySelectorAll('a').forEach(n => { if (T(n).length > 45 || n.querySelector('div')) n.remove(); });
+      const hold = document.createElement('div'); hold.style.cssText = 'position:fixed;left:-10000px;top:0;width:680px;'; hold.appendChild(cl); document.body.appendChild(hold);
+      let txt = (cl.innerText || '').replace(/^AI Overview\s*/i, '').replace(/\n(Show (more|less|all)|Dive deeper in AI Mode|AI responses may include mistakes\.?.*|Learn more)$/gim, '').replace(/\n{3,}/g, '\n\n').trim();
+      hold.remove();
       out.ai = {t: clip(txt, 900), r: refs, a: 1};
     }
   }
@@ -50,7 +57,7 @@
     const txt = T(it).replace(T(hd), '').replace(/Website|Directions/g, '').trim();
     const rm = /(\d\.\d)\s*\(([\d.,]+K?)\)/.exec(txt);
     const cidEl = it.querySelector('[data-cid]') || it.closest('[data-cid]');
-    out.pack.push({title: clip(T(hd), 60), url: web ? clean(web.href) : '', desc: clip(txt.replace(rm ? rm[0] : '', '').replace(/\s*·\s*/g, ' · ').replace(/^[·\s]+/, ''), 140), rating: rm ? parseFloat(rm[1]) : null, votes: rm ? Math.round(parseFloat(rm[2].replace(/,/g, '')) * (/K/.test(rm[2]) ? 1000 : 1)) : null, cid: cidEl ? cidEl.getAttribute('data-cid') : ''});
+    out.pack.push({title: clip(T(hd).replace(/\s*(My Ad Center)\s*/gi, ' ').trim() + (/My Ad Center|Sponsored/i.test(T(it)) ? ' Sponsored' : ''), 70), url: web ? clean(web.href) : '', desc: clip(txt.replace(rm ? rm[0] : '', '').replace(/\s*·\s*/g, ' · ').replace(/^[·\s]+/, ''), 140), rating: rm ? parseFloat(rm[1]) : null, votes: rm ? Math.round(parseFloat(rm[2].replace(/,/g, '')) * (/K/.test(rm[2]) ? 1000 : 1)) : null, cid: cidEl ? cidEl.getAttribute('data-cid') : ''});
   });
   /* Website results, in page order: a title heading inside a link to a site. */
   const seen = new Set(); let order = 0;

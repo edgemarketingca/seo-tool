@@ -237,3 +237,25 @@ html body .gx-win .gx-ai-t h4{margin:12px 0 6px !important;font:700 16px Arial,s
 @media (max-width:700px){.gx-rel-g{grid-template-columns:1fr;}}
 html body .gx-win h2.gx-h2,html body .gx-win .gx-rel h2,html body .gx-win .gx-ads h2{font-weight:400 !important;}
 .gx-rel-g svg{transform:none;}
+
+/* AI Overview, as Google lays it out: no tinted card, the answer on the left,
+   its sources stacked on the right, a full-width "Show more" bar. */
+.gx-ai{background:#fff !important;padding:6px 0 18px !important;border-radius:0 !important;border-bottom:1px solid #dadce0;}
+.gx-ai-h{margin-bottom:14px !important;}
+.gx-ai-h b{font-size:15px !important;font-weight:500 !important;}
+.gx-ai.ready .gx-ai-body{display:grid !important;grid-template-columns:minmax(0,1fr) 230px;gap:18px;align-items:start;}
+.gx-ai-body{max-height:300px !important;}
+.gx-ai.long:not(.open) .gx-ai-body::after{background:linear-gradient(rgba(255,255,255,0),#fff) !important;height:90px !important;}
+.gx-ai-t{font-size:16px !important;line-height:1.75 !important;color:#1f1f1f !important;}
+.gx-ai-t p{margin:0 0 14px !important;}
+.gx-ai-t mark{background:#d3e3fd;color:#040c28;padding:1px 2px;border-radius:3px;box-decoration-break:clone;-webkit-box-decoration-break:clone;}
+.gx-ai-refs{display:flex !important;flex-direction:column;gap:8px;margin-top:0 !important;}
+.gx-ai-ref{background:#f8fafd !important;border:1px solid #e3e3e3;border-radius:14px !important;}
+.gx-ai-ref b{color:#1f1f1f !important;font-size:14px;line-height:1.35;}
+.gx-ai-load i{background:linear-gradient(90deg,#e8eaed 0%,#d3e3fd 30%,#e9d7f3 55%,#e8eaed 80%) !important;background-size:300% 100% !important;}
+.gx-ai-more{width:100%;max-width:none;margin:12px 0 0 !important;justify-content:center;background:#f1f3f4 !important;border-radius:22px !important;height:44px !important;}
+.gx-ai-foot{display:none;margin-top:14px;font-size:12px;color:#70757a;}
+.gx-ai.ready .gx-ai-foot{display:block;}
+.gx-ai-foot a{color:#1a0dab !important;}
+.gx-spon{font:700 12px Arial,sans-serif;color:#202124;margin-bottom:2px;}
+@media (max-width:820px){.gx-ai.ready .gx-ai-body{grid-template-columns:1fr;}}
