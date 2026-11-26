@@ -22221,7 +22221,13 @@ function seoNormalizeDfsOrganic(data){
     /* The Google results page this result was actually on. Page one rarely
        holds ten organic results (ads, the map pack and "People also ask"
        take room), so the page can't be worked out from the position. */
-    page: (typeof it.page === 'number' && it.page > 0 ? it.page : null)
+    page: (typeof it.page === 'number' && it.page > 0 ? it.page : null),
+    /* Kept for "view the search": the site name and breadcrumb Google showed,
+       the words it bolded, and where on the page the result sat. */
+    site: it.website_name || '',
+    crumb: it.breadcrumb || '',
+    hl: Array.isArray(it.highlighted) ? it.highlighted.slice(0, 6) : [],
+    abs: (typeof it.rank_absolute === 'number' ? it.rank_absolute : null)
   }));
   /* A featured snippet and its own organic twin are the same result twice,
      so the lower of the two positions wins and the duplicate is dropped. */
@@ -22240,9 +22246,17 @@ function seoNormalizeDfsOrganic(data){
     title: it.title || '',
     domain: it.domain || (it.url ? cleanDomain(it.url) : null),
     url: it.url || null,
-    rank: typeof it.rank_group === 'number' ? it.rank_group : localPack.length + 1
+    rank: typeof it.rank_group === 'number' ? it.rank_group : localPack.length + 1,
+    desc: it.description || '',
+    phone: it.phone || '',
+    rating: it.rating && it.rating.value != null ? it.rating.value : null,
+    votes: it.rating && it.rating.votes_count != null ? it.rating.votes_count : null,
+    cid: it.cid || '',
+    abs: (typeof it.rank_absolute === 'number' ? it.rank_absolute : null)
   }));
-  return {organic: deduped, localPack};
+  const paa = [];
+  items.filter(i => i.type === 'people_also_ask').forEach(it => (it.items || []).forEach(q => { if (q && q.title && paa.length < 4) paa.push(q.title); }));
+  return {organic: deduped, localPack, paa};
 }
 function seoNormalizeSerperOrganic(data){
   const organic = (data.organic || []).map(x => ({
@@ -22530,87 +22544,155 @@ function seoPackIsClient(it, client){
    website results around the client, the client's own rows highlighted. */
 function seoOpenSnapshot(loc, k, c, liveUrl){
   /* "view the search": opens, inside the tool, the results page this rank came
-     from, laid out like a search results page. Every result is a real link to
-     the page Google listed; the client's result is highlighted. These are the
-     saved results from the scan, so whoever opens it sees the same page. */
+     from, drawn like Google's own light results page. Everything comes from what the scan saved, so opening it costs no
+     search. Every result, place, website and directions button is a real link;
+     the client's own result is marked. */
   const s = loc && loc.snap;
-  /* Inside an embedded report (the keyword table in a report preview or a
-     client report), open over the whole page, not inside the embed. */
   const D = (() => { try{ const p = window.parent; if (p && p !== window && p.location.origin === location.origin && p.document.body) return p.document; }catch(e){} return document; })();
-  if (D !== document && !D.querySelector('link[href*="edge-serp-page.css"]')){ const ln = D.createElement('link'); ln.rel = 'stylesheet'; ln.href = new URL('edge-serp-page.css?v=2', location.href).href; D.head.appendChild(ln); }
-  const old = D.getElementById('seoSnap');
-  if (old) old.remove();
+  if (D !== document && !D.querySelector('link[href*="edge-serp-page.css"]')){ const ln = D.createElement('link'); ln.rel = 'stylesheet'; ln.href = new URL('edge-serp-page.css?v=4', location.href).href; D.head.appendChild(ln); }
+  const old = D.getElementById('seoSnap'); if (old) old.remove();
   const live = seoFreshUule(liveUrl || (loc && loc.sourceUrl ? seoRankPageUrl(loc) || loc.sourceUrl : '') || '');
   if (!s){ if (live) window.open(live, '_blank', 'noopener'); return; }
   const q = (k && k.text) || '', who = c && c.name ? c.name : 'Your client';
   const rank = Number(loc.rank) || 0, rows = Array.isArray(s.r) ? s.r : [];
   const page = s.p || (rank > 0 ? seoRankPage(loc) : 1);
   const when = s.at ? fmtWhen(s.at) : '';
-  const host = u => String(u || '').split('/')[0];
-  const site = d => { const h = host(d).replace(/^www\./, ''); const b = h.split('.').slice(0, -1).join('.') || h; return b.split(/[.-]/).filter(Boolean).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') || h; };
+  const A = 'target="_blank" rel="noopener noreferrer"';
+  const host = u => String(u || '').replace(/^[a-z]+:\/\//i, '').split('/')[0];
   const href = u => { u = String(u || ''); if (!u) return '#'; return /^https?:\/\//i.test(u) ? u : 'https://' + u; };
-  const crumb = u => { const p = String(u || '').split('/').filter(Boolean); return '<span class="h">https://' + esc(p[0] || '') + '</span>' + (p.length > 1 ? ' › ' + esc(p.slice(1).join(' › ')) : ''); };
-  const fav = d => '<img alt="" loading="lazy" src="https://www.google.com/s2/favicons?domain=' + encodeURIComponent(host(d)) + '&sz=64" onerror="this.replaceWith(Object.assign(document.createElement(\'i\'),{textContent:\'' + esc(site(d).charAt(0) || '•') + '\'}))">';
+  const brand = d => { const h = host(d).replace(/^www\./, ''); const b = h.split('.').slice(0, -1).join('.') || h; return b.split(/[.-]/).filter(Boolean).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') || h; };
+  const siteOf = (url, ti, nm) => { if (nm) return nm; const m = String(ti || '').split(/\s[|–—-]\s/); const tail = m.length > 1 ? m[m.length - 1].trim() : '';
+    const base = host(url).replace(/^www\./, '').split('.')[0].toLowerCase(), t = tail.toLowerCase().replace(/[^a-z0-9]/g, '');
+    return tail && tail.length <= 32 && base.length >= 3 && t.length >= 3 && (t.indexOf(base.slice(0, 4)) > -1 || base.indexOf(t.slice(0, 4)) > -1) ? tail : brand(url); };
+  const crumbOf = (url, cr) => {
+    if (cr) return esc(cr).replace(/ › /g, '<span class="sep"> › </span>');
+    const p = String(url || '').replace(/^[a-z]+:\/\//i, '').split('/').filter(Boolean);
+    return 'https://' + esc(p[0] || '') + (p.length > 1 ? '<span class="sep"> › </span>' + p.slice(1, 3).map(x => esc(decodeURIComponent(x).slice(0, 28))).join('<span class="sep"> › </span>') : '');
+  };
+  const bold = (txt, words) => {
+    let h = esc(txt || '');
+    const ws = (words && words.length ? words : String(q).split(/\s+/).filter(w => w.length > 2)).map(w => String(w).trim()).filter(Boolean)
+      .sort((a, b) => b.length - a.length).map(w => esc(w).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    if (ws.length){ try{ h = h.replace(new RegExp('(' + ws.join('|') + ')', 'gi'), '<b>$1</b>'); }catch(e){} }
+    return h;
+  };
+  const fav = d => '<img alt="" loading="lazy" src="https://www.google.com/s2/favicons?domain=' + encodeURIComponent(host(d)) + '&sz=64" onerror="this.replaceWith(Object.assign(document.createElement(\'i\'),{textContent:\'' + esc(brand(d).charAt(0) || '•') + '\'}))">';
   const withStart = (u, p) => { if (!u) return ''; try{ const x = new URL(u); if (p > 1) x.searchParams.set('start', String((p - 1) * 10)); else x.searchParams.delete('start'); return x.toString(); }catch(e){ return u; } };
   const withTbm = (u, t) => { if (!u) return ''; try{ const x = new URL(u); x.searchParams.delete('start'); if (t) x.searchParams.set('tbm', t); else x.searchParams.delete('tbm'); return x.toString(); }catch(e){ return u; } };
-  const icon = {
-    search: '<svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M15.5 14h-.8l-.3-.3A6.5 6.5 0 1 0 9.5 16a6.5 6.5 0 0 0 4.2-1.6l.3.3v.8l5 5 1.5-1.5-5-5zm-6 0a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9z"/></svg>',
-    x: '<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M19 6.4 17.6 5 12 10.6 6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12z"/></svg>',
-    lock: '<svg viewBox="0 0 24 24" width="13" height="13"><path fill="currentColor" d="M17 9h-1V7a4 4 0 0 0-8 0v2H7a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2zm-7-2a2 2 0 0 1 4 0v2h-4V7z"/></svg>',
-    pin: '<svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg>',
-    star: '<svg viewBox="0 0 24 24" width="12" height="12"><path fill="currentColor" d="m12 17.3 6.2 3.7-1.6-7 5.4-4.7-7.1-.6L12 2 9.1 8.7 2 9.3l5.4 4.7-1.6 7z"/></svg>',
-    back: '<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M20 11H7.8l5.6-5.6L12 4l-8 8 8 8 1.4-1.4L7.8 13H20z"/></svg>',
-    fwd: '<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="m12 4-1.4 1.4 5.6 5.6H4v2h12.2l-5.6 5.6L12 20l8-8z"/></svg>',
-    ref: '<svg viewBox="0 0 24 24" width="17" height="17"><path fill="currentColor" d="M17.7 6.3A8 8 0 1 0 19.9 14h-2.1a6 6 0 1 1-1.4-6.2L13 11h7V4z"/></svg>'
+  const gq = t => 'https://www.google.com/search?q=' + encodeURIComponent(t);
+  const I = {
+    x: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M19 6.4 17.6 5 12 10.6 6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12z"/></svg>',
+    mic: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 15a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v7a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.9V22h2v-3.1a7 7 0 0 0 6-6.9h-2z"/></svg>',
+    lens: '<svg viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" d="M4 9V6a2 2 0 0 1 2-2h3M15 4h3a2 2 0 0 1 2 2v3M20 15v3a2 2 0 0 1-2 2h-3M9 20H6a2 2 0 0 1-2-2v-3"/><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
+    dots: '<svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.8" fill="currentColor"/><circle cx="12" cy="12" r="1.8" fill="currentColor"/><circle cx="12" cy="19" r="1.8" fill="currentColor"/></svg>',
+    web: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm6.9 6h-2.9a15.7 15.7 0 0 0-1.4-3.6A8 8 0 0 1 18.9 8zM12 4c.8 1.2 1.5 2.5 1.9 4h-3.8c.4-1.5 1.1-2.8 1.9-4zM4.3 14a8.2 8.2 0 0 1 0-4h3.4a16.5 16.5 0 0 0 0 4H4.3zm.8 2h3a15.7 15.7 0 0 0 1.3 3.6A8 8 0 0 1 5.1 16zm3-8h-3a8 8 0 0 1 4.3-3.6C8.8 5.5 8.4 6.7 8.1 8zM12 20c-.8-1.2-1.5-2.5-1.9-4h3.8c-.4 1.5-1.1 2.8-1.9 4zm2.3-6H9.7a14.7 14.7 0 0 1 0-4h4.6a14.7 14.7 0 0 1 0 4zm.3 5.6c.6-1.1 1-2.3 1.3-3.6h3a8 8 0 0 1-4.3 3.6zm1.7-5.6a16.5 16.5 0 0 0 0-4h3.4a8.2 8.2 0 0 1 0 4h-3.4z"/></svg>',
+    dir: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M21.7 11.3 12.7 2.3a1 1 0 0 0-1.4 0l-9 9a1 1 0 0 0 0 1.4l9 9a1 1 0 0 0 1.4 0l9-9a1 1 0 0 0 0-1.4zM14 14.5V12h-4v3H8v-4a1 1 0 0 1 1-1h5V7.5l3.5 3.5-3.5 3.5z"/></svg>',
+    chev: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M7.4 8.6 12 13.2l4.6-4.6L18 10l-6 6-6-6z"/></svg>',
+    right: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M8.6 16.6 13.2 12 8.6 7.4 10 6l6 6-6 6z"/></svg>',
+    star: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="m12 17.3 6.2 3.7-1.6-7 5.4-4.7-7.1-.6L12 2 9.1 8.7 2 9.3l5.4 4.7-1.6 7z"/></svg>',
+    ext: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M14 3v2h3.6l-9.8 9.8 1.4 1.4L19 6.4V10h2V3h-7zm5 16H5V5h7V3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7h-2v7z"/></svg>'
   };
-  /* The site name shown above a result: the brand at the end of its title when
-     there is one ("… | Goldridge Industries"), otherwise the domain tidied up. */
-  const siteOf = (url, ti) => { const m = String(ti || '').split(/\s[|\u2013\u2014-]\s/); const tail = m.length > 1 ? m[m.length - 1].trim() : ''; return tail && tail.length <= 32 ? tail : site(url); };
+  const stars = v => { const n = Math.round(Number(v) * 2) / 2; let h = ''; for (let i = 1; i <= 5; i++) h += '<i class="' + (n >= i ? 'f' : n >= i - .5 ? 'h' : '') + '">' + I.star + '</i>'; return h; };
+
+  /* ---- the map pack ---- */
+  const P = Array.isArray(s.m) ? s.m : [];
+  const ll = Array.isArray(s.ll) ? s.ll : null;
+  const mapHtml = () => {
+    const W = 720, H = 225;
+    const pts = P.map((m, i) => (m[9] != null && m[10] != null) ? [m[9], m[10]] : null);
+    const known = pts.filter(Boolean);
+    let cLat = ll ? ll[0] : known.length ? known[0][0] : 52.27, cLng = ll ? ll[1] : known.length ? known[0][1] : -113.81, z = 11;
+    if (known.length){
+      const all = known.concat(ll ? [ll] : []);
+      const la = all.map(p => p[0]), lo = all.map(p => p[1]);
+      cLat = (Math.max(...la) + Math.min(...la)) / 2; cLng = (Math.max(...lo) + Math.min(...lo)) / 2;
+      for (z = 14; z > 5; z--){ const sc = 256 * Math.pow(2, z); const dx = (Math.max(...lo) - Math.min(...lo)) / 360 * sc; const y = d => (1 - Math.log(Math.tan(d * Math.PI / 180) + 1 / Math.cos(d * Math.PI / 180)) / Math.PI) / 2 * sc; const dy = Math.abs(y(Math.max(...la)) - y(Math.min(...la))); if (dx < W * .7 && dy < H * .62) break; }
+    }
+    const sc = 256 * Math.pow(2, z);
+    const X = lng => (lng + 180) / 360 * sc, Y = lat => (1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * sc;
+    const cx = X(cLng), cy = Y(cLat), x0 = cx - W / 2, y0 = cy - H / 2;
+    let tiles = '';
+    for (let tx = Math.floor(x0 / 256); tx <= Math.floor((x0 + W) / 256); tx++) for (let ty = Math.floor(y0 / 256); ty <= Math.floor((y0 + H) / 256); ty++){
+      const n = Math.pow(2, z), wx = ((tx % n) + n) % n; if (ty < 0 || ty >= n) continue;
+      tiles += '<img alt="" src="https://' + 'abcd'.charAt((tx + ty) & 3) + '.basemaps.cartocdn.com/dark_all/' + z + '/' + wx + '/' + ty + '@2x.png" style="left:' + ((tx * 256 - x0) / W * 100).toFixed(3) + '%;top:' + (ty * 256 - y0).toFixed(1) + 'px;width:' + (256 / W * 100).toFixed(3) + '%">';
+    }
+    const spread = [[-.16, -.05], [.12, .18], [.05, -.22]];
+    const pins = P.map((m, i) => {
+      const p = pts[i];
+      const left = p ? (X(p[1]) - x0) / W * 100 : 50 + spread[i % 3][0] * 100, top = p ? (Y(p[0]) - y0) : H / 2 + spread[i % 3][1] * H;
+      return '<a class="gx-pin' + (m[2] ? ' me' : '') + '" style="left:' + left.toFixed(2) + '%;top:' + top.toFixed(1) + 'px" href="' + esc(m[8] ? 'https://maps.google.com/?cid=' + m[8] : gq(m[1])) + '" ' + A + '><svg viewBox="0 0 27 43"><path d="M13.5 0C6 0 0 6 0 13.5 0 23.6 13.5 43 13.5 43S27 23.6 27 13.5C27 6 21 0 13.5 0z"/><circle cx="13.5" cy="13.5" r="5" fill="#B31412"/></svg><span>' + esc(m[1]) + '</span></a>';
+    }).join('');
+    const me = ll ? '<i class="gx-you" style="left:' + ((X(ll[1]) - x0) / W * 100).toFixed(2) + '%;top:' + (Y(ll[0]) - y0).toFixed(1) + 'px"></i>' : '';
+    return '<div class="gx-map">' + tiles + me + pins + '<span class="gx-attr">© OpenStreetMap © CARTO</span></div>';
+  };
+  const placeHtml = m => {
+    const site = m[7], ph = m[4], rt = m[5], vt = m[6];
+    const lines = String(m[3] || '').split(/\s·\s/).filter(Boolean);
+    const cat = lines.length ? lines[0] : '';
+    const rest = lines.slice(1).join(' · ');
+    const nameHref = m[8] ? 'https://maps.google.com/?cid=' + m[8] : gq(m[1] + ' ' + (loc.label || ''));
+    const dirHref = 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(m[1]);
+    return '<div class="gx-pl' + (m[2] ? ' me' : '') + '" data-href="' + esc(site ? href(site) : nameHref) + '">' +
+      '<div class="gx-pl-l">' + (m[2] ? '<div class="gx-tag">' + I.star + esc(who) + ' · map pack #' + esc(String(m[0])) + '</div>' : '') +
+        '<a class="gx-pl-n" href="' + esc(nameHref) + '" ' + A + '>' + esc(m[1]) + '</a>' +
+        (rt != null ? '<div class="gx-rt"><span>' + Number(rt).toFixed(1) + '</span><span class="gx-st">' + stars(rt) + '</span>' + (vt != null ? '<span>(' + Number(vt).toLocaleString() + ')</span>' : '') + (cat ? '<span class="dot">·</span><span>' + esc(cat) + '</span>' : '') + '</div>' : (cat ? '<div class="gx-pl-c">' + esc(cat) + '</div>' : '')) +
+        ((rest || ph) ? '<div class="gx-pl-c">' + esc(rest) + (rest && ph ? ' · ' : '') + esc(ph) + '</div>' : '') +
+      '</div>' +
+      '<div class="gx-pl-b">' + (site ? '<a href="' + esc(href(site)) + '" ' + A + '><span>' + I.web + '</span>Website</a>' : '') + '<a href="' + esc(dirHref) + '" ' + A + '><span>' + I.dir + '</span>Directions</a></div></div>';
+  };
+  const pack = P.length ? '<div class="gx-pack">' + mapHtml() + P.map(placeHtml).join('') +
+    '<div class="gx-more-w"><a class="gx-more" href="' + esc(live ? withTbm(live, 'lcl') : gq(q) + '&tbm=lcl') + '" ' + A + '>More places' + I.right + '</a></div></div>' : '';
+
+  /* ---- website results ---- */
   const res = r => {
-    const me = r[2] === 1, url = r[1] || '', ti = r[3] || site(url), sn = r[4] || '';
-    return '<div class="gs-r' + (me ? ' me' : '') + '" data-pos="' + esc(String(r[0])) + '">' +
-      (me ? '<div class="gs-me-tag">' + icon.star + esc(who) + ' · position ' + esc(String(r[0])) + '</div>' : '') +
-      '<a class="gs-src" href="' + esc(href(url)) + '" target="_blank" rel="noopener noreferrer"><span class="gs-fav">' + fav(url) + '</span><span class="gs-site"><b>' + esc(siteOf(url, r[3])) + '</b><cite>' + crumb(url) + '</cite></span></a>' +
-      '<a class="gs-t" href="' + esc(href(url)) + '" target="_blank" rel="noopener noreferrer"><h3>' + esc(ti) + '</h3></a>' +
-      (sn ? '<div class="gs-sn">' + esc(sn) + '</div>' : '') +
-      '<span class="gs-pos">#' + esc(String(r[0])) + '</span></div>';
+    const me = r[2] === 1, url = r[1] || '', ti = r[3] || brand(url);
+    const links = Array.isArray(r[9]) ? r[9].filter(l => l && l[0]) : [];
+    return '<div class="gx-r' + (me ? ' me' : '') + '" data-pos="' + esc(String(r[0])) + '" data-href="' + esc(href(url)) + '">' +
+      (me ? '<div class="gx-tag">' + I.star + esc(who) + ' · position ' + esc(String(r[0])) + '</div>' : '') +
+      '<div class="gx-src"><a href="' + esc(href(url)) + '" ' + A + '><span class="gx-fav">' + fav(url) + '</span><span class="gx-site"><span class="nm">' + esc(siteOf(url, r[3], r[5])) + '</span><cite>' + crumbOf(url, r[6]) + '</cite></span></a><span class="gx-dots">' + I.dots + '</span></div>' +
+      '<a class="gx-t" href="' + esc(href(url)) + '" ' + A + '><h3>' + esc(ti) + '</h3></a>' +
+      (r[4] ? '<div class="gx-sn">' + (r[8] ? '<span class="dt">' + esc(r[8]) + ' — </span>' : '') + bold(r[4], r[7]) + '</div>' : '') +
+      (links.length ? '<div class="gx-links">' + links.map(l => '<a href="' + esc(href(l[1])) + '" ' + A + '>' + esc(l[0]) + '</a>').join('') + '</div>' : '') +
+      '</div>';
   };
-  const pack = Array.isArray(s.m) && s.m.length
-    ? '<div class="gs-pack"><div class="gs-pack-map"><svg viewBox="0 0 400 150" preserveAspectRatio="xMidYMid slice"><rect width="400" height="150" fill="#e8eef3"/><path d="M0 95 C80 80 120 120 200 98 S330 60 400 78" stroke="#fff" stroke-width="10" fill="none"/><path d="M140 0 L170 150 M290 0 L250 150" stroke="#fff" stroke-width="6"/><path d="M0 40 H400" stroke="#d7e3ec" stroke-width="4"/>' +
-        s.m.map((m, i) => '<g transform="translate(' + [110, 215, 315][i % 3] + ',' + [80, 68, 98][i % 3] + ')"><path d="M0 0c-7-10-11-15-11-20a11 11 0 1 1 22 0c0 5-4 10-11 20z" fill="' + (m[2] ? '#E8772E' : '#EA4335') + '" stroke="#fff" stroke-width="2"/><text x="0" y="-17" font-size="10" font-weight="700" fill="#fff" text-anchor="middle">' + esc(String(m[0])) + '</text></g>').join('') + '</svg></div>' +
-      '<div class="gs-pack-h">Places</div>' + s.m.map(m => '<div class="gs-pl' + (m[2] ? ' me' : '') + '"><span class="gs-pl-n">' + esc(String(m[0])) + '</span><div><b>' + esc(m[1] || '') + '</b>' + (m[2] ? '<span class="gs-me-pill">' + icon.star + 'Your client</span>' : '') + '</div></div>').join('') +
-      (live ? '<a class="gs-more" href="' + esc(withTbm(live, 'lcl')) + '" target="_blank" rel="noopener noreferrer">More places →</a>' : '') + '</div>'
-    : '';
+  const qa = Array.isArray(s.qa) && s.qa.length ? '<div class="gx-paa"><h2>People also ask</h2>' + s.qa.map(t => '<a class="gx-qa" href="' + esc(gq(t)) + '" ' + A + '><span>' + esc(t) + '</span>' + I.chev + '</a>').join('') + '</div>' : '';
+  const pa = Math.max(0, Math.min(rows.length, Number(s.pa) || 0));
+  let body = '';
+  if (page === 1){
+    body = rows.slice(0, pa).map(res).join('') + pack;
+    const rest = rows.slice(pa);
+    body += rest.slice(0, 2).map(res).join('') + qa + rest.slice(2).map(res).join('');
+  } else body = rows.map(res).join('');
   const pages = Math.max(page, Math.min(10, Math.ceil((s.n || 10) / 10)));
-  const pager = '<nav class="gs-pager">' + (page > 1 && live ? '<a href="' + esc(withStart(live, page - 1)) + '" target="_blank" rel="noopener noreferrer">‹ Previous</a>' : '') +
-    Array.from({length: pages}, (_, i) => i + 1).map(n => n === page ? '<b>' + n + '</b>' : (live ? '<a href="' + esc(withStart(live, n)) + '" target="_blank" rel="noopener noreferrer" title="Opens live Google, page ' + n + '">' + n + '</a>' : '<span>' + n + '</span>')).join('') +
-    (page < pages && live ? '<a href="' + esc(withStart(live, page + 1)) + '" target="_blank" rel="noopener noreferrer">Next ›</a>' : '') + '</nav>';
-  const tabs = [['All', ''], ['Maps', 'lcl'], ['Images', 'isch'], ['News', 'nws'], ['Videos', 'vid'], ['Shopping', 'shop']];
-  const verdict = rank > 0 ? who + ' is at position ' + rank + (page > 1 ? ' (page ' + page + ')' : ' on page one') : who + ' isn’t in the ' + (s.n ? 'first ' + s.n + ' results' : 'results');
+  const pager = '<nav class="gx-pager">' + (page > 1 && live ? '<a class="pv" href="' + esc(withStart(live, page - 1)) + '" ' + A + '>Previous</a>' : '') +
+    Array.from({length: pages}, (_, i) => i + 1).map(n => n === page ? '<b>' + n + '</b>' : '<a href="' + esc(live ? withStart(live, n) : gq(q) + '&start=' + (n - 1) * 10) + '" ' + A + '>' + n + '</a>').join('') +
+    (page < pages ? '<a class="nx" href="' + esc(live ? withStart(live, page + 1) : gq(q) + '&start=' + page * 10) + '" ' + A + '>Next</a>' : '') + '</nav>';
+  const tabs = [['All', ''], ['Maps', 'lcl'], ['Images', 'isch'], ['News', 'nws'], ['Videos', 'vid'], ['Shopping', 'shop'], ['Forums', ''], ['More', '']];
+  const verdict = rank > 0 ? '#' + rank + (page > 1 ? ' · page ' + page : '') : 'Not in the first ' + (s.n || 100);
   const ov = D.createElement('div');
-  ov.id = 'seoSnap'; ov.className = 'gs-ov';
-  ov.innerHTML = '<div class="gs-win" role="dialog" aria-label="Search results for ' + esc(q) + '">' +
-    '<div class="gs-chrome"><div class="gs-tabbar"><div class="gs-tab"><span class="gs-tab-ic">' + icon.search + '</span><span>' + esc(q) + ' – Search results</span></div><span class="gs-sp"></span><button type="button" class="gs-x" aria-label="Close">' + icon.x + '</button></div>' +
-      '<div class="gs-bar"><span class="gs-nav">' + icon.back + icon.fwd + icon.ref + '</span><div class="gs-addr">' + icon.lock + '<span><b>Saved results</b> · ' + esc(q) + (loc.label ? ' · ' + esc(loc.label) : '') + (when ? ' · ' + esc(when) : '') + '</span></div>' +
-      (live ? '<a class="gs-live" href="' + esc(withStart(live, page)) + '" target="_blank" rel="noopener noreferrer" data-snap-live>Open live Google ↗</a>' : '') + '</div></div>' +
-    '<div class="gs-page"><div class="gs-top"><div class="gs-box">' + icon.search + '<span>' + esc(q) + '</span></div></div>' +
-      '<div class="gs-tabs">' + tabs.map((t, i) => i === 0 ? '<span class="on">' + t[0] + '</span>' : (live ? '<a href="' + esc(withTbm(live, t[1])) + '" target="_blank" rel="noopener noreferrer">' + t[0] + '</a>' : '<span>' + t[0] + '</span>')).join('') + '</div>' +
-      '<div class="gs-body"><div class="gs-main">' +
-        '<div class="gs-stats">' + (s.n ? 'About ' + s.n + ' results read' : 'Results') + (loc.label ? ' · ' + icon.pin + esc(loc.label) : '') + (page > 1 ? ' · page ' + page : '') + '</div>' +
-        '<div class="gs-verdict ' + (rank > 0 ? 'win' : 'miss') + '"><b>' + (rank > 0 ? '#' + rank : '—') + '</b><span>' + esc(verdict) + '.<small>These are the exact results the scan read' + (when ? ' on ' + esc(when) : '') + ', so everyone who opens this page sees the same thing.</small></span></div>' +
-        (page === 1 ? pack : '') +
-        (rows.length ? rows.map(res).join('') : '<div class="gs-empty">No results were saved for this search.</div>') +
-        pager + '</div>' +
-        (page > 1 && pack ? '<aside class="gs-side">' + pack + '</aside>' : '') +
-      '</div></div></div>';
+  ov.id = 'seoSnap'; ov.className = 'gx-ov';
+  ov.innerHTML = '<div class="gx-win" role="dialog" aria-label="Search results for ' + esc(q) + '">' +
+    '<div class="gx-strip"><span class="gx-badge ' + (rank > 0 ? 'win' : 'miss') + '">' + esc(who) + ' · ' + esc(verdict) + '</span><span class="gx-note">Saved results' + (loc.label ? ' · ' + esc(loc.label) : '') + (when ? ' · ' + esc(when) : '') + '</span><span class="gx-sp"></span>' +
+      (live ? '<a class="gx-live" href="' + esc(withStart(live, page)) + '" ' + A + ' data-snap-live>' + I.ext + 'Open live Google</a>' : '') + '<button type="button" class="gx-x" aria-label="Close">' + I.x + '</button></div>' +
+    '<div class="gx-page">' +
+      '<header class="gx-head"><a class="gx-logo" href="https://www.google.com/" ' + A + '>Google</a><div class="gx-box"><span class="q">' + esc(q) + '</span><span class="ic">' + I.x + '</span><span class="dv"></span><span class="ic b">' + I.mic + '</span><span class="ic b">' + I.lens + '</span></div></header>' +
+      '<div class="gx-tabs">' + tabs.map((t, i) => i === 0 ? '<span class="on">' + t[0] + '</span>' : '<a href="' + esc(live && t[1] ? withTbm(live, t[1]) : gq(q) + (t[1] ? '&tbm=' + t[1] : '')) + '" ' + A + '>' + t[0] + (t[0] === 'More' ? I.chev : '') + '</a>').join('') + '<span class="gx-sp"></span><span class="gx-tools">Tools</span></div>' +
+      '<main class="gx-main">' + (rows.length || P.length ? body : '<div class="gx-empty">No results were saved for this search.</div>') + pager + '</main>' +
+    '</div></div>';
   const onKey = e => { if (e.key === 'Escape') close(); };
-  const close = () => { ov.classList.add('out'); setTimeout(() => ov.remove(), 180); D.removeEventListener('keydown', onKey, true); };
-  ov.addEventListener('click', e => { if (e.target === ov || e.target.closest('.gs-x')) close(); });
+  const close = () => { ov.classList.add('out'); setTimeout(() => ov.remove(), 220); D.removeEventListener('keydown', onKey, true); };
+  ov.addEventListener('click', e => {
+    if (e.target === ov || e.target.closest('.gx-x')){ close(); return; }
+    /* Anywhere on a result opens its site, not just the title. */
+    if (e.target.closest('a, button')) return;
+    const card = e.target.closest('[data-href]');
+    if (card && card.dataset.href && card.dataset.href !== '#'){ const sel = (D.defaultView || window).getSelection(); if (sel && String(sel).length) return; (D.defaultView || window).open(card.dataset.href, '_blank', 'noopener'); }
+  });
   D.addEventListener('keydown', onKey, true);
   D.body.appendChild(ov);
-  ov.querySelectorAll('a[data-snap-live], .gs-pager a, .gs-tabs a, .gs-more').forEach(a => { const f = () => { a.href = seoFreshUule(a.href); }; a.addEventListener('pointerdown', f); });
-  const me = ov.querySelector('.gs-r.me') || ov.querySelector('.gs-pl.me');
-  if (me){ setTimeout(() => { const pg = ov.querySelector('.gs-page'); if (pg && me.offsetTop > pg.clientHeight * 0.6) pg.scrollTo({top: me.offsetTop - pg.clientHeight / 3, behavior: 'smooth'}); me.classList.add('ping'); }, 220); }
+  ov.querySelectorAll('a[data-snap-live], .gx-pager a, .gx-tabs a, .gx-more').forEach(a => { if (a.href.indexOf('uule=') > -1){ const f = () => { a.href = seoFreshUule(a.href); }; a.addEventListener('pointerdown', f); } });
+  const me = ov.querySelector('.gx-r.me') || ov.querySelector('.gx-pl.me');
+  if (me){ setTimeout(() => { const pg = ov.querySelector('.gx-page'); if (pg && me.offsetTop > pg.clientHeight * 0.6) pg.scrollTo({top: me.offsetTop - pg.clientHeight / 3, behavior: 'smooth'}); me.classList.add('ping'); }, 260); }
 }
 function glyphCheck(){ return '<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg>'; }
 function seoSearchIcon(){ return '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>'; }
@@ -22748,9 +22830,9 @@ async function seoSerperRead(keyword, p, region, o){
   const key = (state.settings.serperKey || '').trim();
   const url = (state.settings.proxyPrefix || '').trim() + 'https://google.serper.dev/search';
   const pages = Math.max(1, Math.min(10, Math.ceil(o.depth / 10)));
-  const organic = [], seen = new Set();
+  const organic = [], seen = new Set(), localPack = [], paa = [];
   let exhausted = false, pagesRead = 0;
-  const done = extra => Object.assign({organic, partial:false, partialNote:null, depthAsked:o.depth,
+  const done = extra => Object.assign({organic, localPack, paa, partial:false, partialNote:null, depthAsked:o.depth,
     depthRead:organic.length, pagesRead, exhausted, precision:'coordinate'}, extra || {});
   for (let page = 1; page <= pages; page++){
     const body = {
@@ -22778,6 +22860,13 @@ async function seoSerperRead(keyword, p, region, o){
     if (o.meter) o.meter.credits += 1;
     pagesRead++;
     const rows = data.organic || [];
+    /* Page one's map pack and questions, kept for "view the search". */
+    if (page === 1){
+      (data.places || []).slice(0, 3).forEach((x, i) => localPack.push({title: x.title || '', domain: x.website ? cleanDomain(x.website) : null, url: x.website || null, rank: i + 1,
+        desc: [x.category, x.address].filter(Boolean).join(' · '), phone: x.phoneNumber || '', rating: x.rating != null ? x.rating : null, votes: x.ratingCount != null ? x.ratingCount : null,
+        cid: x.cid || '', lat: x.latitude, lng: x.longitude}));
+      (data.peopleAlsoAsk || []).slice(0, 4).forEach(x => { if (x && x.question) paa.push(x.question); });
+    }
     if (!rows.length){ exhausted = page > 1; break; }
     rows.forEach(x => {
       const link = x.link || '';
@@ -22785,7 +22874,8 @@ async function seoSerperRead(keyword, p, region, o){
       if (link) seen.add(link);
       /* Counted across pages rather than trusting the per-page position,
          which restarts at 1 on every page. */
-      organic.push({title: x.title || '', domain: link ? cleanDomain(link) : null, url: link || null, snippet: x.snippet || '', position: organic.length + 1, page: page});
+      organic.push({title: x.title || '', domain: link ? cleanDomain(link) : null, url: link || null, snippet: x.snippet || '', position: organic.length + 1, page: page,
+        date: x.date || '', links: (x.sitelinks || []).slice(0, 4).map(l => [String(l.title || '').slice(0, 40), l.link || ''])});
     });
     if (o.match && organic.some(o.match)) break;
   }
@@ -23214,12 +23304,18 @@ async function seoScanOne(client, kw, loc, hooks){
       for (let j = 0; j < organic.length && rows.length < 12; j++){
         if (pgOf(j) !== cp) continue;
         const r = organic[j];
-        rows.push([r.position != null ? r.position : j + 1, short(r.url || r.domain).slice(0, 90), scored[j] && scored[j].counts ? 1 : 0, String(r.title || '').slice(0, 72), String(r.snippet || '').replace(/\s+/g, ' ').slice(0, 130)]);
+        /* [position, link, is client, title, description, site name, breadcrumb, bolded words, date, sitelinks] */
+        rows.push([r.position != null ? r.position : j + 1, short(r.url || r.domain).slice(0, 120), scored[j] && scored[j].counts ? 1 : 0, String(r.title || '').slice(0, 90), String(r.snippet || '').replace(/\s+/g, ' ').slice(0, 170),
+          String(r.site || '').slice(0, 40), String(r.crumb || '').slice(0, 90), (r.hl || []).map(h => String(h).slice(0, 30)).slice(0, 5), String(r.date || '').slice(0, 20), (r.links || []).slice(0, 4)]);
       }
-      const pack = Array.isArray(data.localPack) && data.localPack.length
-        ? data.localPack.slice(0, 3).map(it => [it.rank, String(it.title || '').slice(0, 45), seoPackIsClient(it, client) ? 1 : 0])
-        : null;
-      loc.snap = {v: 2, at: Date.now(), n: organic.length, p: cp, r: rows, m: pack};
+      const lp = Array.isArray(data.localPack) ? data.localPack.slice(0, 3) : [];
+      /* [rank, name, is client, description, phone, rating, reviews, website, cid, lat, lng] */
+      const pack = lp.length ? lp.map(it => [it.rank, String(it.title || '').slice(0, 60), seoPackIsClient(it, client) ? 1 : 0, String(it.desc || '').replace(/\s+/g, ' ').slice(0, 140), String(it.phone || '').slice(0, 24),
+        it.rating != null ? Number(it.rating) : null, it.votes != null ? Number(it.votes) : null, String(it.url || '').slice(0, 120), String(it.cid || ''), it.lat != null ? +Number(it.lat).toFixed(5) : null, it.lng != null ? +Number(it.lng).toFixed(5) : null]) : null;
+      /* How many website results sat above the map pack on page one. */
+      let pa = 0;
+      if (lp.length && lp[0].abs != null && cp === 1) pa = rows.filter(r => { const o = organic.find(x => x.position === r[0]); return o && o.abs != null && o.abs < lp[0].abs; }).length;
+      loc.snap = {v: 3, at: Date.now(), n: organic.length, p: cp, r: rows, m: pack, pa, ll: [+Number(g.lat).toFixed(5), +Number(g.lng).toFixed(5)], qa: (data.paa || []).slice(0, 4).map(x => String(x).slice(0, 90))};
     }catch(e){ loc.snap = null; }
     /* Which shape of request actually answered. 'country' means the pin was
        refused and this is a nationwide reading, not a local one. */
@@ -29409,7 +29505,7 @@ html.kwr-embedded body::-webkit-scrollbar-thumb:hover{background:#9aa7b3;backgro
 <link rel="stylesheet" href="edge-viz.css?v=2"/>
 <link rel="stylesheet" href="edge-serp-viz.css?v=2"/>
 <link rel="stylesheet" href="edge-wild.css?v=3"/>
-<link rel="stylesheet" href="edge-serp-page.css?v=2"/>
+<link rel="stylesheet" href="edge-serp-page.css?v=4"/>
 <link rel="stylesheet" href="edge-premium.css?v=1"/>
 <script src="edge-premium.js?v=1"></script>
 </body>
