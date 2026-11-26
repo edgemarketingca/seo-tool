@@ -43,7 +43,7 @@
       cl.querySelectorAll('button, [role="button"], svg, img, style, script, [aria-hidden="true"]').forEach(n => n.remove());
       cl.querySelectorAll('a').forEach(n => { if (T(n).length > 45 || n.querySelector('div')) n.remove(); });
       const hold = document.createElement('div'); hold.style.cssText = 'position:fixed;left:-10000px;top:0;width:680px;'; hold.appendChild(cl); document.body.appendChild(hold);
-      let txt = (cl.innerText || '').replace(/^AI Overview\s*/i, '').replace(/\n(Show (more|less|all)|Dive deeper in AI Mode|AI responses may include mistakes\.?.*|Learn more)$/gim, '').replace(/\n{3,}/g, '\n\n').trim();
+      let txt = (cl.innerText || '').replace(/(^|\s)(?:www\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,}\s*\+\s*\d+(?=\s|$)/gim, '$1').replace(/^AI Overview\s*/i, '').replace(/\n(Show (more|less|all)|Dive deeper in AI Mode|AI responses may include mistakes\.?.*|Learn more)$/gim, '').replace(/\n{3,}/g, '\n\n').trim();
       hold.remove();
       out.ai = {t: clip(txt, 3200), r: refs, a: 1};
     }

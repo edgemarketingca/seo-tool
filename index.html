@@ -22615,7 +22615,7 @@ function seoOpenSnapshot(loc, k, c, liveUrl){
      the client's own result is marked. */
   const s = loc && loc.snap;
   const D = (() => { try{ const p = window.parent; if (p && p !== window && p.location.origin === location.origin && p.document.body) return p.document; }catch(e){} return document; })();
-  if (D !== document && !D.querySelector('link[href*="edge-serp-page.css"]')){ const ln = D.createElement('link'); ln.rel = 'stylesheet'; ln.href = new URL('edge-serp-page.css?v=7', location.href).href; D.head.appendChild(ln); }
+  if (D !== document && !D.querySelector('link[href*="edge-serp-page.css"]')){ const ln = D.createElement('link'); ln.rel = 'stylesheet'; ln.href = new URL('edge-serp-page.css?v=8', location.href).href; D.head.appendChild(ln); }
   const old = D.getElementById('seoSnap'); if (old) old.remove();
   const live = seoFreshUule(liveUrl || (loc && loc.sourceUrl ? seoRankPageUrl(loc) || loc.sourceUrl : '') || '');
   if (!s){ if (live) window.open(live, '_blank', 'noopener'); return; }
@@ -22741,6 +22741,9 @@ function seoOpenSnapshot(loc, k, c, liveUrl){
      Google's light-blue highlight. */
   const cleanAi = t => {
     let x = String(t || '').replace(/\r/g, '')
+      /* Google's source button ("www.site.ca +3") read as text */
+      .replace(/(^|\s)(?:www\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,}(?:\s*\+\s*\d+)(?=\s|$)/gim, '$1')
+      .replace(/(^|\s)(?:www\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,}(?=\s*$)/gim, '$1')
       .replace(/\[\s*Highlight start\s*\]\s*/gi, '\u27e6').replace(/\s*\[\s*Highlight end\s*\]/gi, '\u27e7');
     const junk = /^(show (more|less|all)|dive deeper in ai mode|ai responses may include mistakes.*|learn more|generative ai is experimental.*|thank you.*|your feedback.*|listen|share|copy|more|[\.\u00b7\u2022,\s]*)$/i;
     const lines = x.split('\n').map(l => l.trim()).filter(l => !junk.test(l));

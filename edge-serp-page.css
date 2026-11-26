@@ -26,7 +26,7 @@
 /* page */
 .gx-page{flex:1;overflow:auto;padding-bottom:60px;scroll-behavior:smooth;}
 .gx-head{display:flex;align-items:center;gap:0;padding:20px 0 0;}
-.gx-logo{width:180px;flex:none;padding-left:28px;font:400 30px/1 "Product Sans","Google Sans",Arial,sans-serif;color:#4285f4 !important;letter-spacing:-.6px;}
+.gx-logo{width:180px;flex:none;padding-left:28px;font:500 36px/1 "Product Sans","Google Sans",Arial,sans-serif;color:#4285f4 !important;letter-spacing:-1px;}
 .gx-box{flex:1;max-width:692px;height:56px;border-radius:28px;background:#fff;border:1px solid #dfe1e5;display:flex;align-items:center;padding:0 10px 0 22px;gap:4px;box-shadow:0 1px 6px rgba(32,33,36,.28);}
 .gx-box .q{flex:1;font-size:16px;color:#202124;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .gx-box .ic{width:40px;height:40px;display:grid;place-items:center;color:#70757a;}
