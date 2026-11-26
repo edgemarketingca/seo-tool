@@ -7108,6 +7108,7 @@ body.embed-clean .rank-dot.wide{box-shadow:0 0 0 2px #fff,0 0 0 3.5px rgba(212,6
               <button class="btn btn-quiet rfsh-inline" type="button" data-refresh title="Pull the newest copy and show any change Claude has made (R)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg><span>Refresh</span></button>
               <button class="btn btn-quiet" id="seoKwSaveBtn" type="button" title="Write this client’s keywords to the browser and the cloud right now (Ctrl+S)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg><span class="save-now-label">Save now</span></button>
             </div>
+            <div class="seo-chrome-bar" id="seoChromeBar" aria-live="polite"></div>
             <div class="seo-scan-progress" id="seoScanProgress" style="display:none">
               <div class="seo-scan-bar"><i id="seoScanBarFill"></i></div>
               <span id="seoScanProgressLabel">Scanning…</span>
@@ -22218,9 +22219,39 @@ function seoSerpFeatures(result, items){
   if (chips.length) f.chips = chips;
   return f;
 }
+/* Google has started wrapping result links in its own redirect
+   (google.com/goto, /url). On those pages DataForSEO hands back the redirect
+   as the result's link and domain, so no client could ever match. The real
+   site is taken from the redirect's own target, or failing that from the
+   breadcrumb Google printed under the title (https://site.com > page). */
+function seoRealResultUrl(it){
+  const u = String(it.url || '');
+  const isG = h => /(^|\.)google\.[a-z.]+$/i.test(h || '');
+  let host = '';
+  try{ host = new URL(u).hostname; }catch(e){}
+  if (u && !isG(host) && !(it.domain && isG(it.domain))) return null;
+  try{
+    const x = new URL(u);
+    for (const k of ['url', 'q', 'adurl', 'u', 'dest']){
+      const v = x.searchParams.get(k);
+      if (v && /^https?:\/\//i.test(v)){ const h = new URL(v).hostname; if (!isG(h)) return {url: v, domain: h.replace(/^www\./, '')}; }
+    }
+  }catch(e){}
+  const cr = String(it.breadcrumb || '');
+  const m = /^\s*(https?:\/\/)?([a-z0-9.-]+\.[a-z]{2,})(.*)$/i.exec(cr);
+  if (m && !isG(m[2])){
+    const path = m[3].split('\u203a').map(x => x.trim()).filter(x => x && !/\.\.\.$|\u2026$/.test(x)).map(x => encodeURIComponent(x.replace(/\s+/g, '-')).replace(/%2B/gi, '+')).join('/');
+    return {url: 'https://' + m[2] + (path ? '/' + path : ''), domain: m[2].replace(/^www\./, ''), guessed: true};
+  }
+  return null;
+}
 function seoNormalizeDfsOrganic(data){
   const result = ((((data.tasks || [])[0] || {}).result || [])[0]) || {};
-  const items = result.items || [];
+  const items = (result.items || []).map(it => {
+    if (!it || (it.type !== 'organic' && it.type !== 'featured_snippet')) return it;
+    const real = seoRealResultUrl(it);
+    return real ? Object.assign({}, it, {url: real.url, domain: real.domain, website_name: real.guessed ? '' : it.website_name, _redirected: true}) : it;
+  });
   // rank_group is DataForSEO's own authoritative position within the
   // organic result group (ads/local pack/etc. excluded) — computed by
   // DataForSEO directly from the live SERP. Using it instead of our own
@@ -22264,8 +22295,16 @@ function seoNormalizeDfsOrganic(data){
     const cur = seen.get(key);
     if (!cur || (r.position != null && (cur.position == null || r.position < cur.position))) seen.set(key, r);
   });
-  const deduped = Array.from(seen.values())
+  let deduped = Array.from(seen.values())
     .sort((a, b) => (a.position == null ? 999 : a.position) - (b.position == null ? 999 : b.position));
+  /* On redirect-wrapped pages DataForSEO also repeats one result several
+     times with the same title and site, which pushes everything below it
+     down. Repeats are dropped and positions counted again in page order. */
+  if (items.some(i => i._redirected)){
+    const once = new Set();
+    deduped = deduped.filter(r => { const k = (r.domain || '') + '|' + String(r.title || '').trim().toLowerCase(); if (once.has(k)) return false; once.add(k); return true; });
+    deduped.forEach((r, i) => { r.position = i + 1; });
+  }
   /* Map-pack listings, kept apart from the organic list: they are never a
      website rank, but whether the client is in the pack is worth knowing. */
   const localPack = [];
@@ -22982,6 +23021,13 @@ async function seoSerperRead(keyword, p, region, o){
    err.stopped when the run was stopped before the re-checks finished. */
 async function seoLiveCheck(keyword, p, region, opts){
   const o = opts || {};
+  /* A results page Claude read in Chrome (see EDGE_chromeRecord): taken as it
+     is, matched and saved exactly like a scan, no provider involved. */
+  if (o.inject){
+    const out = o.inject;
+    if (o.onPack && Array.isArray(out.localPack)){ try{ o.onPack(out.localPack); }catch(e){} }
+    return Object.assign(out, {reads: 1, readsMax: 1, failedReads: 0, found: out.organic.some(o.match || (() => false)), chrome: true});
+  }
   const prov = state.settings.provider || 'dataforseo';
   if (prov === 'direct'){
     const err = new Error('Relay mode can\u2019t track keyword ranks. Switch to DataForSEO or Serper on step 4 (GBP Locations), or set the tracker to read Search Console.');
@@ -23125,7 +23171,7 @@ async function seoLiveCheck(keyword, p, region, opts){
     const plan = [];
     if (hasDfs){
       plan.push({k: 'page1', run: () => readOnce('advanced', Math.min(20, depth), 'coordinate', {ai: true, noStop: true})});
-      if (depth > 20) plan.push({k: 'deep', run: () => readOnce('regular', depth, 'coordinate')});
+      if (depth > 20) plan.push({k: 'deep', run: () => readOnce('advanced', depth, 'coordinate')});
     }
     if (hasSerper) plan.push({k: 'serper', run: () => readOnce('', Math.min(depth, 100), 'coordinate', {prov: 'serper', parallel: true})});
     if (hasDfs && !hasSerper) plan.push({k: 'deep2', run: () => readOnce(depth > 20 ? 'advanced' : 'regular', depth, 'coordinate')});
@@ -23318,10 +23364,11 @@ function seoRecordGsc(loc, r, mode, live, liveErr){
    it was) or 'stopped' (nothing was changed). */
 async function seoScanOne(client, kw, loc, hooks){
   const h = hooks || {};
+  if (!h.inject) loc.via = 'scan';
   if (!loc.label || !loc.label.trim()){ loc.error = 'Add a location first.'; return 'error'; }
   if (!client.website || !client.website.trim()){ loc.error = 'Add this client\'s website on the Dashboard tab first.'; return 'error'; }
-  const source = seoRankSource();
-  if (!seoSourceReady()){
+  const source = h.inject ? 'live' : seoRankSource();
+  if (!h.inject && !seoSourceReady()){
     loc.error = source === 'gsc'
       ? 'Search Console isn\u2019t set up yet \u2014 add the OAuth client ID on GBP Locations, step 4.'
       : 'Search provider isn\'t configured yet.';
@@ -23370,7 +23417,7 @@ async function seoScanOne(client, kw, loc, hooks){
         match: r => seoMatchResult(r, client, kw).counts,
         onPack: pack => { const pk = pack.find(it => seoPackIsClient(it, client)); if (pk && (packBest == null || pk.rank < packBest)) packBest = pk.rank; },
         confirm: state.settings.seoConfirmFound !== false,
-        onRead: h.onRead, shouldStop: h.shouldStop, meter: h.meter
+        onRead: h.onRead, shouldStop: h.shouldStop, meter: h.meter, inject: h.inject
       });
     }catch(err){
       if (err && err.stopped) return 'stopped';
@@ -23503,7 +23550,7 @@ async function seoScanOne(client, kw, loc, hooks){
       const ft = data.feat || {}, f = {};
       if (cp === 1){ if (ft.ai) f.ai = ft.ai; if (ft.ads) f.ads = ft.ads; if (ft.chips) f.chips = ft.chips; }
       if (ft.rel) f.rel = ft.rel;
-      loc.snap = {v: 4, f, gl: String((region && region.gl) || '').toLowerCase(), at: Date.now(), n: organic.length, p: cp, r: rows, m: pack, pa, ll: [+Number(g.lat).toFixed(5), +Number(g.lng).toFixed(5)], qa: (data.paa || []).slice(0, 4).map(x => String(x).slice(0, 90))};
+      loc.snap = {v: 4, src: data && data.chrome ? 'chrome' : 'scan', f, gl: String((region && region.gl) || '').toLowerCase(), at: Date.now(), n: organic.length, p: cp, r: rows, m: pack, pa, ll: [+Number(g.lat).toFixed(5), +Number(g.lng).toFixed(5)], qa: (data.paa || []).slice(0, 4).map(x => String(x).slice(0, 90))};
     }catch(e){ loc.snap = null; }
     /* Which shape of request actually answered. 'country' means the pin was
        refused and this is a nationwide reading, not a local one. */
@@ -23705,11 +23752,13 @@ async function seoScanAndRender(c, pairs){
         st = L.error ? 'error' : 'done';
         title = L.error ? 'Couldn\u2019t read this one'
               : L.rank > 0 ? '\u201c' + first.k.text + '\u201d ranks #' + L.rank
+              : L.mapPack > 0 ? '\u201c' + first.k.text + '\u201d: #' + L.mapPack + ' in the map pack'
               : '\u201c' + first.k.text + '\u201d isn\u2019t in the results';
         let how = '';
         if (!L.error && L.precision === 'gsc') how = ' \u00b7 Search Console average, last ' + ((L.gsc && L.gsc.days) || 7) + ' days';
         else if (!L.error && L.rank > 0 && L.reads > 1) how = ' \u00b7 found on read ' + L.reads + ' of ' + L.readsMax;
         else if (!L.error && L.rank === 0 && L.reads) how = ' \u00b7 missed in ' + L.reads + ' separate read' + (L.reads === 1 ? '' : 's');
+        if (!L.error && !(L.rank > 0) && L.mapPack > 0) how = ' \u00b7 not in the website results' + how;
         sub = L.error ? L.error : 'in ' + L.label.trim() + how + ' \u00b7 saved';
       }
       if (spent) sub += ' \u00b7 ' + spent;
@@ -25101,6 +25150,14 @@ function seoLocGroupRow(c, k, loc){
   const text = document.createElement('span');
   text.className = 'seo-lg-text';
   text.textContent = k.text;
+  /* Picks this keyword for Claude's Chrome checks (see EDGE_chromeQueue). */
+  const cpick = document.createElement('button');
+  cpick.type = 'button';
+  cpick.className = 'seo-chrome-pick' + (k.chromePick ? ' on' : '');
+  cpick.title = k.chromePick ? 'In Claude\u2019s Chrome batch \u2014 Claude reads this search on Google in Chrome and records the rank. Click to take it out.' : 'Add to Claude\u2019s Chrome batch: Claude reads this search on real Google in Chrome and records where it ranks';
+  cpick.innerHTML = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.2"/><path d="M12 8.8h8.2M9.2 13.6 5 6.6M14.8 13.6 10.6 21"/></svg>' + (k.chromePick ? 'Chrome check' : 'Chrome');
+  cpick.addEventListener('click', e => { e.stopPropagation(); k.chromePick = !k.chromePick; save(); renderSeoKeywords(); renderSeoChromeBar(); });
+  text.appendChild(cpick);
 
   /* The trend for this keyword at this location. Rows with only one scan get
      a spacer instead, so every row's rank pill still lines up. */
@@ -25314,6 +25371,7 @@ function seoLocGroupRow(c, k, loc){
       (loc.precision === 'country' ? ' \u00b7 <b title="The pinned search was refused, so this position was read for the whole country instead of from this city.">country-wide reading</b>' : '') +
       via + score + miss + reads +
       '<span class="seo-loc-links">' +
+      (loc.via === 'chrome' ? ' \u00b7 <span class="seo-via-chrome">read by Claude in Chrome</span>' : '') +
       ((loc.snap || loc.sourceUrl) ? ' \u00b7 <a href="' + esc(seoLiveUrl(loc)) + '" target="_blank" rel="noopener" data-view-search="1" title="' + (loc.snap ? 'Shows the exact results this rank came from, with the result highlighted.' : 'Opens this search on Google, on the right page, with the result highlighted.') + '">view the search' + (seoRankPage(loc) > 1 ? ' (page ' + seoRankPage(loc) + ')' : '') + '</a>' : '') +
       ' \u00b7 <a href="' + esc(seoLiveUrl(loc)) + '" target="_blank" rel="noopener" data-live-preview="1" class="seo-live-a" title="Opens live Google pinned to ' + esc(loc.label || 'this location') + ', on the page the client sits on' + (Number(loc.rank) > 0 ? ' with their result highlighted' : '') + '. Live results shift a little between searches and for people signed in to Google; a private window gives the cleanest view.">Open live preview' + (Number(loc.rank) > 0 && seoRankPage(loc) > 1 ? ' (page ' + seoRankPage(loc) + ')' : '') + ' \u2197</a></span>';
     /* "view the search" shows the results this rank came from. Live Google moves
@@ -25870,6 +25928,7 @@ const SEO_TRASH_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor
 const SEO_PENCIL_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>';
 
 function renderSeoKeywords(){
+  try{ renderSeoChromeBar(); }catch(e){}
   const c = activeSeoClient(); if (!c) return;
   if (seoSelectedForClientId !== c.id){
     seoSelectedRows = new Set(); seoSelectedForClientId = c.id;
@@ -27388,6 +27447,77 @@ window.EDGE_republishKeywordLinks = async function(){
   }
   return out;
 };
+
+/* ==========================================================================
+   CLAUDE'S CHROME CHECKS
+   Keywords picked with the "Chrome" pill on their row are read by Claude on
+   real Google in the team's Chrome, at most 10 Google pages in any 30
+   minutes. Claude asks for the list (EDGE_chromeQueue), opens each search,
+   reads the page (and the next pages until the client turns up), and hands
+   what it saw to EDGE_chromeRecord, which matches and saves it exactly like a
+   scan, so the rank, history and "view the search" page all fill in. The
+   DataForSEO scan buttons keep working alongside.
+   ========================================================================== */
+const CHROME_WIN = 30 * 60 * 1000, CHROME_MAX = 10;
+function chromeLog(){ try{ return (JSON.parse(localStorage.getItem('edgeChromeLog') || '[]') || []).filter(t => Date.now() - t < CHROME_WIN); }catch(e){ return []; } }
+window.EDGE_chromeBudget = () => { const l = chromeLog().sort((a, b) => a - b); return {left: Math.max(0, CHROME_MAX - l.length), used: l.length, max: CHROME_MAX, freesAt: l.length >= CHROME_MAX ? l[0] + CHROME_WIN : 0}; };
+window.EDGE_chromeSpend = n => { const l = chromeLog(); for (let i = 0; i < (n || 1); i++) l.push(Date.now()); try{ localStorage.setItem('edgeChromeLog', JSON.stringify(l)); }catch(e){} try{ renderSeoChromeBar(); }catch(e){} return window.EDGE_chromeBudget(); };
+function seoChromePicks(){
+  const out = [];
+  for (const c of (state.seoClients || [])){
+    if (!c || c.archived) continue;
+    for (const k of (c.keywords || [])){
+      if (!k.chromePick) continue;
+      for (const l of (k.locations || [])){ if (l && l.label && l.label.trim()) out.push({c, k, l}); }
+    }
+  }
+  return out.sort((a, b) => (a.l.chromeAt || 0) - (b.l.chromeAt || 0));
+}
+window.EDGE_chromeQueue = async () => {
+  const out = [];
+  for (const {c, k, l} of seoChromePicks()){
+    let lat = l.lat, lng = l.lng;
+    if (lat == null || lng == null){ try{ const g = await seoResolveLocation(c, l); if (g){ lat = l.lat = g.lat; lng = l.lng = g.lng; } }catch(e){} }
+    const region = REGIONS[l.regionIdx || 0] || REGIONS[0];
+    let url = null;
+    try{ if (lat != null) url = seoFreshUule(buildScanUrl(k.text, lat, lng, {hl: region.hl, gl: region.gl, depth: 10, surface: 'web', radius: String(l.radius || '93000')})); }catch(e){}
+    if (!url) url = 'https://www.google.com/search?q=' + encodeURIComponent(k.text + ' ' + l.label) + '&hl=' + (region.hl || 'en') + '&gl=' + (region.gl || 'ca');
+    out.push({cid: c.id, client: c.name, site: c.website || '', kid: k.id, kw: k.text, lid: l.id, label: l.label, rank: l.rank, mapPack: l.mapPack || null, last: l.chromeAt || 0, url});
+  }
+  return out;
+};
+window.EDGE_chromeRecord = async (cid, kid, lid, page) => {
+  const c = (state.seoClients || []).find(x => x.id === cid); const k = c && (c.keywords || []).find(x => x.id === kid); const l = k && (k.locations || []).find(x => x.id === lid);
+  if (!l) return {status: 'error', error: 'keyword not found'};
+  if (page && page.blocked){ l.error = 'Google asked for a check in Chrome (CAPTCHA) — not read this time; the last position is unchanged.'; save(); try{ renderSeoKeywords(); }catch(e){} return {status: 'blocked'}; }
+  const P = page || {};
+  const organic = (P.organic || []).map((r, i) => ({title: r.title || '', url: r.url || null, domain: r.url ? cleanDomain(r.url) : null, snippet: r.snippet || '', position: r.pos || i + 1, page: r.page || 1,
+    site: r.site || '', crumb: r.crumb || '', hl: r.hl || [], date: r.date || '', links: r.links || [], abs: r.abs != null ? r.abs : null}));
+  const feat = {}; ['ai', 'ads', 'rel', 'chips'].forEach(x => { if (P[x] && (!Array.isArray(P[x]) || P[x].length)) feat[x] = P[x]; });
+  const inject = {organic, paa: P.paa || [], feat, partial: false, depthAsked: (P.pages || 1) * 10, depthRead: organic.length, pagesRead: P.pages || 1, exhausted: !!P.exhausted, precision: 'coordinate',
+    localPack: (P.pack || []).map((x, i) => ({title: x.title || '', domain: x.url ? cleanDomain(x.url) : null, url: x.url || null, rank: i + 1, desc: x.desc || '', phone: x.phone || '', rating: x.rating != null ? x.rating : null, votes: x.votes != null ? x.votes : null, cid: x.cid || '', lat: x.lat, lng: x.lng, abs: x.abs != null ? x.abs : null}))};
+  const st = await seoScanOne(c, k, l, {inject});
+  l.chromeAt = Date.now(); l.via = 'chrome';
+  save();
+  try{ renderSeoKeywords(); renderSeoChromeBar(); }catch(e){}
+  return {status: st, rank: l.rank, mapPack: l.mapPack || null, page: l.page || null, error: l.error || null};
+};
+/* The bar above the keyword list: how many are picked, the 30-minute budget,
+   and the list itself. */
+function renderSeoChromeBar(){
+  const host = document.getElementById('seoChromeBar'); if (!host) return;
+  const picks = seoChromePicks(), b = window.EDGE_chromeBudget();
+  const c = (state.seoClients || []).find(x => x.id === state.activeSeoClientId) || null;
+  const mine = c ? picks.filter(p => p.c.id === c.id) : picks;
+  const fmt = t => t ? new Date(t).toLocaleString('en-CA', {month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'}) : 'not yet';
+  host.innerHTML = '<div class="scb-h"><span class="scb-ic"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.2"/><path d="M12 8.8h8.2M9.2 13.6 5 6.6M14.8 13.6 10.6 21"/></svg></span>' +
+    '<div class="scb-t"><b>Claude’s Chrome batch</b><small>' + picks.length + ' search' + (picks.length === 1 ? '' : 'es') + ' picked across all clients' + (c ? ' · ' + mine.length + ' for ' + esc(c.name) : '') + ' · ' + b.left + ' of ' + b.max + ' Google pages left in this 30 minutes</small></div>' +
+    '<button type="button" class="btn btn-sm scb-toggle">' + (host.classList.contains('open') ? 'Hide list' : 'Show list') + '</button></div>' +
+    '<div class="scb-list">' + (picks.length ? picks.map(p => '<div class="scb-row"><span class="kw">' + esc(p.k.text) + '</span><span class="cl">' + esc(p.c.name) + ' · ' + esc(p.l.label) + '</span><span class="rk">' + (p.l.via === 'chrome' && p.l.rank > 0 ? '#' + p.l.rank : p.l.via === 'chrome' && p.l.mapPack ? 'map #' + p.l.mapPack : p.l.via === 'chrome' ? 'not found' : '—') + '</span><span class="at">' + (p.l.chromeAt ? 'read ' + fmt(p.l.chromeAt) : 'waiting') + '</span><button type="button" class="scb-x" data-cid="' + esc(p.c.id) + '" data-kid="' + esc(p.k.id) + '" title="Take out of the batch">×</button></div>').join('') : '<div class="scb-empty">Click the “Chrome” pill on any keyword to add it. Claude then reads it on real Google and records the rank.</div>') + '</div>';
+  host.querySelector('.scb-toggle').onclick = () => { host.classList.toggle('open'); renderSeoChromeBar(); };
+  host.querySelectorAll('.scb-x').forEach(x => x.onclick = () => { const cc = state.seoClients.find(y => y.id === x.dataset.cid); const kk = cc && cc.keywords.find(y => y.id === x.dataset.kid); if (kk){ kk.chromePick = false; save(); renderSeoKeywords(); renderSeoChromeBar(); } });
+}
+window.EDGE_renderChromeBar = renderSeoChromeBar;
 
 /* ---------- share dialog ---------- */
 let seoShareClientId = null;
@@ -29694,7 +29824,7 @@ html.kwr-embedded body::-webkit-scrollbar-thumb:hover{background:#9aa7b3;backgro
 <link rel="stylesheet" href="edge-serp-viz.css?v=2"/>
 <link rel="stylesheet" href="edge-wild.css?v=3"/>
 <link rel="stylesheet" href="edge-serp-page.css?v=5"/>
-<link rel="stylesheet" href="edge-premium.css?v=1"/>
+<link rel="stylesheet" href="edge-premium.css?v=2"/>
 <script src="edge-premium.js?v=1"></script>
 </body>
 </html>

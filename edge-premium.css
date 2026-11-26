@@ -245,3 +245,26 @@ html body .rh-card .rh-meter{display:block !important;height:5px !important;min-
   .pm-fade-in,.pm-fade-in-soft,.pm-stagger > *,.rp-w.pm-rise,.rh-card,.rh-hero,.rh-stats div{animation:none !important;}
   #adsStage .os-head::before,.rh-hero::before{animation:none !important;}
 }
+
+/* ---------- Claude's Chrome checks ---------- */
+.seo-chrome-pick{display:inline-flex;align-items:center;gap:4px;margin-left:10px;height:22px;padding:0 8px;border-radius:99px;border:1px dashed #d6d3d1;background:transparent;color:#a8a29e;font:600 11px Inter,sans-serif;cursor:pointer;vertical-align:middle;opacity:0;transition:opacity .2s,background .2s,color .2s,border-color .2s;}
+.seo-lg-row:hover .seo-chrome-pick,.seo-chrome-pick.on{opacity:1;}
+.seo-chrome-pick:hover{border-color:#E8772E;color:#E8772E;}
+.seo-chrome-pick.on{border:1px solid rgba(232,119,46,.45);background:rgba(232,119,46,.1);color:#b4531a;}
+.seo-chrome-bar{margin:12px 0 4px;border:1px solid #F1E3D6;background:linear-gradient(135deg,#FFF9F4,#FFFFFF);border-radius:16px;padding:12px 14px;}
+.seo-chrome-bar:empty{display:none;}
+.seo-chrome-bar .scb-h{display:flex;align-items:center;gap:12px;}
+.seo-chrome-bar .scb-ic{width:34px;height:34px;border-radius:11px;display:grid;place-items:center;background:linear-gradient(135deg,#F59E5B,#E8772E);color:#fff;flex:none;}
+.seo-chrome-bar .scb-t{flex:1;min-width:0;}
+.seo-chrome-bar .scb-t b{display:block;font:650 14px Inter,sans-serif;color:#1c1b19;}
+.seo-chrome-bar .scb-t small{font-size:12px;color:#78716c;}
+.seo-chrome-bar .scb-list{display:none;margin-top:10px;border-top:1px solid #F1E3D6;padding-top:6px;max-height:320px;overflow:auto;}
+.seo-chrome-bar.open .scb-list{display:block;}
+.seo-chrome-bar .scb-row{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1.2fr) 80px 150px 24px;gap:10px;align-items:center;padding:7px 4px;border-bottom:1px solid #F5EEE7;font-size:13px;}
+.seo-chrome-bar .scb-row .kw{font-weight:600;color:#1c1b19;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.seo-chrome-bar .scb-row .cl,.seo-chrome-bar .scb-row .at{color:#78716c;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.seo-chrome-bar .scb-row .rk{font-weight:700;color:#b4531a;}
+.seo-chrome-bar .scb-x{border:0;background:transparent;color:#a8a29e;font-size:18px;cursor:pointer;line-height:1;}
+.seo-chrome-bar .scb-x:hover{color:#dc2626;}
+.seo-chrome-bar .scb-empty{padding:10px 4px;color:#a8a29e;font-size:13px;}
+.seo-via-chrome{color:#b4531a;font-weight:600;}
