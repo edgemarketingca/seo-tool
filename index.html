@@ -22191,6 +22191,33 @@ async function seoResolveLocation(client, loc){
    DataForSEO/Serper response directly and keeps only genuine organic
    (type==='organic') results, in order — exactly what "rank #4 organically"
    means, and exactly what the SERP checker's own live Google tab shows. */
+/* Everything else Google showed on page one, for "view the search": the AI
+   Overview (its text and the sites it cited), sponsored results, "People also
+   search for" and the filter chips. Kept short so a saved scan stays small. */
+function seoSerpFeatures(result, items){
+  const f = {};
+  const clip = (t, n) => String(t || '').replace(/\s+/g, ' ').trim().slice(0, n);
+  const ai = items.find(i => i.type === 'ai_overview');
+  if (ai){
+    let text = ai.markdown || '';
+    if (!text && Array.isArray(ai.items)) text = ai.items.map(x => (x.title ? '**' + x.title + '**\n' : '') + (x.markdown || x.text || '')).join('\n\n');
+    text = String(text).replace(/\[(\d+)\]\([^)]*\)/g, '').replace(/!\[[^\]]*\]\([^)]*\)/g, '').replace(/\n{3,}/g, '\n\n').trim().slice(0, 900);
+    const refs = [];
+    const addRef = r => { if (!r || !r.url || refs.some(x => x[1] === r.url) || refs.length >= 5) return; refs.push([clip(r.title, 80), String(r.url).slice(0, 140), clip(r.source || r.domain || '', 40)]); };
+    (ai.references || []).forEach(addRef);
+    (ai.items || []).forEach(x => (x.references || []).forEach(addRef));
+    if (text || refs.length) f.ai = {t: text, r: refs, a: ai.asynchronous_ai_overview ? 1 : 0};
+  }
+  const ads = items.filter(i => i.type === 'paid').slice(0, 1).map(a => [clip(a.title, 90), String(a.url || '').slice(0, 160), clip(a.breadcrumb || a.domain, 70), clip(a.description, 220), clip(a.website_name || '', 40),
+    (a.links || []).slice(0, 5).map(l => [clip(l.title, 50), clip(l.description, 90), String(l.url || '').slice(0, 140)])]);
+  if (ads.length) f.ads = ads;
+  const rel = [];
+  items.filter(i => i.type === 'related_searches').forEach(it => (it.items || []).forEach(q => { if (q && rel.length < 8) rel.push(clip(q, 70)); }));
+  if (rel.length) f.rel = rel;
+  const chips = ((result.refinement_chips || {}).items || []).map(c => clip(c.title, 30)).filter(Boolean).slice(0, 5);
+  if (chips.length) f.chips = chips;
+  return f;
+}
 function seoNormalizeDfsOrganic(data){
   const result = ((((data.tasks || [])[0] || {}).result || [])[0]) || {};
   const items = result.items || [];
@@ -22256,7 +22283,7 @@ function seoNormalizeDfsOrganic(data){
   }));
   const paa = [];
   items.filter(i => i.type === 'people_also_ask').forEach(it => (it.items || []).forEach(q => { if (q && q.title && paa.length < 4) paa.push(q.title); }));
-  return {organic: deduped, localPack, paa};
+  return {organic: deduped, localPack, paa, feat: seoSerpFeatures(result, items)};
 }
 function seoNormalizeSerperOrganic(data){
   const organic = (data.organic || []).map(x => ({
@@ -22549,7 +22576,7 @@ function seoOpenSnapshot(loc, k, c, liveUrl){
      the client's own result is marked. */
   const s = loc && loc.snap;
   const D = (() => { try{ const p = window.parent; if (p && p !== window && p.location.origin === location.origin && p.document.body) return p.document; }catch(e){} return document; })();
-  if (D !== document && !D.querySelector('link[href*="edge-serp-page.css"]')){ const ln = D.createElement('link'); ln.rel = 'stylesheet'; ln.href = new URL('edge-serp-page.css?v=4', location.href).href; D.head.appendChild(ln); }
+  if (D !== document && !D.querySelector('link[href*="edge-serp-page.css"]')){ const ln = D.createElement('link'); ln.rel = 'stylesheet'; ln.href = new URL('edge-serp-page.css?v=5', location.href).href; D.head.appendChild(ln); }
   const old = D.getElementById('seoSnap'); if (old) old.remove();
   const live = seoFreshUule(liveUrl || (loc && loc.sourceUrl ? seoRankPageUrl(loc) || loc.sourceUrl : '') || '');
   if (!s){ if (live) window.open(live, '_blank', 'noopener'); return; }
@@ -22590,7 +22617,12 @@ function seoOpenSnapshot(loc, k, c, liveUrl){
     chev: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M7.4 8.6 12 13.2l4.6-4.6L18 10l-6 6-6-6z"/></svg>',
     right: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M8.6 16.6 13.2 12 8.6 7.4 10 6l6 6-6 6z"/></svg>',
     star: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="m12 17.3 6.2 3.7-1.6-7 5.4-4.7-7.1-.6L12 2 9.1 8.7 2 9.3l5.4 4.7-1.6 7z"/></svg>',
-    ext: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M14 3v2h3.6l-9.8 9.8 1.4 1.4L19 6.4V10h2V3h-7zm5 16H5V5h7V3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7h-2v7z"/></svg>'
+    ext: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M14 3v2h3.6l-9.8 9.8 1.4 1.4L19 6.4V10h2V3h-7zm5 16H5V5h7V3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7h-2v7z"/></svg>',
+    pin: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg>',
+    up: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M7.4 15.4 12 10.8l4.6 4.6L18 14l-6-6-6 6z"/></svg>',
+    tri: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M7 10l5 5 5-5z"/></svg>',
+    search: '<svg viewBox="0 0 24 24"><circle cx="10" cy="10" r="6" fill="none" stroke="currentColor" stroke-width="2"/><path d="m14.5 14.5 5.5 5.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
+    spark: '<svg viewBox="0 0 24 24"><path fill="url(#gxAiG)" d="M12 2c.6 4.6 2.4 7.4 7 8.3-4.6 1-6.4 3.7-7 8.7-.6-5-2.4-7.7-7-8.7 4.6-.9 6.4-3.7 7-8.3z"/><defs><linearGradient id="gxAiG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4285f4"/><stop offset=".55" stop-color="#9b72cb"/><stop offset="1" stop-color="#d96570"/></linearGradient></defs></svg>'
   };
   const stars = v => { const n = Math.round(Number(v) * 2) / 2; let h = ''; for (let i = 1; i <= 5; i++) h += '<i class="' + (n >= i ? 'f' : n >= i - .5 ? 'h' : '') + '">' + I.star + '</i>'; return h; };
 
@@ -22656,18 +22688,58 @@ function seoOpenSnapshot(loc, k, c, liveUrl){
       '</div>';
   };
   const qa = Array.isArray(s.qa) && s.qa.length ? '<div class="gx-paa"><h2>People also ask</h2>' + s.qa.map(t => '<a class="gx-qa" href="' + esc(gq(t)) + '" ' + A + '><span>' + esc(t) + '</span>' + I.chev + '</a>').join('') + '</div>' : '';
+  const F = s.f || {};
+  const cDom = host(c && c.website || '').replace(/^www\./, '');
+  /* AI Overview: shows Google's "generating" shimmer first, then what it wrote. */
+  const mdLite = t => {
+    const lines = String(t || '').split(/\n/);
+    let h = '', list = false;
+    const inl = x => esc(x).replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>').replace(/\[([^\]]+)\]\([^)]*\)/g, '$1');
+    lines.forEach(l => {
+      const b = /^\s*(?:[-*\u2022]|\d+\.)\s+(.*)/.exec(l);
+      if (b){ if (!list){ h += '<ul>'; list = true; } h += '<li>' + inl(b[1]) + '</li>'; return; }
+      if (list){ h += '</ul>'; list = false; }
+      const hd = /^\s*#{1,6}\s+(.*)/.exec(l);
+      if (hd){ h += '<h4>' + inl(hd[1]) + '</h4>'; return; }
+      if (l.trim()) h += '<p>' + inl(l) + '</p>';
+    });
+    if (list) h += '</ul>';
+    return h;
+  };
+  const aiHtml = F.ai ? '<section class="gx-ai" data-ai><div class="gx-ai-h">' + I.spark + '<b>AI Overview</b></div>' +
+      '<div class="gx-ai-load" aria-hidden="true"><i></i><i></i><i></i><i></i><span>Searching and generating…</span></div>' +
+      '<div class="gx-ai-body"><div class="gx-ai-t">' + mdLite(F.ai.t) + '</div>' +
+      (F.ai.r && F.ai.r.length ? '<div class="gx-ai-refs">' + F.ai.r.map(r => { const me = cDom && host(r[1]).replace(/^www\./, '').indexOf(cDom) > -1; return '<a class="gx-ai-ref' + (me ? ' me' : '') + '" href="' + esc(href(r[1])) + '" ' + A + '><b>' + esc(r[0] || brand(r[1])) + '</b><span><span class="gx-fav sm">' + fav(r[1]) + '</span>' + esc(r[2] || brand(r[1])) + '</span>' + (me ? '<em>' + esc(who) + ' cited</em>' : '') + '</a>'; }).join('') + '</div>' : '') +
+      '</div><button type="button" class="gx-ai-more" data-ai-more>Show more' + I.chev + '</button></section>' : '';
+  const adsHtml = F.ads && F.ads.length ? '<section class="gx-ads" data-ads><h2 class="gx-h2">Sponsored Result' + (F.ads.length > 1 ? 's' : '') + '</h2><div class="gx-ads-in">' + F.ads.map(a => '<div class="gx-r gx-ad" data-href="' + esc(href(a[1])) + '">' +
+      '<div class="gx-src"><a href="' + esc(href(a[1])) + '" ' + A + '><span class="gx-fav">' + fav(a[1]) + '</span><span class="gx-site"><span class="nm">' + esc(a[4] || brand(a[1])) + '</span><cite>' + crumbOf(a[1], a[2] && /›|https?:/.test(a[2]) ? a[2] : '') + '</cite></span></a><span class="gx-dots">' + I.dots + '</span></div>' +
+      '<a class="gx-t" href="' + esc(href(a[1])) + '" ' + A + '><h3>' + esc(a[0]) + '</h3></a>' + (a[3] ? '<div class="gx-sn">' + esc(a[3]) + '</div>' : '') +
+      (a[5] && a[5].length ? '<div class="gx-adl">' + a[5].map(l => '<a href="' + esc(href(l[2] || a[1])) + '" ' + A + '><span><b>' + esc(l[0]) + '</b>' + (l[1] ? '<small>' + esc(l[1]) + '</small>' : '') + '</span>' + I.right + '</a>').join('') + '</div>' : '') + '</div>').join('') +
+      '</div><div class="gx-more-w"><button type="button" class="gx-more" data-ads-hide>Hide sponsored result' + (F.ads.length > 1 ? 's' : '') + I.up + '</button></div></section>' : '';
+  const relHtml = F.rel && F.rel.length ? '<section class="gx-rel"><h2 class="gx-h2">People also search for</h2><div class="gx-rel-g">' + F.rel.map(t => {
+      const qw = new Set(String(q).toLowerCase().split(/\s+/));
+      const h = String(t).split(/(\s+)/).map(w => /\s/.test(w) || qw.has(w.toLowerCase()) ? esc(w) : '<b>' + esc(w) + '</b>').join('').replace(/<\/b>(\s+)<b>/g, '$1');
+      return '<a href="' + esc(gq(t)) + '" ' + A + '><span>' + h + '</span>' + I.search + '</a>'; }).join('') + '</div></section>' : '';
+  const chipsHtml = F.chips && F.chips.length ? '<div class="gx-chips">' + F.chips.map(t => '<a href="' + esc(gq(q + ' ' + t)) + '" ' + A + '>' + esc(t) + '</a>').join('') + '</div>' : '';
+  const placeName = loc.label || '';
+  const locHtml = placeName ? '<div class="gx-loc">' + I.pin + '<b>' + esc(placeName) + '</b><span class="dot">·</span><a href="' + esc(live || gq(q)) + '" ' + A + '>Choose area</a><span class="gx-dots">' + I.dots + '</span></div>' : '';
   const pa = Math.max(0, Math.min(rows.length, Number(s.pa) || 0));
   let body = '';
   if (page === 1){
-    body = rows.slice(0, pa).map(res).join('') + pack;
+    body = locHtml + adsHtml + aiHtml + rows.slice(0, pa).map(res).join('') + (pack ? '<h2 class="gx-h2 gx-biz">Businesses</h2>' + pack : '');
     const rest = rows.slice(pa);
     body += rest.slice(0, 2).map(res).join('') + qa + rest.slice(2).map(res).join('');
-  } else body = rows.map(res).join('');
-  const pages = Math.max(page, Math.min(10, Math.ceil((s.n || 10) / 10)));
+  } else body = locHtml + rows.map(res).join('');
+  body += relHtml;
+  const pages = Math.max(page, 10);
   const pager = '<nav class="gx-pager">' + (page > 1 && live ? '<a class="pv" href="' + esc(withStart(live, page - 1)) + '" ' + A + '>Previous</a>' : '') +
     Array.from({length: pages}, (_, i) => i + 1).map(n => n === page ? '<b>' + n + '</b>' : '<a href="' + esc(live ? withStart(live, n) : gq(q) + '&start=' + (n - 1) * 10) + '" ' + A + '>' + n + '</a>').join('') +
-    (page < pages ? '<a class="nx" href="' + esc(live ? withStart(live, page + 1) : gq(q) + '&start=' + page * 10) + '" ' + A + '>Next</a>' : '') + '</nav>';
-  const tabs = [['All', ''], ['Maps', 'lcl'], ['Images', 'isch'], ['News', 'nws'], ['Videos', 'vid'], ['Shopping', 'shop'], ['Forums', ''], ['More', '']];
+    (page < pages ? '<a class="nx" href="' + esc(live ? withStart(live, page + 1) : gq(q) + '&start=' + page * 10) + '" ' + A + '>' + I.right + 'Next</a>' : '') + '</nav>';
+  let country = '';
+  try{ country = s.gl ? new Intl.DisplayNames(['en'], {type: 'region'}).of(s.gl.toUpperCase()) : ''; }catch(e){}
+  const footer = '<footer class="gx-foot"><div class="gx-foot-l">' + (country ? '<span class="cn">' + esc(country) + '</span>' : '') + '<span class="pl"><i></i><b>' + esc(placeName || 'Scan location') + '</b> - Pinned for this scan - <a href="' + esc(live || gq(q)) + '" ' + A + '>Update location</a></span></div>' +
+    '<div class="gx-foot-n"><a href="https://support.google.com/websearch" ' + A + '>Help</a><a href="https://support.google.com/websearch/answer/3338405" ' + A + '>Send feedback</a><a href="https://policies.google.com/privacy" ' + A + '>Privacy</a><a href="https://policies.google.com/terms" ' + A + '>Terms</a></div></footer>';
+  const tabs = [['AI Mode', 'aim'], ['All', ''], ['Images', 'isch'], ['Forums', ''], ['Videos', 'vid'], ['Shopping', 'shop'], ['Maps', 'lcl'], ['More', ''], ['Tools', '']];
   const verdict = rank > 0 ? '#' + rank + (page > 1 ? ' · page ' + page : '') : 'Not in the first ' + (s.n || 100);
   const ov = D.createElement('div');
   ov.id = 'seoSnap'; ov.className = 'gx-ov';
@@ -22676,8 +22748,8 @@ function seoOpenSnapshot(loc, k, c, liveUrl){
       (live ? '<a class="gx-live" href="' + esc(withStart(live, page)) + '" ' + A + ' data-snap-live>' + I.ext + 'Open live Google</a>' : '') + '<button type="button" class="gx-x" aria-label="Close">' + I.x + '</button></div>' +
     '<div class="gx-page">' +
       '<header class="gx-head"><a class="gx-logo" href="https://www.google.com/" ' + A + '>Google</a><div class="gx-box"><span class="q">' + esc(q) + '</span><span class="ic">' + I.x + '</span><span class="dv"></span><span class="ic b">' + I.mic + '</span><span class="ic b">' + I.lens + '</span></div></header>' +
-      '<div class="gx-tabs">' + tabs.map((t, i) => i === 0 ? '<span class="on">' + t[0] + '</span>' : '<a href="' + esc(live && t[1] ? withTbm(live, t[1]) : gq(q) + (t[1] ? '&tbm=' + t[1] : '')) + '" ' + A + '>' + t[0] + (t[0] === 'More' ? I.chev : '') + '</a>').join('') + '<span class="gx-sp"></span><span class="gx-tools">Tools</span></div>' +
-      '<main class="gx-main">' + (rows.length || P.length ? body : '<div class="gx-empty">No results were saved for this search.</div>') + pager + '</main>' +
+      '<div class="gx-tabs">' + tabs.map(t => t[0] === 'All' ? '<span class="on">All</span>' : '<a href="' + esc(t[1] === 'aim' ? gq(q) + '&udm=50' : live && t[1] ? withTbm(live, t[1]) : gq(q) + (t[1] ? '&tbm=' + t[1] : '')) + '" ' + A + '>' + t[0] + (t[0] === 'More' || t[0] === 'Tools' ? I.tri : '') + '</a>').join('') + '</div>' +
+      '<main class="gx-main">' + chipsHtml + (rows.length || P.length ? body : '<div class="gx-empty">No results were saved for this search.</div>') + pager + '</main>' + footer +
     '</div></div>';
   const onKey = e => { if (e.key === 'Escape') close(); };
   const close = () => { ov.classList.add('out'); setTimeout(() => ov.remove(), 220); D.removeEventListener('keydown', onKey, true); };
@@ -22690,7 +22762,13 @@ function seoOpenSnapshot(loc, k, c, liveUrl){
   });
   D.addEventListener('keydown', onKey, true);
   D.body.appendChild(ov);
-  ov.querySelectorAll('a[data-snap-live], .gx-pager a, .gx-tabs a, .gx-more').forEach(a => { if (a.href.indexOf('uule=') > -1){ const f = () => { a.href = seoFreshUule(a.href); }; a.addEventListener('pointerdown', f); } });
+  ov.querySelectorAll('a[data-snap-live], .gx-pager a, .gx-tabs a, a.gx-more').forEach(a => { if (a.href.indexOf('uule=') > -1){ const f = () => { a.href = seoFreshUule(a.href); }; a.addEventListener('pointerdown', f); } });
+  const ai = ov.querySelector('[data-ai]');
+  if (ai){ setTimeout(() => { ai.classList.add('ready'); if (ai.querySelector('.gx-ai-body').scrollHeight > 300) ai.classList.add('long'); }, 1500); }
+  ov.addEventListener('click', e => {
+    const more = e.target.closest('[data-ai-more]'); if (more){ const a = more.closest('[data-ai]'); a.classList.toggle('open'); more.firstChild.textContent = a.classList.contains('open') ? 'Show less' : 'Show more'; return; }
+    const hide = e.target.closest('[data-ads-hide]'); if (hide){ const a = hide.closest('[data-ads]'); a.classList.toggle('hid'); hide.firstChild.textContent = a.classList.contains('hid') ? (hide.firstChild.textContent.replace('Hide', 'Show')) : hide.firstChild.textContent.replace('Show', 'Hide'); }
+  });
   const me = ov.querySelector('.gx-r.me') || ov.querySelector('.gx-pl.me');
   if (me){ setTimeout(() => { const pg = ov.querySelector('.gx-page'); if (pg && me.offsetTop > pg.clientHeight * 0.6) pg.scrollTo({top: me.offsetTop - pg.clientHeight / 3, behavior: 'smooth'}); me.classList.add('ping'); }, 260); }
 }
@@ -22783,7 +22861,10 @@ async function seoDfsRead(keyword, p, region, o){
   const task = {keyword: keyword, language_code: labsLanguageCode(region.hl), device: 'desktop', depth: o.depth};
   if (o.where === 'country') task.location_code = o.countryCode;
   else task.location_coordinate = p.lat.toFixed(7) + ',' + p.lng.toFixed(7);
-  const useStop = !!o.target && seoStopCrawlOk;
+  /* The page-one read also asks for AI Overviews Google loads after the page,
+     so "view the search" shows what Google really showed. */
+  if (o.ai && o.endpoint === 'advanced') task.load_async_ai_overview = true;
+  const useStop = !!o.target && seoStopCrawlOk && !o.noStop;
   if (useStop){
     task.stop_crawl_on_match = [{match_value: o.target, match_type: 'with_subdomains'}];
     /* Only a real organic position ends the crawl. A map-pack or ad
@@ -22796,6 +22877,7 @@ async function seoDfsRead(keyword, p, region, o){
   }catch(err){
     if (useStop && !(err && err.fatal) && /stop_crawl|find_targets|invalid field|unknown field/i.test(String(err && err.message))){
       seoStopCrawlOk = false;
+      delete task.load_async_ai_overview;
       delete task.stop_crawl_on_match;
       delete task.find_targets_in;
       data = await seoDfsSerp(o.endpoint, task, o.meter);
@@ -22832,8 +22914,17 @@ async function seoSerperRead(keyword, p, region, o){
   const pages = Math.max(1, Math.min(10, Math.ceil(o.depth / 10)));
   const organic = [], seen = new Set(), localPack = [], paa = [];
   let exhausted = false, pagesRead = 0;
-  const done = extra => Object.assign({organic, localPack, paa, partial:false, partialNote:null, depthAsked:o.depth,
+  const done = extra => Object.assign({organic, localPack, paa, feat, partial:false, partialNote:null, depthAsked:o.depth,
     depthRead:organic.length, pagesRead, exhausted, precision:'coordinate'}, extra || {});
+  /* Fast mode: every page is asked for at once instead of one after another,
+     so a full top-100 read takes about as long as one page. */
+  let pre = null;
+  if (o.parallel && pages > 1){
+    const one = page => fetch(url, {method:'POST', headers:{'X-API-KEY':key, 'Content-Type':'application/json'}, body: JSON.stringify({q: keyword, ll: '@' + p.lat.toFixed(7) + ',' + p.lng.toFixed(7) + ',14z', gl: (region.gl || 'us').toLowerCase(), hl: region.hl || 'en', num: 10, page})})
+      .then(r => r, e => ({fetchErr: e}));
+    pre = await Promise.all(Array.from({length: pages}, (_, i) => one(i + 1)));
+  }
+  const feat = {};
   for (let page = 1; page <= pages; page++){
     const body = {
       q: keyword,
@@ -22845,7 +22936,8 @@ async function seoSerperRead(keyword, p, region, o){
     };
     let res;
     try{
-      res = await fetch(url, {method:'POST', headers:{'X-API-KEY':key, 'Content-Type':'application/json'}, body: JSON.stringify(body)});
+      if (pre){ res = pre[page - 1]; if (res && res.fetchErr) throw res.fetchErr; }
+      else res = await fetch(url, {method:'POST', headers:{'X-API-KEY':key, 'Content-Type':'application/json'}, body: JSON.stringify(body)});
     }catch(e){
       if (page === 1){ const err = new Error('the request was blocked by the browser \u2014 add a CORS proxy prefix on step four'); err.fatal = true; throw err; }
       return done({partial:true, partialNote:'page ' + page + ' could not be fetched'});
@@ -22866,6 +22958,8 @@ async function seoSerperRead(keyword, p, region, o){
         desc: [x.category, x.address].filter(Boolean).join(' · '), phone: x.phoneNumber || '', rating: x.rating != null ? x.rating : null, votes: x.ratingCount != null ? x.ratingCount : null,
         cid: x.cid || '', lat: x.latitude, lng: x.longitude}));
       (data.peopleAlsoAsk || []).slice(0, 4).forEach(x => { if (x && x.question) paa.push(x.question); });
+      const rel = (data.relatedSearches || []).map(x => String(x && x.query || '').slice(0, 70)).filter(Boolean).slice(0, 8);
+      if (rel.length) feat.rel = rel;
     }
     if (!rows.length){ exhausted = page > 1; break; }
     rows.forEach(x => {
@@ -22901,14 +22995,16 @@ async function seoLiveCheck(keyword, p, region, opts){
   const shapes = ['advanced', 'regular'];
   let best = null, lastErr = null, reads = 0, failed = 0, tries = 0;
 
-  const readOnce = async (shape, d, where) => {
+  const readOnce = async (shape, d, where, x) => {
+    x = x || {};
+    const pv = x.prov || prov;
     /* DataForSEO's "Internal SE Server Error" and similar hiccups on their side
        are retried here, after a short pause, before the read counts as failed. */
     for (let k = 0; ; k++){
       try{
-        const out = prov === 'serper'
-          ? await seoSerperRead(keyword, p, region, {depth: Math.min(d, 100), match, meter: o.meter})
-          : await seoDfsRead(keyword, p, region, {endpoint: shape, depth: d, where, countryCode: o.countryCode, target: o.target, meter: o.meter});
+        const out = pv === 'serper'
+          ? await seoSerperRead(keyword, p, region, {depth: Math.min(d, 100), match, meter: o.meter, parallel: !!x.parallel})
+          : await seoDfsRead(keyword, p, region, {endpoint: shape, depth: d, where, countryCode: o.countryCode, target: o.target, meter: o.meter, ai: !!x.ai, noStop: !!x.noStop});
         /* A SERP with no organic results at all is a failed scrape, not an
            answer. It is retried, never saved as a miss. */
         if (!out.organic.length) throw new Error('Google returned no organic results on this read');
@@ -23010,6 +23106,89 @@ async function seoLiveCheck(keyword, p, region, opts){
     };
     return pick.out;
   };
+
+  /* FAST SCAN (the default). Instead of up to five reads one after another,
+     every read goes out at the same moment and the answer comes from
+     whichever lands first, checked against the others:
+       - a quick read of Google's first two pages, which also brings back the
+         AI Overview, ads, map pack and questions for "view the search";
+       - a full top-100 read that stops at the page the site is on;
+       - when a Serper key is saved, all ten Serper pages at once, a second,
+         independent source (otherwise a second DataForSEO top-100 read).
+     A find shows as soon as a second read agrees, or a few seconds after the
+     first sighting if the others haven't come back yet. "Not found" is only
+     recorded once every read has come back without the site. A scan takes
+     about as long as the slowest single read, not five of them in a row. */
+  if (state.settings.seoFastScan !== false && !o.slow && !stopped()){
+    const hasSerper = !!(state.settings.serperKey || '').trim();
+    const hasDfs = prov === 'dataforseo';
+    const plan = [];
+    if (hasDfs){
+      plan.push({k: 'page1', run: () => readOnce('advanced', Math.min(20, depth), 'coordinate', {ai: true, noStop: true})});
+      if (depth > 20) plan.push({k: 'deep', run: () => readOnce('regular', depth, 'coordinate')});
+    }
+    if (hasSerper) plan.push({k: 'serper', run: () => readOnce('', Math.min(depth, 100), 'coordinate', {prov: 'serper', parallel: true})});
+    if (hasDfs && !hasSerper) plan.push({k: 'deep2', run: () => readOnce(depth > 20 ? 'advanced' : 'regular', depth, 'coordinate')});
+    if (!hasDfs && plan.length < 2) plan.push({k: 'serper2', run: () => seoDelay(250).then(() => readOnce('', Math.min(depth, 100), 'coordinate', {prov: 'serper', parallel: true}))});
+    if (o.onRead){ try{ o.onRead(1, plan.length, 'fast'); }catch(e){} }
+    const res = await new Promise(resolve => {
+      const got = [];
+      let left = plan.length, settled = false, grace = null;
+      const finish = () => { if (settled) return; settled = true; clearTimeout(grace); resolve(got.slice()); };
+      const agree = () => {
+        const finds = got.filter(g => g.out && hit(g.out));
+        if (finds.length >= 2){ const a = posOf(finds[0].out), b = posOf(finds[1].out); if (Math.abs(a - b) <= 2) return true; }
+        return false;
+      };
+      plan.forEach(pl => pl.run().then(out => ({k: pl.k, out}), err => ({k: pl.k, err})).then(g => {
+        got.push(g); left--;
+        if (o.onRead){ try{ o.onRead(plan.length - left, plan.length, 'fast'); }catch(e){} }
+        if (g.err && g.err.fatal) return finish();
+        if (!left || agree()) return finish();
+        /* First sighting: give the other reads a few seconds to confirm it. */
+        if (g.out && hit(g.out) && !grace) grace = setTimeout(finish, 6000);
+      }));
+    });
+    const outs = res.filter(g => g.out);
+    const fatal = res.find(g => g.err && g.err.fatal);
+    /* An account problem (wrong login, no credit) is never hidden behind a
+       read that happened to work: it stops the scan so it gets fixed. */
+    if (fatal) throw fatal.err;
+    if (outs.length){
+      reads = outs.length; failed = res.length - outs.length;
+      res.forEach(g => { if (g.err) lastErr = g.err; });
+      const page1 = outs.find(g => g.k === 'page1');
+      const finds = outs.filter(g => hit(g.out)).sort((a, b) => posOf(a.out) - posOf(b.out));
+      /* Page one's extras ride along whichever read supplies the rank. */
+      const dress = out => {
+        if (page1 && page1.out !== out){
+          out.feat = Object.assign({}, (out.feat || {}), page1.out.feat || {});
+          if ((!out.localPack || !out.localPack.length) && page1.out.localPack) out.localPack = page1.out.localPack;
+          if ((!out.paa || !out.paa.length) && page1.out.paa) out.paa = page1.out.paa;
+          /* Rows on page one/two are best taken from the full page-one read. */
+          out.page1 = page1.out.organic;
+        }
+        return out;
+      };
+      if (finds.length){
+        /* The page seen in the most reads decides; its middle position is the rank. */
+        const by = new Map();
+        finds.forEach(g => pagesOf(g.out).forEach((pp, u) => { if (!by.has(u)) by.set(u, []); by.get(u).push({pp, g}); }));
+        const ranked = Array.from(by.entries()).map(([u, hs]) => { const ps = hs.map(h => h.pp).sort((a, b) => a - b); return {u, hs, n: hs.length, med: ps[Math.floor((ps.length - 1) / 2)], spread: ps[ps.length - 1] - ps[0]}; })
+          .sort((a, b) => b.n - a.n || a.med - b.med);
+        const top = ranked[0];
+        const pick = top.hs.slice().sort((a, b) => Math.abs(a.pp - top.med) - Math.abs(b.pp - top.med))[0].g.out;
+        pick.confirm = {positions: outs.map(g => pagesOf(g.out).get(top.u) || 0), foundIn: top.n, of: outs.length, agreed: top.n >= 2 && top.spread <= 2, url: top.u,
+          alsoSeen: ranked.slice(1, 4).map(x => ({url: x.u, pos: Math.min.apply(null, x.hs.map(h => h.pp)), n: x.n}))};
+        return answer(dress(pick), {found: true, fast: true});
+      }
+      /* Every read came back without the site. The fullest read is kept. */
+      outs.forEach(g => keep(g.out));
+      const deepest = outs.slice().sort((a, b) => (b.out.organic.length - a.out.organic.length))[0].out;
+      return answer(dress(best || deepest), {found: false, fast: true, readsMax: outs.length});
+    }
+    /* Nothing came back at all: fall through to the careful path below. */
+  }
 
   /* Each read that comes back counts towards maxReads; an attempt that errors
      doesn't, but attempts are capped so a provider that is down can't loop. */
@@ -23301,9 +23480,14 @@ async function seoScanOne(client, kw, loc, hooks){
       const pgOf = j => (organic[j] && organic[j].page) ? organic[j].page : Math.floor(j / 10) + 1;
       const cp = found ? pgOf(idx) : 1;
       const rows = [];
+      /* The quick page-one read carries the richest detail (site names,
+         breadcrumbs, bolded words), so it fills in rows it also saw. */
+      const rich = new Map();
+      (Array.isArray(data.page1) ? data.page1 : []).forEach(x => { const k = short(x.url || x.domain); if (k && !rich.has(k)) rich.set(k, x); });
       for (let j = 0; j < organic.length && rows.length < 12; j++){
         if (pgOf(j) !== cp) continue;
-        const r = organic[j];
+        const r0 = organic[j], rx = rich.get(short(r0.url || r0.domain));
+        const r = rx ? Object.assign({}, rx, r0, {site: r0.site || rx.site, crumb: r0.crumb || rx.crumb, hl: (r0.hl && r0.hl.length) ? r0.hl : rx.hl, snippet: r0.snippet || rx.snippet, abs: r0.abs != null ? r0.abs : rx.abs}) : r0;
         /* [position, link, is client, title, description, site name, breadcrumb, bolded words, date, sitelinks] */
         rows.push([r.position != null ? r.position : j + 1, short(r.url || r.domain).slice(0, 120), scored[j] && scored[j].counts ? 1 : 0, String(r.title || '').slice(0, 90), String(r.snippet || '').replace(/\s+/g, ' ').slice(0, 170),
           String(r.site || '').slice(0, 40), String(r.crumb || '').slice(0, 90), (r.hl || []).map(h => String(h).slice(0, 30)).slice(0, 5), String(r.date || '').slice(0, 20), (r.links || []).slice(0, 4)]);
@@ -23314,8 +23498,12 @@ async function seoScanOne(client, kw, loc, hooks){
         it.rating != null ? Number(it.rating) : null, it.votes != null ? Number(it.votes) : null, String(it.url || '').slice(0, 120), String(it.cid || ''), it.lat != null ? +Number(it.lat).toFixed(5) : null, it.lng != null ? +Number(it.lng).toFixed(5) : null]) : null;
       /* How many website results sat above the map pack on page one. */
       let pa = 0;
-      if (lp.length && lp[0].abs != null && cp === 1) pa = rows.filter(r => { const o = organic.find(x => x.position === r[0]); return o && o.abs != null && o.abs < lp[0].abs; }).length;
-      loc.snap = {v: 3, at: Date.now(), n: organic.length, p: cp, r: rows, m: pack, pa, ll: [+Number(g.lat).toFixed(5), +Number(g.lng).toFixed(5)], qa: (data.paa || []).slice(0, 4).map(x => String(x).slice(0, 90))};
+      if (lp.length && lp[0].abs != null && cp === 1) pa = rows.filter(r => { const o = organic.find(x => x.position === r[0]); const ox = o && rich.get(short(o.url || o.domain)); const ab = o && o.abs != null ? o.abs : ox ? ox.abs : null; return ab != null && ab < lp[0].abs; }).length;
+      /* Page one's AI Overview, ads and chips; "People also search for" shows on every page. */
+      const ft = data.feat || {}, f = {};
+      if (cp === 1){ if (ft.ai) f.ai = ft.ai; if (ft.ads) f.ads = ft.ads; if (ft.chips) f.chips = ft.chips; }
+      if (ft.rel) f.rel = ft.rel;
+      loc.snap = {v: 4, f, gl: String((region && region.gl) || '').toLowerCase(), at: Date.now(), n: organic.length, p: cp, r: rows, m: pack, pa, ll: [+Number(g.lat).toFixed(5), +Number(g.lng).toFixed(5)], qa: (data.paa || []).slice(0, 4).map(x => String(x).slice(0, 90))};
     }catch(e){ loc.snap = null; }
     /* Which shape of request actually answered. 'country' means the pin was
        refused and this is a nationwide reading, not a local one. */
@@ -23457,7 +23645,7 @@ async function seoScanAndRender(c, pairs){
     done, total: pairs.length,
     now: Array.from(inflight.entries()).map(([i, p]) => {
       const r = reading.get(i);
-      const tail = !r ? '' : (r.kind === 'deep' ? ' \u00b7 one deep look' : r.kind === 'shallow' ? ' \u00b7 Google stumbled \u2014 reading the first two pages' : (r.n > 1 ? ' \u00b7 re-check ' + r.n + ' of ' + r.max : ''));
+      const tail = !r ? '' : (r.kind === 'fast' ? ' \u00b7 ' + r.n + ' of ' + r.max + ' reads back' : r.kind === 'deep' ? ' \u00b7 one deep look' : r.kind === 'shallow' ? ' \u00b7 Google stumbled \u2014 reading the first two pages' : (r.n > 1 ? ' \u00b7 re-check ' + r.n + ' of ' + r.max : ''));
       return {main: p.k.text, sub: p.loc.label.trim() + tail};
     }),
     note: seoRecheckReads
@@ -23482,7 +23670,7 @@ async function seoScanAndRender(c, pairs){
           meter,
           shouldStop: () => seoScanStop,
           onRead: (n, max, kind) => {
-            if (n > 1 || kind === 'deep') seoRecheckReads++;
+            if (kind !== 'fast' && (n > 1 || kind === 'deep')) seoRecheckReads++;
             reading.set(i, {n, max, kind: kind || null});
             paintOverlay();
           }
@@ -29505,7 +29693,7 @@ html.kwr-embedded body::-webkit-scrollbar-thumb:hover{background:#9aa7b3;backgro
 <link rel="stylesheet" href="edge-viz.css?v=2"/>
 <link rel="stylesheet" href="edge-serp-viz.css?v=2"/>
 <link rel="stylesheet" href="edge-wild.css?v=3"/>
-<link rel="stylesheet" href="edge-serp-page.css?v=4"/>
+<link rel="stylesheet" href="edge-serp-page.css?v=5"/>
 <link rel="stylesheet" href="edge-premium.css?v=1"/>
 <script src="edge-premium.js?v=1"></script>
 </body>
