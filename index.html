@@ -12915,18 +12915,18 @@ const edgeSignOut = (function(){
 window.edgeSignOut = edgeSignOut;
 $('signOutBtn').addEventListener('click', e => { e.preventDefault(); edgeSignOut.run(); });
 
-/* ---------- sign out after 5 minutes without activity ----------
+/* ---------- sign out after 30 minutes without activity ----------
    Clicking (or tapping), scrolling and typing count as activity; just moving
    the mouse does not. It counts in any tab of the
    tool (tabs share the last-activity time through localStorage). For the last
-   30 seconds a notice counts down; any activity or "Stay signed in" cancels it.
+   60 seconds a notice counts down; any activity or "Stay signed in" cancels it.
    Shared report links and embeds (public views) aren't signed in, so it never
    runs there. A computer that slept past the limit is signed out on waking.
    Closing the tab doesn't keep you in either: opening the tool again more than
-   5 minutes after the last activity (in any tab) asks for the password again,
+   30 minutes after the last activity (in any tab) asks for the password again,
    unless you have just signed in with it. */
 (function idleSignOut(){
-  const LIMIT = 5 * 60 * 1000, WARN = 30 * 1000, KEY = 'edgeIdleLast';
+  const LIMIT = 30 * 60 * 1000, WARN = 60 * 1000, KEY = 'edgeIdleLast';
   let last = Date.now(), lastWrite = 0, warned = false, out = false, bar = null, checked = false;
   const signedIn = () => !!(fbAuth && fbAuth.currentUser) && !isPublicView();
   const shared = () => { try{ return Number(localStorage.getItem(KEY)) || 0; }catch(e){ return 0; } };
@@ -27473,7 +27473,11 @@ function seoChromePicks(){
   }
   return out.sort((a, b) => (a.l.chromeAt || 0) - (b.l.chromeAt || 0));
 }
+/* Claude working through the batch counts as activity, so the tool doesn't
+   sign out halfway through a run. */
+function chromeTouch(){ try{ localStorage.setItem('edgeIdleLast', String(Date.now())); }catch(e){} }
 window.EDGE_chromeQueue = async () => {
+  chromeTouch();
   const out = [];
   for (const {c, k, l} of seoChromePicks()){
     let lat = l.lat, lng = l.lng;
@@ -27487,6 +27491,7 @@ window.EDGE_chromeQueue = async () => {
   return out;
 };
 window.EDGE_chromeRecord = async (cid, kid, lid, page) => {
+  chromeTouch();
   const c = (state.seoClients || []).find(x => x.id === cid); const k = c && (c.keywords || []).find(x => x.id === kid); const l = k && (k.locations || []).find(x => x.id === lid);
   if (!l) return {status: 'error', error: 'keyword not found'};
   if (page && page.blocked){ l.error = 'Google asked for a check in Chrome (CAPTCHA) — not read this time; the last position is unchanged.'; save(); try{ renderSeoKeywords(); }catch(e){} return {status: 'blocked'}; }
@@ -27518,6 +27523,24 @@ function renderSeoChromeBar(){
   host.querySelectorAll('.scb-x').forEach(x => x.onclick = () => { const cc = state.seoClients.find(y => y.id === x.dataset.cid); const kk = cc && cc.keywords.find(y => y.id === x.dataset.kid); if (kk){ kk.chromePick = false; save(); renderSeoKeywords(); renderSeoChromeBar(); } });
 }
 window.EDGE_renderChromeBar = renderSeoChromeBar;
+/* Results handed over by chrome-relay.html (same site, another tab). Each
+   hand-over is saved once, even if the relay repeats itself while waiting. */
+try{
+  const ch = new BroadcastChannel('edge-chrome'), handled = new Map();
+  ch.onmessage = async e => {
+    const d = e.data || {}; if (d.type !== 'record' || !d.id || !d.msg) return;
+    if (handled.has(d.id)){ const r = handled.get(d.id); if (r) ch.postMessage({type: 'done', id: d.id, result: r}); return; }
+    handled.set(d.id, null);
+    const m = d.msg;
+    let result;
+    try{
+      if (m.page && m.page.pages && !m.page.blocked) window.EDGE_chromeSpend(m.page.pages);
+      result = await window.EDGE_chromeRecord(m.cid, m.kid, m.lid, m.page);
+    }catch(err){ result = {status: 'error', error: String(err && err.message || err)}; }
+    handled.set(d.id, result);
+    ch.postMessage({type: 'done', id: d.id, result});
+  };
+}catch(e){}
 
 /* ---------- share dialog ---------- */
 let seoShareClientId = null;

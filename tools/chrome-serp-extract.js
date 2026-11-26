@@ -2,8 +2,11 @@
    the shape EDGE_chromeRecord expects. Run in the Google tab; links are
    returned without their query strings. Best effort against Google's markup:
    it looks for structure (headings inside links, "Directions" buttons,
-   section titles) rather than Google's changing class names. */
-(async () => {
+   section titles) rather than Google's changing class names.
+   Pages of one search are added up in this tab's sessionStorage (page 1
+   starts afresh). Pass the client's domain to learn whether it was found.
+   To hand the result to the tool afterwards, run chrome-send.js. */
+(async (site) => {
   const T = e => (e && (e.innerText || e.textContent) || '').replace(/\s+/g, ' ').trim();
   const clip = (t, n) => String(t || '').slice(0, n);
   const clean = h => { try{ const u = new URL(h, location.href); if (/(^|\.)google\./.test(u.hostname) && u.pathname === '/url'){ const q = u.searchParams.get('q') || u.searchParams.get('url'); if (q) return clean(q); } return u.origin + u.pathname; }catch(e){ return ''; } };
@@ -74,5 +77,17 @@
   const tabs = document.querySelector('[role="navigation"], #hdtb');
   document.querySelectorAll('g-scrolling-carousel a, [data-hveid] > div > a[aria-pressed]').forEach(a => { const t = T(a); if (t && t.length < 30 && out.chips.length < 5 && !(tabs && tabs.contains(a)) && out.chips.indexOf(t) < 0 && /^(Open now|Top rated|Online appointments|Price|Rating|Hours|[A-Z][a-z]+( [a-z]+)?)$/.test(t)) out.chips.push(t); });
   out.next = !!document.querySelector('#pnnext, a[aria-label="Next page"]');
-  return out;
-})()
+  const pageNo = Math.floor((parseInt(new URLSearchParams(location.search).get('start') || '0', 10) || 0) / 10) + 1;
+  let acc = null; try{ acc = JSON.parse(sessionStorage.getItem('edgeAcc') || 'null'); }catch(e){}
+  if (pageNo === 1 || !acc || acc.q !== query){ acc = {q: query, organic: [], pack: out.pack, paa: out.paa, rel: out.rel, ads: out.ads, chips: out.chips, ai: out.ai || null, pages: 0}; }
+  const base = acc.organic.length;
+  out.organic.forEach(o => { if (!acc.organic.some(x => x.url === o.url)) acc.organic.push(Object.assign({}, o, {pos: base + o.pos, page: pageNo})); });
+  acc.organic.forEach((o, i) => { o.pos = i + 1; });
+  if (!acc.rel.length && out.rel.length) acc.rel = out.rel;
+  acc.pages = pageNo; acc.exhausted = !out.next;
+  try{ sessionStorage.setItem('edgeAcc', JSON.stringify(acc)); }catch(e){}
+  const dom = String(site || '').replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0].toLowerCase();
+  const hit = dom ? acc.organic.find(o => { try{ const h = new URL(o.url).hostname.replace(/^www\./, ''); return h === dom || h.endsWith('.' + dom); }catch(e){ return false; } }) : null;
+  const inPack = dom ? acc.pack.findIndex(p => { try{ return p.url && new URL(p.url).hostname.replace(/^www\./, '').endsWith(dom); }catch(e){ return false; } }) + 1 : 0;
+  return {page: pageNo, onPage: out.organic.length, total: acc.organic.length, found: hit ? hit.pos : 0, mapPack: inPack, next: out.next, ai: !!acc.ai, ads: acc.ads.length};
+})(SITE)

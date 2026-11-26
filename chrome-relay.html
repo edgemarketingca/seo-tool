@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>EDGE · Chrome check</title>
+<meta name="robots" content="noindex">
+<style>body{font:15px/1.5 Inter,system-ui,sans-serif;color:#1c1b19;background:#faf9f7;display:grid;place-items:center;min-height:100vh;margin:0}main{background:#fff;border:1px solid #ece9e5;border-radius:18px;padding:28px 32px;max-width:520px;box-shadow:0 20px 40px -30px rgba(0,0,0,.35)}b{font-size:17px}small{color:#78716c;display:block;margin-top:6px}</style></head>
+<body><main><b id="t">Handing the results to the SEO tool…</b><small id="s">Keep the EDGE SEO tool open in another tab.</small></main>
+<script>
+/* Claude reads a Google page in Chrome, then sends this tab here with what it
+   read in the address's #part (never sent to any server). This page passes it
+   to the open SEO tool tab, which saves it like a scan, and shows the answer. */
+(function(){
+  const t = document.getElementById('t'), s = document.getElementById('s');
+  let msg = null;
+  try{ msg = JSON.parse(decodeURIComponent(location.hash.slice(1))); }catch(e){}
+  if (!msg){ t.textContent = 'Nothing to hand over.'; return; }
+  const id = 'r' + Date.now() + Math.random().toString(36).slice(2, 7);
+  const ch = new BroadcastChannel('edge-chrome');
+  let done = false;
+  ch.onmessage = e => {
+    const d = e.data || {}; if (d.type !== 'done' || d.id !== id) return;
+    done = true; window.__edgeResult = d.result;
+    const r = d.result || {};
+    t.textContent = r.status === 'blocked' ? 'Google asked for a check — nothing saved.' : r.status === 'error' ? 'Could not save: ' + (r.error || 'error') : (r.rank > 0 ? 'Saved: #' + r.rank + (r.page > 1 ? ' (page ' + r.page + ')' : '') : 'Saved: not in the website results') + (r.mapPack ? ' · map pack #' + r.mapPack : '');
+    s.textContent = msg.kw ? '“' + msg.kw + '”' + (msg.label ? ' in ' + msg.label : '') : '';
+    document.title = 'EDGE · ' + t.textContent;
+  };
+  const send = () => ch.postMessage({type: 'record', id, msg});
+  send();
+  let n = 0; const iv = setInterval(() => { if (done || ++n > 20){ clearInterval(iv); if (!done){ t.textContent = 'The SEO tool tab did not answer.'; s.textContent = 'Open seo.edgemarketing.ca in another tab, signed in, and try again.'; window.__edgeResult = {status: 'error', error: 'no tool tab'}; } return; } send(); }, 1000);
+})();
+</script></body></html>
