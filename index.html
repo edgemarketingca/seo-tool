@@ -6185,6 +6185,9 @@ body.embed-clean .rank-dot.wide{box-shadow:0 0 0 2px #fff,0 0 0 3.5px rgba(212,6
                 <div class="row" style="grid-template-columns:1fr">
                   <button class="btn" id="retryFailedBtn" disabled>Re-check anything unresolved</button>
                 </div>
+                <div class="row" style="grid-template-columns:1fr">
+                  <button class="btn gbp-chrome-btn" id="chromeGridBtn" title="Builds the grid and marks it for Claude, who reads every point on real Google Maps in Chrome">Read with Claude in Chrome</button>
+                </div>
                 <div class="prog" id="progWrap" style="display:none"><i id="progBar"></i></div>
                 <div class="status" id="scanStatus"></div>
               </div>
@@ -17172,10 +17175,17 @@ function dotPopup(p, idx, scan){
      make that promise: it is a fresh query, personalised to the browser
      asking, minutes or weeks after this one. */
   if (p.names && p.names.length){
+    /* A point Claude read on Google Maps opens straight on its list, the
+       profile highlighted, so a click on the dot shows every choice there. */
+    if (p.via === 'chrome'){
+      const v = document.createElement('div'); v.className = 'pt-via-chrome';
+      v.textContent = 'Read by Claude on Google Maps in Chrome \u00b7 ' + new Date(p.chromeAt).toLocaleString('en-CA', {month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'});
+      d.appendChild(v);
+    }
     d.appendChild(listBlock('Listings read here (' + p.names.length + ')', p.names, p.matched, (n, i) => {
       p.rank = i + 1; p.matched = n; p.matchConfidence = 'manual'; p.matchedViaAd = false;
       commitPointEdit(idx, scan);
-    }, (p.rank >= 1 && !p.matchedViaAd) ? p.rank - 1 : null, p.rank >= 1 && !p.matchedViaAd));
+    }, (p.rank >= 1 && !p.matchedViaAd) ? p.rank - 1 : null, (p.rank >= 1 && !p.matchedViaAd) || p.via === 'chrome'));
   }
   if (p.adNames && p.adNames.length){
     d.appendChild(listBlock('Sponsored listings read here (' + p.adNames.length + ')', p.adNames, p.adMatched, (n, i) => {
@@ -17681,6 +17691,16 @@ $('buildBtn').addEventListener('click', async () => {
   setStatus('scanStatus', 'Grid ready — ' + scan.points.length + ' points. Walk them with the paste loop below the map.', 'ok');
   assistOn = true; updateAssist();
   setTimeout(() => $('assistPanel').scrollIntoView({behavior:'smooth', block:'center'}), 120);
+});
+/* Builds the grid exactly as Paste mode does and marks it for Claude's Chrome
+   check (EDGE_gbpQueue). Nothing is read here; Claude reads the points. */
+$('chromeGridBtn').addEventListener('click', async () => {
+  if (!(await scanListingCheck('paste'))) return;
+  const scan = createScan();
+  if (!scan) return;
+  scan.chrome = {requestedAt: Date.now()};
+  save(); renderHistory();
+  setStatus('scanStatus', 'Grid ready for Claude: ' + scan.points.length + ' points marked. Ask Claude to \u201crun the Chrome map check\u201d and it will read each point on Google Maps and fill the dots in.', 'ok');
 });
 $('stopAutoBtn').addEventListener('click', () => { autoStop = true; setStatus('scanStatus', 'Stopping after this point…', 'busy'); });
 
@@ -27565,6 +27585,50 @@ function renderSeoChromeBar(){
   host.querySelectorAll('.scb-x').forEach(x => x.onclick = () => { const cc = state.seoClients.find(y => y.id === x.dataset.cid); const kk = cc && cc.keywords.find(y => y.id === x.dataset.kid); if (kk){ kk.chromePick = false; save(); renderSeoKeywords(); renderSeoChromeBar(); } });
 }
 window.EDGE_renderChromeBar = renderSeoChromeBar;
+
+/* ==========================================================================
+   CLAUDE'S CHROME CHECKS FOR MAP GRIDS (GBP Tracker)
+   "Read with Claude in Chrome" builds the grid as usual and marks it. Claude
+   asks for the marked grids (EDGE_gbpQueue), opens each point's own Google
+   Maps link in Chrome, reads the whole list it shows (sponsored places kept
+   apart) and hands it to EDGE_gbpRecord, which matches it to the profile
+   exactly like an automatic scan: same matcher, same fields, so the dot, its
+   rank and the "Listings read here" list with the client highlighted all
+   fill in. Points already read are skipped, so a run can resume.
+   ========================================================================== */
+function gbpFind(gid){ for (const c of (state.clients || [])) for (const g of (c.gbps || [])) if (g.id === gid) return {c, g}; return null; }
+window.EDGE_gbpQueue = () => {
+  chromeTouch();
+  const out = [];
+  for (const c of (state.clients || [])) for (const g of (c.gbps || [])) for (const k of (g.keywords || [])) for (const sc of (k.scans || [])){
+    if (!sc.chrome || sc.chrome.doneAt) continue;
+    const pts = (sc.points || []).map((p, i) => ({idx: i, lat: p.lat, lng: p.lng, url: p.mapsUrl, done: !!p.chromeAt})).filter(p => !p.done);
+    if (!pts.length) continue;
+    out.push({gid: g.id, profile: g.bizName || g.name || '', cid: g.cid || '', website: g.website || '', scanId: sc.id, keyword: sc.keyword, depth: sc.depth || 20, zoom: sc.zoom, left: pts.length, of: sc.points.length, points: pts});
+  }
+  return out;
+};
+window.EDGE_gbpRecord = (gid, scanId, idx, page) => {
+  chromeTouch();
+  const f = gbpFind(gid); if (!f) return {status: 'error', error: 'profile not found'};
+  let scan = null; (f.g.keywords || []).forEach(k => (k.scans || []).forEach(s => { if (s.id === scanId) scan = s; }));
+  if (!scan) return {status: 'error', error: 'grid not found'};
+  const p = scan.points[idx]; if (!p) return {status: 'error', error: 'point not found'};
+  if (page && page.blocked){ p.error = 'Google asked for a check in Chrome (CAPTCHA) — not read'; save(); return {status: 'blocked'}; }
+  const P = page || {};
+  const norm = l => ({title: l.title || '', cid: l.cid || null, placeId: l.placeId || null, phone: l.phone || null, domain: l.website ? cleanDomain(l.website) : null, website: l.website || null,
+    rating: l.rating != null ? l.rating : null, reviews: l.reviews != null ? l.reviews : null, category: l.category || null, address: l.address || null});
+  const results = {organic: (P.organic || []).map(norm), ads: (P.ads || []).map(norm), listKind: 'maps'};
+  const region = REGIONS[f.g.regionIdx] || REGIONS[0];
+  applyListings(p, results, f.g, {surface: scan.surface || 'local', zoom: scan.zoom || 14}, region);
+  p.top = results.organic.slice(0, 3).map(l => ({title: l.title, rating: l.rating, reviews: l.reviews, category: l.category}));
+  p.self = p.rank >= 1 ? results.organic[p.rank - 1] : null;
+  p.error = null; p.via = 'chrome'; p.chromeAt = Date.now();
+  if (scan.points.every(x => x.chromeAt)) scan.chrome.doneAt = Date.now();
+  save();
+  try{ if (currentScan && currentScan.id === scan.id) drawScan(scan); renderHistory(); }catch(e){}
+  return {status: 'ok', rank: p.rank || 0, matched: p.matched || null, read: results.organic.length, ads: results.ads.length, left: scan.points.filter(x => !x.chromeAt).length};
+};
 /* Results handed over by chrome-relay.html (same site, another tab). Each
    hand-over is saved once, even if the relay repeats itself while waiting. */
 try{
@@ -27576,8 +27640,9 @@ try{
     const m = d.msg;
     let result;
     try{
-      if (m.page && m.page.pages && !m.page.blocked) window.EDGE_chromeSpend(m.page.pages);
-      result = await window.EDGE_chromeRecord(m.cid, m.kid, m.lid, m.page);
+      if (m.kind === 'gbp' && m.page && !m.page.blocked) window.EDGE_chromeSpend(1);
+      else if (m.page && m.page.pages && !m.page.blocked) window.EDGE_chromeSpend(m.page.pages);
+      result = m.kind === 'gbp' ? window.EDGE_gbpRecord(m.gid, m.sid, m.idx, m.page) : await window.EDGE_chromeRecord(m.cid, m.kid, m.lid, m.page);
     }catch(err){ result = {status: 'error', error: String(err && err.message || err)}; }
     handled.set(d.id, result);
     ch.postMessage({type: 'done', id: d.id, result});
@@ -29889,7 +29954,7 @@ html.kwr-embedded body::-webkit-scrollbar-thumb:hover{background:#9aa7b3;backgro
 <link rel="stylesheet" href="edge-serp-viz.css?v=2"/>
 <link rel="stylesheet" href="edge-wild.css?v=3"/>
 <link rel="stylesheet" href="edge-serp-page.css?v=6"/>
-<link rel="stylesheet" href="edge-premium.css?v=2"/>
+<link rel="stylesheet" href="edge-premium.css?v=3"/>
 <script src="edge-premium.js?v=1"></script>
 </body>
 </html>

@@ -10,3 +10,11 @@ How a run goes:
 4. If Google shows a CAPTCHA, Claude stops, records `{blocked: true}` (the last position stays), and tells the team. It never tries to get past the check.
 
 The DataForSEO scan buttons still work alongside this.
+
+## Map grids (GBP Tracker)
+
+1. On the GBP Tracker, **Read with Claude in Chrome** builds the grid (same as Paste mode) and marks it.
+2. Claude calls `EDGE_gbpQueue()` in the tool tab for marked grids and their unread points (each with its own Google Maps link).
+3. For each point, Claude opens the Maps link in a second tab and runs `tools/chrome-maps-extract.js` (with the depth, usually 20). It scrolls the list, keeps sponsored places apart, and returns every place with its CID, place id, rating, website and phone.
+4. Claude sends it through `chrome-relay.html` with `{kind:'gbp', gid, sid, idx, page}`. The tool runs `EDGE_gbpRecord`, which matches the profile with the same matcher as an automatic scan (CID first). The dot fills in, and clicking it opens the full list with the profile highlighted.
+5. Pauses of 30–40 seconds between points; stop at the first Google check page.
