@@ -471,12 +471,167 @@ document.addEventListener('click', e => {
   e.preventDefault(); e.stopImmediatePropagation(); Setup.open({pillars: ['report', 'seo']});
 }, true);
 
-window.EDGE_DS = {setup: o => Setup.open(o), board: Board, usage, openClient};
+
+/* ==========================================================================
+   UNIVERSES · one pillar at a time
+     Home is the only place the four pillars sit side by side, in EDGE's own
+     order (01 Strategy · 02 Website · 03 Marketing · 04 Measure). Opening one
+     walks you through a doorway into that pillar's own world: its colour, its
+     pattern, its badge in the top bar, and nothing from the other three except
+     the Across EDGE dock, which keeps their numbers for the client in view and
+     takes you there in one click.
+   ========================================================================== */
+const U = {
+  seo:    {n: '01', w: 'Strategy',  name: 'SEO',             line: 'Rankings, local grids and live search', ic: 'seo'},
+  maint:  {n: '02', w: 'Website',   name: 'Web Maintenance', line: 'Every site, cared for every month',     ic: 'maint'},
+  ads:    {n: '03', w: 'Marketing', name: 'Google Ads',      line: 'Spend and results, read monthly',      ic: 'ads'},
+  report: {n: '04', w: 'Measure',   name: 'Reporting',       line: 'The client report, sent for you',      ic: 'report'}
+};
+const ORDER = ['seo', 'maint', 'ads', 'report'];
+const secNow = () => { const b = document.body.classList; return ORDER.find(k => b.contains('os-sec-' + k)) || 'seo'; };
+const onHub = () => { const h = $('hubScreen'); return !!(h && (h.classList.contains('on') || getComputedStyle(h).display !== 'none')); };
+
+/* --- the badge in the top bar: where you are --- */
+function paintBadge(){
+  const nav = $('topNav'); if (!nav) return;
+  let b = $('euId');
+  if (!b){
+    b = document.createElement('div'); b.id = 'euId'; b.className = 'eu-id';
+    const home = nav.querySelector('.tn-home');
+    if (home && home.parentNode) home.parentNode.insertBefore(b, home.nextSibling); else nav.insertBefore(b, nav.firstChild);
+    if (home && !home.dataset.eu){ home.dataset.eu = '1'; home.title = 'Back to the EDGE Workspace (Alt+H)'; [...home.childNodes].forEach(n => { if (n.nodeType === 3 && n.textContent.trim()) n.textContent = ''; }); home.insertAdjacentHTML('beforeend', '<span class="eu-home-l">Workspace</span>'); }
+  }
+  const k = secNow(), u = U[k];
+  if (b.dataset.k === k) return;
+  b.dataset.k = k;
+  b.innerHTML = '<span class="eu-ic">' + ic(u.ic) + '</span><span class="eu-tx"><small>' + u.n + ' · ' + u.w + '</small><b>' + esc(u.name) + '</b></span>';
+  if (!RM()){ b.classList.remove('eu-in'); void b.offsetWidth; b.classList.add('eu-in'); }
+}
+
+/* --- the doorway: a tile grows into the pillar's world --- */
+function portal(k, from){
+  if (RM()) return;
+  const u = U[k]; if (!u) return;
+  const r = from ? from.getBoundingClientRect() : {top: innerHeight / 2 - 60, left: innerWidth / 2 - 120, width: 240, height: 120};
+  const d = document.createElement('div');
+  d.className = 'eu-portal eu-' + k;
+  d.innerHTML = '<div class="eu-portal-in"><span class="eu-portal-n">' + u.n + '</span><small>' + u.w + '</small><b>' + esc(u.name) + '</b><em>' + esc(u.line) + '</em></div>';
+  const ins = [r.top, innerWidth - r.left - r.width, innerHeight - r.top - r.height, r.left].map(v => Math.max(0, Math.round(v)) + 'px');
+  d.style.clipPath = 'inset(' + ins.join(' ') + ' round 24px)';
+  document.body.appendChild(d);
+  requestAnimationFrame(() => requestAnimationFrame(() => { d.classList.add('open'); d.style.clipPath = 'inset(0 0 0 0 round 0)'; }));
+  setTimeout(() => d.classList.add('gone'), 900);
+  setTimeout(() => d.remove(), 1500);
+}
+document.addEventListener('click', e => {
+  const t = e.target.closest && e.target.closest('#osHub [data-osgo]');
+  if (t) portal(t.dataset.osgo, t.closest('.osh-t') || t);
+}, true);
+
+/* --- Across EDGE: the other three pillars, for this client --- */
+const moneyK = v => v >= 1e6 ? '$' + (v / 1e6).toFixed(1) + 'M' : v >= 1e4 ? '$' + Math.round(v / 1e3) + 'k' : v >= 1e3 ? '$' + (v / 1e3).toFixed(1) + 'k' : '$' + Math.round(v || 0);
+const monthShort = ym => { try{ const [y, m] = ym.split('-').map(Number); return new Date(y, m - 1, 1).toLocaleDateString('en-CA', {month: 'short'}); }catch(e){ return ''; } };
+function nextSend(){
+  let day = 1, hour = 8; try{ const c = OS().reporting.cfg(); day = c.day || 1; hour = c.hour == null ? 8 : c.hour; }catch(e){}
+  const now = new Date(); let d = new Date(now.getFullYear(), now.getMonth(), day, hour);
+  if (d <= now) d = new Date(now.getFullYear(), now.getMonth() + 1, day, hour);
+  return d.toLocaleDateString('en-CA', {month: 'short', day: 'numeric'});
+}
+function adsOf(c){
+  let accts = []; try{ const ch = OS().channels; accts = ch.list('google_ads').filter(a => !c || (ch.link(a) || {}).id === c.id); }catch(e){}
+  let ym = ''; accts.forEach(a => Object.keys(a.months || {}).forEach(k => { if (k > ym) ym = k; }));
+  let spend = 0, conv = 0; accts.forEach(a => { const m = (a.months || {})[ym]; if (m){ spend += +m.spend || 0; conv += +m.conversions || 0; } });
+  return {n: accts.length, ym, spend, conv};
+}
+function ctxClient(){
+  const k = secNow();
+  if (onHub()) return null;
+  const mod = (window.EDGE && EDGE.current && EDGE.current()) || state.seoModule;
+  const byId = id => (state.seoClients || []).find(c => c && c.id === id) || null;
+  if (k === 'report') return document.body.classList.contains('os-rhome') ? null : byId(state.activeSeoClientId);
+  if (k === 'seo' && mod === 'gbp'){
+    try{ return (state.seoClients || []).find(c => { const g = window.EDGE_gbpFor && EDGE_gbpFor(c); return g && g.id === state.activeClientId; }) || null; }catch(e){ return null; }
+  }
+  if (k === 'seo' && mod === 'seo') return byId(state.activeSeoClientId);
+  return null;
+}
+function facts(c){
+  const out = {};
+  if (c){
+    const u = usage(c), a = adsOf(c);
+    out.seo = u.kws ? {v: u.top10 + '/' + u.locs, l: 'on page one'} : (u.gbp ? {v: 'Map grid', l: 'local only'} : {v: 'Off', l: 'not tracking', off: 1});
+    out.maint = u.maint === 'ok' ? {v: 'Done', l: 'this month'} : u.maint === 'due' ? {v: 'Due', l: 'this month', warn: 1} : u.maint === 'paused' ? {v: 'Paused', l: 'maintenance'} : {v: 'Off', l: 'not on care', off: 1};
+    out.ads = a.n ? {v: moneyK(a.spend), l: (a.ym ? monthShort(a.ym) + ' · ' : '') + a.conv + ' conv.'} : {v: 'Off', l: 'no account', off: 1};
+    out.report = u.report ? {v: nextSend(), l: 'next send'} : {v: 'Off', l: 'not emailed', off: 1};
+  } else {
+    let kws = 0, top10 = 0, locs = 0;
+    (state.seoClients || []).filter(Boolean).filter(x => !isArchived(x)).forEach(x => { const u = usage(x); kws += u.kws; top10 += u.top10; locs += u.locs; });
+    let due = 0, tot = 0; try{ const M = window.EDGE_maint; M.sites().forEach(x => { tot++; if (M.statusOf(x).key === 'due') due++; }); }catch(e){}
+    const a = adsOf(null);
+    let rep = 0; try{ rep = Object.values(OS().reporting.cfg().clients || {}).filter(r => r && r.on && (r.to || []).length).length; }catch(e){}
+    out.seo = {v: kws, l: top10 + ' on page one'};
+    out.maint = tot ? (due ? {v: due + ' due', l: 'of ' + tot + ' sites', warn: 1} : {v: 'All done', l: tot + ' sites'}) : {v: '—', l: 'no sites', off: 1};
+    out.ads = a.n ? {v: moneyK(a.spend), l: (a.ym ? monthShort(a.ym) + ' · ' : '') + a.n + ' accounts'} : {v: '—', l: 'no accounts yet', off: 1};
+    out.report = {v: nextSend(), l: rep + ' report' + (rep === 1 ? '' : 's') + ' going out'};
+  }
+  return out;
+}
+const Dock = {
+  sig: '', min: (() => { try{ return localStorage.getItem('euDockMin') === '1'; }catch(e){ return false; } })(),
+  el(){
+    let d = $('euDock');
+    if (!d){
+      d = document.createElement('nav'); d.id = 'euDock'; d.className = 'eu-dock'; d.setAttribute('aria-label', 'Across EDGE');
+      document.body.appendChild(d);
+      document.addEventListener('pointerdown', e => { if (!d.contains(e.target)) d.classList.remove('open'); });
+      d.addEventListener('click', e => {
+        if (e.target.closest('[data-min]')){ this.min = !this.min; try{ localStorage.setItem('euDockMin', this.min ? '1' : '0'); }catch(err){} this.sig = ''; this.paint(); return; }
+        const b = e.target.closest('[data-to]'); if (!b) return;
+        if (matchMedia('(hover: none)').matches && !d.classList.contains('open')){ d.classList.add('open'); return; }
+        d.classList.remove('open');
+        const k = b.dataset.to, c = (state.seoClients || []).find(x => x.id === b.dataset.c);
+        portal(k, b);
+        setTimeout(() => { if (c) openClient(c, k === 'seo' ? 'seo' : k); else OS() && OS().go(k); }, 60);
+      });
+    }
+    return d;
+  },
+  paint(){
+    const d = this.el(), here = secNow();
+    if (onHub() || !document.body.classList.contains('os-on')){ d.classList.remove('on'); return; }
+    const c = ctxClient(), f = facts(c);
+    const sig = here + '|' + (c ? c.id : '') + '|' + this.min + '|' + JSON.stringify(f);
+    d.classList.add('on');
+    if (sig === this.sig) return;
+    this.sig = sig;
+    const chips = ORDER.filter(k => k !== here).map(k => { const u = U[k], x = f[k];
+      return '<button type="button" class="eu-chip eu-' + k + (x.off ? ' off' : '') + (x.warn ? ' warn' : '') + '" data-to="' + k + '"' + (c ? ' data-c="' + esc(c.id) + '"' : '') + ' title="' + esc('Open ' + u.name + (c ? ' for ' + c.name : '')) + '">' +
+        '<span class="eu-chip-ic">' + ic(u.ic) + '</span><span class="eu-chip-t"><small>' + u.n + ' ' + u.w + '</small><b>' + esc(String(x.v)) + '</b><em>' + esc(x.l) + '</em></span></button>'; }).join('');
+    d.innerHTML = '<div class="eu-dock-h"><small>Across EDGE</small><b>' + esc(c ? c.name : 'All clients') + '</b></div><div class="eu-dock-row">' + chips + '</div>';
+  }
+};
+
+/* the teal floor on Home ends halfway down the four doors */
+function sizeHome(){
+  const inner = document.querySelector('#hubScreen .hub-inner'), g = document.querySelector('#osHub .osh-grid');
+  if (!inner || !g) return;
+  const r = g.getBoundingClientRect(), ri = inner.getBoundingClientRect();
+  const h = Math.round(r.top - ri.top + r.height * 0.5);
+  if (h > 200 && inner._euh !== h){ inner._euh = h; inner.style.setProperty('--euh', h + 'px'); }
+}
+function universeTick(){ paintBadge(); Dock.paint(); if (onHub()) sizeHome(); }
+
+window.EDGE_DS = {setup: o => Setup.open(o), board: Board, usage, openClient, portal, dock: Dock};
 
 function boot(){
   wear(); hookAll(); watchHub();
+  document.body.classList.add('eu-on');
+  universeTick();
+  try{ new MutationObserver(() => universeTick()).observe(document.body, {attributes: true, attributeFilter: ['class']}); }catch(e){}
+  try{ const hs = $('hubScreen'); if (hs) new MutationObserver(() => universeTick()).observe(hs, {attributes: true, attributeFilter: ['class', 'style']}); }catch(e){}
+  setInterval(universeTick, 2000);
   setInterval(hookAll, 3000);
-  addEventListener('resize', () => Board.pill());
+  addEventListener('resize', () => { Board.pill(); sizeHome(); });
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else setTimeout(boot, 0);
 })();
