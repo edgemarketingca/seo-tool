@@ -17131,6 +17131,14 @@ function dotPopup(p, idx, scan){
   openLink.target = '_blank'; openLink.rel = 'noopener';
   openLink.className = 'pop-link-main';
   openLink.textContent = webRead ? 'Open Google search' : 'Open Google Maps';
+  if (!webRead && window.EDGE_gbpPreview && Array.isArray(p.names) && p.names.length){
+    const pv = document.createElement('button');
+    pv.type = 'button'; pv.className = 'pop-link-main pop-preview';
+    pv.textContent = 'Preview results';
+    pv.title = 'The map results at this point, the way Google Maps showed them';
+    pv.addEventListener('click', () => window.EDGE_gbpPreview(scan, idx));
+    links.appendChild(pv);
+  }
   openLink.title = webRead
     ? 'The Google results page at this point, the same search this number was read from.'
     : 'Google Maps at the exact coordinate and zoom this number was read at. Use a private window, and do not move the map before counting.';
@@ -17671,6 +17679,8 @@ function createScan(){
         confirmedAt:g.listing.confirmedAt || null} : null}
   };
   scan.points = pts;
+  /* Only the newest scan of a keyword keeps the listing detail for the preview. */
+  kw.scans.forEach(o => (o.points || []).forEach(q => { delete q.det; delete q.adDet; }));
   kw.scans.push(scan);
   save(); renderHistory(); renderKeywords(); drawScan(scan);
   return scan;
@@ -18481,6 +18491,12 @@ function readListings(results, target){
     }
   }
   out.top = organic.slice(0, 3).map(l => ({name:l.title, rating:l.rating, reviews:l.reviews, category:l.category}));
+  /* For the map results preview (gbp-preview.js): the first listings as Google
+     showed them, kept small. [rating, reviews, category, address, website, phone] */
+  const det = l => [l.rating != null ? l.rating : null, l.reviews != null ? l.reviews : null, l.category || null,
+    l.address ? String(l.address).slice(0, 60) : null, l.website || l.domain || null, l.phone || null];
+  out.det = organic.slice(0, 12).map(det);
+  out.adDet = ads.slice(0, 3).map(det);
   const mine = (out.rank >= 1 && !out.matchedViaAd) ? organic[out.rank - 1] : null;
   out.self = mine ? {rating:mine.rating, reviews:mine.reviews, category:mine.category} : null;
   return out;
@@ -22635,7 +22651,7 @@ function seoOpenSnapshot(loc, k, c, liveUrl){
      the client's own result is marked. */
   const s = loc && loc.snap;
   const D = (() => { try{ const p = window.parent; if (p && p !== window && p.location.origin === location.origin && p.document.body) return p.document; }catch(e){} return document; })();
-  if (D !== document && !D.querySelector('link[href*="edge-serp-page.css"]')){ const ln = D.createElement('link'); ln.rel = 'stylesheet'; ln.href = new URL('edge-serp-page.css?v=8', location.href).href; D.head.appendChild(ln); }
+  if (D !== document && !D.querySelector('link[href*="edge.css"]')){ const ln = D.createElement('link'); ln.rel = 'stylesheet'; ln.href = new URL('edge.css?v=11', location.href).href; D.head.appendChild(ln); }
   const old = D.getElementById('seoSnap'); if (old) old.remove();
   const live = seoFreshUule(liveUrl || (loc && loc.sourceUrl ? seoRankPageUrl(loc) || loc.sourceUrl : '') || '');
   if (!s){ if (live) window.open(live, '_blank', 'noopener'); return; }
@@ -29945,10 +29961,11 @@ html.kwr-embedded body::-webkit-scrollbar-thumb:hover{background:#9aa7b3;backgro
 })();
 </script>
 <!-- edge.css: the one stylesheet for the team tool (components, then the EDGE design system at the end). -->
-<link rel="stylesheet" href="edge.css?v=10"/>
+<link rel="stylesheet" href="edge.css?v=11"/>
 <script src="calm.js?v=2"></script>
 <script src="quiet.js?v=2"></script>
 <script src="edge-premium.js?v=1"></script>
 <script src="edge-ds.js?v=6"></script>
+<script src="gbp-preview.js?v=2"></script>
 </body>
 </html>
