@@ -3843,6 +3843,119 @@ html body.os-on.eds:not(.report-mode):not(.embed-mode):not(#_eds):not(#_eds2) .s
 @media (prefers-reduced-motion:reduce){.eu-id .eu-ic,.eu-id .eu-tx,html body.os-on.eds:not(.report-mode):not(.embed-mode):not(#_eds):not(#_eds2) .osh-t{animation:none !important}}
 
 /* ==========================================================================
+   CLIENTS ON THE MAIN DISPLAY (round 2)
+   ========================================================================== */
+/* no client rail where the main display lists the clients */
+html body.os-on.eds:not(.report-mode):not(.embed-mode):not(#_eds):not(#_eds2).eds-norail #seoRail,html body.os-on.eds:not(.report-mode):not(.embed-mode):not(#_eds):not(#_eds2).eds-norail #maintRail{display:none !important}
+html body.os-on.eds:not(.report-mode):not(.embed-mode):not(#_eds):not(#_eds2).eds-norail #appShell{grid-template-columns:minmax(0,1fr) !important;grid-template-rows:auto minmax(0,1fr) !important;align-content:start !important}
+html body.os-on.eds:not(.report-mode):not(.embed-mode):not(#_eds):not(#_eds2).eds-norail #appShell > .stage{grid-column:1/-1 !important;margin-left:0 !important}
+/* SEO level 1: only the clients */
+html body.os-on.eds:not(.report-mode):not(.embed-mode):not(#_eds):not(#_eds2).eds-seo-grid #seoStage .topbar,html body.os-on.eds:not(.report-mode):not(.embed-mode):not(#_eds):not(#_eds2).eds-seo-grid #seoStage .panels > :not(#edsSeoHome){display:none !important}
+html body.os-on.eds:not(.report-mode):not(.embed-mode):not(#_eds):not(#_eds2):not(.eds-seo-grid) #edsSeoHome{display:none !important}
+html body.os-on.eds:not(.report-mode):not(.embed-mode):not(#_eds):not(#_eds2) .mod-intro{display:none !important}
+/* SEO level 2: Dashboard | SEO */
+html body.os-on.eds:not(.report-mode):not(.embed-mode):not(#_eds):not(#_eds2).eds-seo-client:not(.eds-tab-other) #seoModes{display:none !important}
+html body.os-on.eds:not(.report-mode):not(.embed-mode):not(#_eds):not(#_eds2).eds-seo-client #seoStage .crumbs .c-sub,html body.os-on.eds:not(.report-mode):not(.embed-mode):not(#_eds):not(#_eds2).eds-seo-client #seoStage .crumbs .c-tag{display:none !important}
+html body.os-on.eds:not(.report-mode):not(.embed-mode):not(#_eds):not(#_eds2).eds-tab-dash #seoStatsGrid,html body.os-on.eds:not(.report-mode):not(.embed-mode):not(#_eds):not(#_eds2).eds-tab-dash #seoMatchCard,html body.os-on.eds:not(.report-mode):not(.embed-mode):not(#_eds):not(#_eds2).eds-tab-dash .seo-dash-side,html body.os-on.eds:not(.report-mode):not(.embed-mode):not(#_eds):not(#_eds2).eds-tab-dash #evDash-host{display:none !important}
+html body.os-on.eds:not(.report-mode):not(.embed-mode):not(#_eds):not(#_eds2).eds-tab-seo #evDash-host{display:none !important}
+html body.os-on.eds:not(.report-mode):not(.embed-mode):not(#_eds):not(#_eds2).eds-tab-dash .seo-dash-cols{grid-template-columns:minmax(0,1fr) !important}
+html body.os-on.eds:not(.report-mode):not(.embed-mode):not(#_eds):not(#_eds2).eds-tab-seo #seoview-dashboard,html body.os-on.eds:not(.report-mode):not(.embed-mode):not(#_eds):not(#_eds2).eds-tab-seo #seoview-keywords,html body.os-on.eds:not(.report-mode):not(.embed-mode):not(#_eds):not(#_eds2).eds-tab-seo #seoview-ai{display:block !important}
+html body.os-on.eds:not(.report-mode):not(.embed-mode):not(#_eds):not(#_eds2).eds-tab-seo #seoview-embed{display:none !important}
+html body.os-on.eds:not(.report-mode):not(.embed-mode):not(#_eds):not(#_eds2).eds-tab-seo #seoDashView,html body.os-on.eds:not(.report-mode):not(.embed-mode):not(#_eds):not(#_eds2).eds-tab-seo #seoDashEdit,html body.os-on.eds:not(.report-mode):not(.embed-mode):not(#_eds):not(#_eds2).eds-tab-seo #seoConnCard,html body.os-on.eds:not(.report-mode):not(.embed-mode):not(#_eds):not(#_eds2).eds-tab-seo #edsAssets{display:none !important}
+html body.os-on.eds:not(.report-mode):not(.embed-mode):not(#_eds):not(#_eds2).eds-tab-seo #seoview-keywords,html body.os-on.eds:not(.report-mode):not(.embed-mode):not(#_eds):not(#_eds2).eds-tab-seo #seoview-ai{margin-top:26px !important}
+html body.os-on.eds:not(.report-mode):not(.embed-mode):not(#_eds):not(#_eds2).eds-tab-seo #seoview-keywords::before{content:"Keywords";display:block;font:700 22px var(--display);letter-spacing:-.025em;color:var(--ink);margin:0 0 14px}
+html body.os-on.eds:not(.report-mode):not(.embed-mode):not(#_eds):not(#_eds2).eds-tab-seo #seoview-ai::before{content:"AI visibility";display:block;font:700 22px var(--display);letter-spacing:-.025em;color:var(--ink);margin:0 0 14px}
+.eds-sbar{display:flex;align-items:center;gap:12px;margin-right:14px}
+.eds-back-btn{display:inline-flex;align-items:center;gap:7px;height:38px;padding:0 13px 0 10px;border-radius:11px;border:1px solid var(--line);background:#fff;font:650 13px var(--ui);color:var(--ink-2);cursor:pointer;transition:all .2s}
+.eds-back-btn:hover{border-color:var(--acc);color:var(--acc);background:var(--acc-1)}
+.eds-back-btn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2}
+.eds-tabs{height:38px}
+.eds-tabs button{font-size:13.5px;padding:0 16px}
+/* level 1 */
+.eds-uhome{padding:4px 0 30px;animation:edsPane .4s var(--ease)}
+.eds-uhero{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap;position:relative;isolation:isolate;overflow:hidden;padding:30px 32px;border-radius:26px;color:#fff;margin-bottom:20px;background:radial-gradient(70% 150% at 100% 0%,color-mix(in srgb,var(--glow) 34%,transparent),transparent 62%),linear-gradient(135deg,#00545e,#004851 45%,#00363d);box-shadow:0 30px 60px -34px rgba(0,40,46,.7)}
+.eds-uhero::before{content:"";position:absolute;inset:0;z-index:-1;background:var(--motif) right top/auto 100% no-repeat}
+.eds-uhero .eds-eyebrow{color:var(--e-aqua)}
+.eds-uhero .eds-eyebrow i{background:var(--glow)}
+.eds-uhero h2{margin:0;font:700 40px/1.05 var(--display);letter-spacing:-.04em;color:#fff !important}
+.eds-uhero p{margin:10px 0 0;color:rgba(232,246,248,.74);max-width:560px;font-size:14px}
+.eds-ufig{display:flex;background:rgba(255,255,255,.07);border:1px solid rgba(168,230,238,.18);border-radius:16px;overflow:hidden}
+.eds-ufig>div{padding:14px 20px;border-left:1px solid rgba(168,230,238,.14)}
+.eds-ufig>div:first-child{border-left:0}
+.eds-ufig b{display:block;font:700 26px var(--display);letter-spacing:-.035em;color:#fff}
+.eds-ufig b span{color:rgba(255,255,255,.5);font-size:17px}
+.eds-ufig small{color:rgba(168,230,238,.85);font-size:12px}
+.eds-chips{display:flex;gap:8px;flex-wrap:wrap;margin:-4px 0 18px}
+.eds-chips button{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 13px;border-radius:99px;border:1px solid var(--line);background:#fff;font:600 13px var(--ui);color:var(--mute);cursor:pointer;transition:all .2s}
+.eds-chips button i{font-style:normal;font-size:11px;background:var(--line-2);color:var(--mute);border-radius:99px;padding:1px 7px}
+.eds-chips button:hover{color:var(--ink);border-color:#d3dcde}
+.eds-chips button.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.eds-chips button.on i{background:rgba(255,255,255,.18);color:#fff}
+.eds-sgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:16px}
+.eds-scard{background:#fff;border:1px solid var(--line);border-radius:22px;padding:18px;display:flex;flex-direction:column;gap:14px;box-shadow:var(--sh);cursor:pointer;transition:transform .35s var(--ease),box-shadow .35s,border-color .35s;animation:edsRise .55s var(--ease) both;position:relative;overflow:hidden}
+.eds-scard::after{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--acc);transform:scaleY(0);transform-origin:top;transition:transform .4s var(--ease)}
+.eds-scard:hover{transform:translateY(-3px);box-shadow:var(--sh2);border-color:#dce3e5}
+.eds-scard:hover::after{transform:scaleY(1)}
+.eds-sc-top{display:flex;align-items:center;gap:12px}
+.eds-lg{flex:none;width:46px;height:46px;border-radius:14px;background:#fff;box-shadow:0 0 0 1px var(--line),0 6px 14px -8px rgba(0,40,46,.25);display:grid;place-items:center;overflow:hidden}
+.eds-lg img{width:76%;height:76%;object-fit:contain;display:block}
+.eds-lg b{font:700 15px var(--display);color:var(--e-teal)}
+.eds-sc-n{flex:1;min-width:0}
+.eds-sc-n h3{margin:0;font:650 16px var(--display);letter-spacing:-.02em;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.eds-sc-n small{display:block;color:var(--soft);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.eds-sc-fig{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.eds-sc-fig>div{background:var(--line-2);border-radius:12px;padding:9px 11px}
+.eds-sc-fig b{display:block;font:700 19px var(--display);letter-spacing:-.03em;color:var(--ink)}
+.eds-sc-fig b span{font-size:13px;color:var(--soft)}
+.eds-sc-fig small{color:var(--mute);font-size:11.5px}
+.eds-sc-bar{height:5px;border-radius:5px;background:var(--line-2);overflow:hidden}
+.eds-sc-bar i{display:block;height:100%;border-radius:5px;background:linear-gradient(90deg,var(--e-orange),#f6a05a);transition:width .8s var(--ease)}
+.eds-sc-foot{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.eds-sc-ls{font-size:12px;color:var(--mute)}
+.eds-minis{display:flex;gap:4px}
+.eds-mini{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;background:var(--e-teal-1);color:var(--e-teal)}
+.eds-mini svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.eds-mini.gbp{background:#eef5fd;color:#2a78d6}.eds-mini.ads{background:#efeffa;color:#6f6db8}.eds-mini.maint{background:#e3f6f8;color:#1f9aa8}.eds-mini.report{background:#ebf3ef;color:#5c8576}
+.eds-mini.off{background:transparent;color:#cdd6d8;box-shadow:inset 0 0 0 1px var(--line)}
+.eds-menu{position:fixed;z-index:10020;min-width:220px;background:#fff;border-radius:14px;box-shadow:var(--sh3);padding:6px;animation:edsPop .25s var(--ease);font-family:var(--ui)}
+.eds-menu button{display:block;width:100%;text-align:left;border:0;background:none;padding:10px 12px;border-radius:9px;font:550 13.5px var(--ui);color:var(--ink);cursor:pointer}
+.eds-menu button:hover{background:var(--line-2)}
+/* Dashboard: what SEO needs */
+.eds-assets{padding-bottom:6px !important}
+.eds-assets .seo-panel-h{display:flex;align-items:center;gap:12px}
+.eds-prog{margin-left:auto;display:inline-flex;align-items:center;gap:9px;font:600 12.5px var(--ui);color:var(--ink-2)}
+.eds-prog .bar{width:96px;height:6px;border-radius:6px;background:var(--line-2);overflow:hidden}
+.eds-prog .bar i{display:block;height:100%;border-radius:6px;background:linear-gradient(90deg,#f6a05a,var(--e-orange));transition:width .7s var(--ease)}
+.eds-prog.all .bar i{background:linear-gradient(90deg,#34c38a,var(--ok))}
+.eds-fresh{display:flex;flex-wrap:wrap;gap:8px 18px;padding:12px 18px 2px;font-size:12.5px;color:var(--mute)}
+.eds-fresh span{display:inline-flex;align-items:center;gap:7px}
+.eds-fresh i{width:7px;height:7px;border-radius:50%;background:#cfd8da}
+.eds-fresh i.ok{background:var(--ok);box-shadow:0 0 0 3px var(--ok-1)}
+.eds-fresh b{color:var(--ink)}
+.eds-arows{display:grid;gap:8px;padding:14px 18px 16px}
+.eds-arow{display:flex;align-items:center;gap:14px;padding:12px 14px;border:1px solid var(--line);border-radius:15px;background:#fff;animation:edsRise .45s var(--ease) both;transition:border-color .2s,box-shadow .2s}
+.eds-arow:hover{border-color:#d7dfe1;box-shadow:0 10px 22px -16px rgba(0,40,46,.3)}
+.eds-arow .d{flex:none;width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:var(--line-2);color:var(--mute)}
+.eds-arow .d svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.eds-arow.ok .d{background:var(--ok-1);color:var(--ok)}
+.eds-arow.warn .d,.eds-arow.todo .d{background:var(--e-orange-1);color:var(--e-orange)}
+.eds-arow .t{flex:1;min-width:0}
+.eds-arow .t b{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--ink)}
+.eds-arow .t b em{font-style:normal;font-size:10.5px;font-weight:600;color:var(--soft);background:var(--line-2);border-radius:99px;padding:1px 7px}
+.eds-arow .t small{display:block;color:var(--mute);font-size:12.5px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.eds-arow .st{display:inline-flex;align-items:center;gap:5px;font:650 12px var(--ui);color:var(--soft);white-space:nowrap}
+.eds-arow .st svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.4}
+.eds-arow.ok .st{color:var(--ok)}
+.eds-arow.warn .st,.eds-arow.todo .st{color:var(--e-orange-7)}
+/* maintenance: add a website from the grid */
+html body.os-on.eds:not(.report-mode):not(.embed-mode):not(#_eds):not(#_eds2) .mt-card-add{display:flex !important;flex-direction:column !important;align-items:center !important;justify-content:center !important;gap:8px !important;min-height:220px !important;border:1.5px dashed #cfd9db !important;background:transparent !important;box-shadow:none !important;color:var(--mute) !important;cursor:pointer;font-family:var(--ui)}
+html body.os-on.eds:not(.report-mode):not(.embed-mode):not(#_eds):not(#_eds2) .mt-card-add:hover{border-color:var(--acc) !important;color:var(--acc) !important;background:var(--acc-1) !important}
+html body.os-on.eds:not(.report-mode):not(.embed-mode):not(#_eds):not(#_eds2) .mt-card-add .mt-add-pl{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;background:#fff;box-shadow:var(--sh)}
+html body.os-on.eds:not(.report-mode):not(.embed-mode):not(#_eds):not(#_eds2) .mt-card-add svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2}
+html body.os-on.eds:not(.report-mode):not(.embed-mode):not(#_eds):not(#_eds2) .mt-card-add b{font:650 14.5px var(--display);color:inherit}
+html body.os-on.eds:not(.report-mode):not(.embed-mode):not(#_eds):not(#_eds2) .mt-card-add small{font-size:12px;color:var(--soft)}
+
+/* ==========================================================================
    NEW: the Clients board on home and the New client setup (edge-ds.js)
    ========================================================================== */
 .eds-home{position:relative;margin:30px 0 0}

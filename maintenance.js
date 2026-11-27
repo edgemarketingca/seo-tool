@@ -530,13 +530,13 @@ function renderOverview(stg){
     '</section>' +
     '<section class="mt-panel mt-month"><div class="mt-month-h"><h3>' + esc(monthName(now, true)) + '</h3><span>Each bar is a day · taller bars are days sites were finished</span></div>' + strip + '</section>' +
     '<div class="mt-sec-h"><h3>Websites</h3><span>' + list.length + ' WordPress ' + (list.length === 1 ? 'site' : 'sites') + ' · red until this month’s maintenance is marked done · dots show the last six months</span></div>' +
-    (list.length ? '<div class="mt-grid mt-grid2">' + cards + '</div>' : '<div class="mt-panel mt-empty">No WordPress websites yet. <button class="mt-btn sm line" type="button" data-add2 style="margin-left:8px">' + svg(IC.plus) + 'Add a website</button></div>') +
+    (list.length ? '<div class="mt-grid mt-grid2">' + cards + '<button type="button" class="mt-card mt-card-add" data-add2><span class="mt-add-pl">' + svg(IC.plus) + '</span><b>Add a website</b><small>Any client can join the monthly care checklist</small></button></div>' : '<div class="mt-panel mt-empty">No WordPress websites yet. <button class="mt-btn sm line" type="button" data-add2 style="margin-left:8px">' + svg(IC.plus) + 'Add a website</button></div>') +
     '<div class="mt-sec-h"><h3>Recent maintenance</h3><span>Every site, newest first</span></div>' +
     '<div class="mt-panel">' + (log.length ? '<ul class="mt-tl-list mt-tl2">' + log.slice(0, 12).map(({c, e}) =>
       '<li>' + logoHtml(c, 'mt-logo') + '<div style="flex:1;min-width:0"><b>' + esc(c.name) + '</b><small>' + esc(dLong(e.at) + ' · ' + (e.by || 'Someone') + ' · ' + (e.items ? e.items.length : 0) + ' of ' + (e.total || TOTAL) + ' checks') + '</small>' + (e.note ? '<p>' + esc(e.note) + '</p>' : '') + '</div><span class="mt-tick">' + svg(IC.check) + '</span></li>').join('') + '</ul>'
       : '<div class="mt-empty">Nothing marked done yet. Finished maintenance shows up here with the date and who did it.</div>') + '</div>' +
     '</div>';
-  stg.querySelectorAll('.mt-card').forEach(b => b.onclick = () => { setView({site: b.dataset.site}); render(); window.scrollTo(0, 0); });
+  stg.querySelectorAll('.mt-card:not(.mt-card-add)').forEach(b => b.onclick = () => { setView({site: b.dataset.site}); render(); window.scrollTo(0, 0); });
   const a2 = stg.querySelector('[data-add2]'); if (a2) a2.onclick = addSite;
 }
 
@@ -890,5 +890,5 @@ document.addEventListener('keydown', e => {
 
 /* Coming into Web Maintenance always starts on the overview. */
 const home = () => { setView({site: ''}); render(); };
-window.EDGE_maint = {render, home, open: openSite, due: () => dueSites().map(c => c.name), notify: () => notifyDue(true), sites, statusOf};
+window.EDGE_maint = {render, home, open: openSite, add: () => addSite(), due: () => dueSites().map(c => c.name), notify: () => notifyDue(true), sites, statusOf};
 })();

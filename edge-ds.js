@@ -178,7 +178,7 @@ function openClient(c, pillar){
         state.activeClientId = u.gbp.id; state.activeGbpId = (u.gbp.gbps[0] || {}).id; state.view = 'focus';
         os.go('seo', 'gbp'); setTimeout(() => { try{ renderAll(); }catch(e){} }, 60); return;
       }
-      os.go('seo', 'seo'); setTimeout(() => { seoRender(); }, 60);
+      os.go('seo', 'seo'); setTimeout(() => { SeoHome.open(c, 'dash'); }, 60);
     } else if (pillar === 'ads'){
       if (!u.ads.length){ Setup.open({client: c, focus: 'ads'}); return; }
       os.go('ads');
@@ -428,8 +428,14 @@ const Setup = {
       }
     });
     Board.sig = ''; Board.paint(true);
+    try{ const nc = (state.seoClients || []).find(x => x.name === d.name); if (nc && SeoHome.on()) SeoHome.open(nc, 'dash'); }catch(e){}
   },
 
+  /* An existing client: link a Business Profile (round 3 brings the finder) */
+  addGbp(c){
+    const os = OS(); if (!os) return;
+    enter('seo', null, () => { os.go('seo', 'gbp'); });
+  },
   /* An existing client: add one pillar from its card */
   addPillar(c, k){
     const ui = UI(); if (!ui) return;
@@ -553,6 +559,220 @@ document.addEventListener('click', e => {
   enter(k, t.closest('.osh-t') || t, () => { try{ EDGE_showHub(false); }catch(err){} try{ OS().go(k); }catch(err){} });
 }, true);
 
+
+/* ==========================================================================
+   SEO · clients on the main display
+     Level 1  every SEO client as a card: logo, keywords, page one, last scan,
+              what else EDGE runs for them; search, folders, New client, and the
+              old rail tools under More.
+     Level 2  one client, two tabs:
+                Dashboard  what SEO needs for this client: each asset with its
+                           status and a one-click add or connect, when data was
+                           last pulled, the client details and the Connections
+                           card (GA4 · Search Console · forms · Easyleads)
+                SEO        the working tab: figures, keywords and AI visibility on
+                           one page
+   The client rail is gone; the app's own views do the work underneath.
+   ========================================================================== */
+const curMod = () => { try{ return (window.EDGE && EDGE.current && EDGE.current()) || state.seoModule; }catch(e){ return state.seoModule; } };
+const fmtDate = ms => { if (!ms) return ''; const d = new Date(ms); return d.toLocaleDateString('en-CA', {month: 'short', day: 'numeric'}) + ', ' + d.toLocaleTimeString('en-CA', {hour: 'numeric', minute: '2-digit'}); };
+const lastScan = c => { let m = 0; (c.keywords || []).forEach(k => (k.locations || []).forEach(l => { const t = l.checkedAt ? new Date(l.checkedAt).getTime() : 0; if (t > m) m = t; })); return m; };
+const folderOf = c => (state.seoFolders || []).find(f => f && f.id === c.folderId) || null;
+
+const SeoHome = {
+  openId: (() => { try{ return sessionStorage.getItem('edsSeoOpen') || ''; }catch(e){ return ''; } })(),
+  tab: (() => { try{ return sessionStorage.getItem('edsSeoTab') || 'dash'; }catch(e){ return 'dash'; } })(),
+  q: '', folder: 'active', sig: '', aiLoaded: '',
+  client(){ return (state.seoClients || []).find(c => c && c.id === this.openId) || null; },
+  save(){ try{ sessionStorage.setItem('edsSeoOpen', this.openId || ''); sessionStorage.setItem('edsSeoTab', this.tab); }catch(e){} },
+  on(){ return secNow() === 'seo' && curMod() === 'seo' && !onHub(); },
+  open(c, tab){
+    if (!c) return;
+    this.openId = c.id; this.tab = tab || 'dash'; this.save();
+    state.activeSeoClientId = c.id;
+    seoRender();
+    this.apply(true);
+    window.scrollTo(0, 0);
+  },
+  close(){ this.openId = ''; this.save(); this.sig = ''; this.apply(true); window.scrollTo(0, 0); },
+  setTab(t){ this.tab = t; this.save(); this.apply(true); window.scrollTo({top: 0, behavior: RM() ? 'auto' : 'smooth'}); },
+  mode(m){ const b = document.querySelector('#seoModes .seo-mode[data-seoview="' + m + '"]'); if (b && !b.classList.contains('on')){ this.self = true; try{ b.click(); } finally { this.self = false; } } },
+  /* put the app's own view under the tab (only when the tab is chosen, never on a tick) */
+  syncMode(c){
+    if (this.tab === 'seo'){
+      if (this.aiLoaded !== c.id){ this.aiLoaded = c.id; this.mode('ai'); setTimeout(() => { if (this.tab === 'seo') this.mode('keywords'); }, 120); }
+      else this.mode('keywords');
+    } else if (this.tab === 'dash') this.mode('dashboard');
+  },
+  apply(force){
+    const B = document.body.classList, on = this.on();
+    const c = on ? this.client() : null;
+    if (on && this.openId && !c){ this.openId = ''; this.save(); }
+    B.toggle('eds-seo-grid', on && !c);
+    B.toggle('eds-seo-client', on && !!c);
+    B.toggle('eds-tab-dash', on && !!c && this.tab === 'dash');
+    B.toggle('eds-tab-seo', on && !!c && this.tab === 'seo');
+    B.toggle('eds-tab-other', on && !!c && this.tab === 'other');
+    if (!on) return;
+    if (!c){ this.paintGrid(force); return; }
+    if (state.activeSeoClientId !== c.id){ state.activeSeoClientId = c.id; seoRender(); }
+    if (force) this.syncMode(c);
+    this.paintBar(c);
+    if (this.tab === 'dash') this.paintAssets(c, force);
+  },
+  /* the tabs and the way back, in the stage's own top bar */
+  paintBar(c){
+    const top = document.querySelector('#seoStage .topbar'); if (!top) return;
+    let t = $('edsSeoBar');
+    if (!t || !top.contains(t)){
+      if (t) t.remove();
+      t = document.createElement('div'); t.id = 'edsSeoBar'; t.className = 'eds-sbar';
+      top.insertBefore(t, top.firstChild);
+      t.addEventListener('click', e => {
+        if (e.target.closest('[data-back]')) return this.close();
+        const b = e.target.closest('[data-t]'); if (b) this.setTab(b.dataset.t);
+      });
+    }
+    const sig = c.id + this.tab + c.name;
+    if (t.dataset.sig === sig) return;
+    t.dataset.sig = sig;
+    t.innerHTML = '<button type="button" class="eds-back-btn" data-back title="All SEO clients">' + ic('arrowL') + '<span>All clients</span></button>' +
+      '<div class="eds-seg eds-tabs" data-seg><span class="pill"></span><button type="button" data-t="dash"' + (this.tab === 'dash' ? ' class="on"' : '') + '>Dashboard</button><button type="button" data-t="seo"' + (this.tab === 'seo' ? ' class="on"' : '') + '>SEO</button></div>';
+    requestAnimationFrame(() => { const on = t.querySelector('[data-t].on'), p = t.querySelector('.pill'); if (on && p){ p.style.left = on.offsetLeft + 'px'; p.style.width = on.offsetWidth + 'px'; } });
+  },
+  /* Dashboard: what SEO needs for this client */
+  paintAssets(c, force){
+    const main = document.querySelector('#seoDashboardView .seo-dash-main'); if (!main) return;
+    let a = $('edsAssets');
+    if (!a || !main.contains(a)){
+      if (a) a.remove();
+      a = document.createElement('section'); a.id = 'edsAssets'; a.className = 'card seo-panel eds-assets';
+      main.insertBefore(a, main.firstChild);
+      a.addEventListener('click', e => { const b = e.target.closest('[data-act]'); if (b) this.act(b.dataset.act, this.client(), b); });
+    }
+    const u = usage(c), ls = lastScan(c), logoOk = !!c.logoUrl, site = normDomain(c.website);
+    let adsN = 0; try{ adsN = u.ads.length; }catch(e){}
+    const rows = [
+      {k: 'site', ic: 'globe', t: 'Website', ok: site.indexOf('.') > 0, v: site || 'No website yet', a: site ? 'Edit' : 'Add website'},
+      {k: 'logo', ic: 'sparkle', t: 'Logo', ok: logoOk, v: logoOk ? 'Their own logo is saved' : 'Using the website icon', a: logoOk ? 'Change' : 'Find their logo', warn: !logoOk},
+      {k: 'kw', ic: 'seo', t: 'Keywords and locations', ok: u.kws > 0 && u.locs > 0, v: u.kws ? u.kws + ' keyword' + (u.kws === 1 ? '' : 's') + ' · ' + u.locs + ' location' + (u.locs === 1 ? '' : 's') + (u.locs ? '' : ' (add a city to start scanning)') : 'Nothing tracked yet', a: u.kws ? 'Add more' : 'Add keywords', warn: u.kws > 0 && !u.locs},
+      {k: 'gbp', ic: 'gbp', t: 'Google Business Profile', ok: !!u.gbp, v: u.gbp ? (u.gbp.gbps || []).length + ' profile' + ((u.gbp.gbps || []).length === 1 ? '' : 's') + ' linked' : 'Not linked', a: u.gbp ? 'Open' : 'Add profile', opt: 1},
+      {k: 'ads', ic: 'ads', t: 'Google Ads', ok: adsN > 0, v: adsN ? adsN + ' account' + (adsN === 1 ? '' : 's') + ' linked' : 'Not running ads', a: adsN ? 'Open' : 'Link account', opt: 1},
+      {k: 'maint', ic: 'maint', t: 'Web Maintenance', ok: !!u.maint, v: u.maint ? (u.maint === 'ok' ? 'Done this month' : u.maint === 'due' ? 'Due this month' : 'Paused') : 'Not on the care checklist', a: u.maint ? 'Open' : 'Add', opt: 1},
+      {k: 'report', ic: 'report', t: 'Monthly report', ok: !!u.report, v: u.report ? 'Emailed to ' + (u.report.to || []).join(', ') : 'Not emailed yet', a: u.report ? 'Open' : 'Set up', opt: 1}
+    ];
+    const need = rows.filter(r => !r.opt), done = need.filter(r => r.ok).length;
+    const sig = JSON.stringify(rows) + ls;
+    if (!force && a.dataset.sig === sig) return;
+    a.dataset.sig = sig;
+    a.innerHTML = '<div class="seo-panel-h"><h3>What SEO needs for ' + esc(c.name) + '</h3><span class="eds-prog' + (done === need.length ? ' all' : '') + '"><span class="bar"><i style="width:' + Math.round(done / need.length * 100) + '%"></i></span>' + done + ' of ' + need.length + ' ready</span></div>' +
+      '<div class="eds-fresh"><span><i class="' + (ls ? 'ok' : '') + '"></i>Rankings last pulled <b>' + (ls ? esc(fmtDate(ls)) : 'never') + '</b></span><span><i class="ok"></i>Connections below are checked live with the tracker</span></div>' +
+      '<div class="eds-arows">' + rows.map((r, i) => '<div class="eds-arow ' + (r.ok ? 'ok' : r.warn ? 'warn' : r.opt ? 'opt' : 'todo') + '" style="animation-delay:' + (i * 35) + 'ms"><span class="d">' + ic(r.ic) + '</span><div class="t"><b>' + r.t + (r.opt ? '<em>optional</em>' : '') + '</b><small>' + esc(r.v) + '</small></div><span class="st">' + (r.ok ? ic('check') + 'Ready' : r.warn ? 'Needs a look' : r.opt ? 'Off' : 'To do') + '</span><button type="button" class="eds-btn sm' + (r.ok ? '' : r.opt ? '' : ' pri') + '" data-act="' + r.k + '">' + esc(r.a) + '</button></div>').join('') + '</div>';
+  },
+  act(k, c, btn){
+    if (!c) return;
+    const ui = UI();
+    if (k === 'site' || k === 'edit'){ const e = document.querySelector('#seoStage .seo-edit-btn, #seoDashEditBtn, [data-seoedit]'); if (e) e.click(); else toastMsg('Edit the website from the client details below'); return; }
+    if (k === 'logo'){ if (ui && ui.findLogoFor) ui.findLogoFor(c); return; }
+    if (k === 'kw'){ this.setTab('seo'); setTimeout(() => { const b = $('seoAddKwBtn') || document.querySelector('#seoKeywordsView [data-addkw], #seoKeywordsView .seo-add-kw'); if (b){ b.scrollIntoView({block: 'center', behavior: 'smooth'}); setTimeout(() => b.click(), 350); } }, 450); return; }
+    if (k === 'gbp'){ const u = usage(c); if (u.gbp) openClient(c, 'seo'); else Setup.addGbp(c); return; }
+    if (k === 'ads'){ const u = usage(c); if (u.ads.length) enter('ads', btn, () => OS().go('ads')); else Setup.addPillar(c, 'ads'); return; }
+    if (k === 'maint'){ const u = usage(c); if (u.maint) enter('maint', btn, () => openClient(c, 'maint')); else { c.maintOn = true; try{ save(); }catch(e){} toastMsg(c.name + ' added to Web Maintenance', 'add'); this.apply(true); } return; }
+    if (k === 'report'){ try{ OS().reporting.drawer(c); }catch(e){ enter('report', btn, () => openClient(c, 'report')); } return; }
+  },
+  /* Level 1: the clients */
+  mountGrid(){
+    const panels = document.querySelector('#seoStage .panels'); if (!panels) return null;
+    let g = $('edsSeoHome');
+    if (!g || !panels.contains(g)){
+      if (g) g.remove();
+      g = document.createElement('section'); g.id = 'edsSeoHome'; g.className = 'eds-uhome';
+      panels.insertBefore(g, panels.firstChild);
+      g.addEventListener('input', e => { if (e.target.matches('[data-q]')){ this.q = e.target.value; this.paintGrid(true, true); } });
+      g.addEventListener('click', e => {
+        const t = e.target;
+        if (t.closest('[data-new]')) return Setup.open({pillars: ['seo']});
+        const f = t.closest('[data-f]'); if (f){ this.folder = f.dataset.f; this.paintGrid(true, true); return; }
+        if (t.closest('[data-more]')) return this.more(t.closest('[data-more]'));
+        const cd = t.closest('.eds-scard'); if (cd){ const c = (state.seoClients || []).find(x => x.id === cd.dataset.id); if (c) this.open(c, 'dash'); }
+      });
+    }
+    return g;
+  },
+  more(btn){
+    const items = [['seoImportBtn', 'Import clients'], ['seoExportAllBtn', 'Export all (.xlsx)'], ['seoPublishAllBtn', 'Share all clients'], ['seoFormsSyncBtn', 'Forms sync'], ['euiLogosBtn', 'Find missing logos'], ['seoAddFolderBtn', 'New folder']].filter(x => $(x[0]));
+    let m = $('edsMore'); if (m){ m.remove(); return; }
+    m = document.createElement('div'); m.id = 'edsMore'; m.className = 'eds-menu';
+    m.innerHTML = items.map(x => '<button type="button" data-id="' + x[0] + '">' + esc(x[1]) + '</button>').join('');
+    document.body.appendChild(m);
+    const r = btn.getBoundingClientRect(); m.style.top = (r.bottom + 6) + 'px'; m.style.left = Math.max(12, r.right - 220) + 'px';
+    m.addEventListener('click', e => { const b = e.target.closest('[data-id]'); if (!b) return; m.remove(); const o = $(b.dataset.id); if (o) o.click(); });
+    setTimeout(() => document.addEventListener('mousedown', function away(e){ if (!m.contains(e.target)){ m.remove(); document.removeEventListener('mousedown', away); } }), 0);
+  },
+  paintGrid(force, keepTop){
+    const g = this.mountGrid(); if (!g) return;
+    const all = (state.seoClients || []).filter(Boolean);
+    const folders = (state.seoFolders || []).filter(Boolean);
+    const inactive = c => isArchived(c);
+    const q = this.q.trim().toLowerCase();
+    let list = all.filter(c => this.folder === 'inactive' ? inactive(c) : !inactive(c));
+    if (this.folder !== 'active' && this.folder !== 'inactive') list = list.filter(c => c.folderId === this.folder);
+    if (q) list = list.filter(c => [c.name, c.website, c.projectLead].some(v => String(v || '').toLowerCase().indexOf(q) > -1));
+    list.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+    const sig = this.folder + '|' + q + '|' + list.map(c => c.id + c.name + c.logoUrl + (c.keywords || []).length + lastScan(c) + c.status + c.folderId).join(',') + folders.length;
+    if (!force && sig === this.sig) return;
+    this.sig = sig;
+    let tot = 0, p1 = 0, locs = 0;
+    all.filter(c => !inactive(c)).forEach(c => { const u = usage(c); tot += u.kws; p1 += u.top10; locs += u.locs; });
+    const chip = (k, l, n) => '<button type="button" data-f="' + esc(k) + '"' + (this.folder === k ? ' class="on"' : '') + '>' + esc(l) + (n != null ? '<i>' + n + '</i>' : '') + '</button>';
+    const fchips = chip('active', 'All clients', all.filter(c => !inactive(c)).length) + folders.filter(f => !/inactive|archiv/i.test(f.name)).map(f => chip(f.id, f.name, all.filter(c => c.folderId === f.id).length)).join('') + chip('inactive', 'Inactive', all.filter(inactive).length);
+    const card = (c, i) => {
+      const u = usage(c), ls = lastScan(c), src = logoOf(c), st = String(c.status || 'Active');
+      const pct = u.locs ? Math.round(u.top10 / u.locs * 100) : 0;
+      const dot = (k, on, l) => '<span class="eds-mini ' + k + (on ? '' : ' off') + '" title="' + esc(l + (on ? '' : ': off')) + '">' + ic(k === 'gbp' ? 'gbp' : k) + '</span>';
+      return '<article class="eds-scard" data-id="' + esc(c.id) + '" style="animation-delay:' + Math.min(i * 30, 360) + 'ms">' +
+        '<div class="eds-sc-top"><span class="eds-lg">' + (src ? '<img alt="" src="' + esc(src) + '" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement(\'b\'),{textContent:\'' + esc(initials(c.name)) + '\'}))">' : '<b>' + esc(initials(c.name)) + '</b>') + '</span>' +
+        '<div class="eds-sc-n"><h3>' + esc(c.name || 'Untitled') + '</h3><small>' + esc(normDomain(c.website) || 'No website yet') + (c.projectLead ? ' · ' + esc(c.projectLead) : '') + '</small></div>' +
+        '<span class="eds-tag st' + (/pause|onboard|inactive/i.test(st) ? ' warn' : '') + '"><i></i>' + esc(st) + '</span></div>' +
+        '<div class="eds-sc-fig"><div><b>' + u.kws + '</b><small>keywords</small></div><div><b>' + u.top10 + '<span>/' + u.locs + '</span></b><small>on page one</small></div><div><b>' + (u.top3 || 0) + '</b><small>top 3</small></div></div>' +
+        '<div class="eds-sc-bar"><i style="width:' + pct + '%"></i></div>' +
+        '<div class="eds-sc-foot"><span class="eds-sc-ls">' + (ls ? 'Pulled ' + esc(fmtDate(ls)) : 'Not scanned yet') + '</span><span class="eds-minis">' + dot('gbp', !!u.gbp, 'Business Profile') + dot('ads', u.ads.length > 0, 'Google Ads') + dot('maint', !!u.maint, 'Web Maintenance') + dot('report', !!u.report, 'Monthly report') + '</span></div></article>';
+    };
+    const top = keepTop && g.querySelector('[data-q]') === document.activeElement;
+    g.innerHTML = '<div class="eds-uhero"><div><span class="eds-eyebrow"><i></i>01 · Strategy</span><h2>SEO clients</h2><p>Open a client to see what SEO needs for them and connect it, then work their keywords and AI visibility in one place.</p></div>' +
+        '<div class="eds-ufig"><div><b>' + all.filter(c => !inactive(c)).length + '</b><small>clients</small></div><div><b>' + tot + '</b><small>keywords</small></div><div><b>' + p1 + '<span>/' + locs + '</span></b><small>on page one</small></div></div></div>' +
+      '<div class="eds-bar"><label class="eds-search">' + ic('search') + '<input type="search" data-q placeholder="Find a client, website or project lead" value="' + esc(this.q) + '" autocomplete="off"></label>' +
+        '<button type="button" class="eds-btn" data-more>More<svg class="eds-i" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button><button type="button" class="eds-btn pri" data-new>' + ic('plus') + 'New client</button></div>' +
+      '<div class="eds-chips">' + fchips + '</div>' +
+      '<div class="eds-sgrid">' + list.map(card).join('') + (this.folder === 'active' && !q ? '<button type="button" class="eds-add" data-new><span class="pl">' + ic('plus') + '</span>New client<small style="font-weight:500;color:var(--soft)">Keywords, Business Profile, connections</small></button>' : '') + (!list.length ? '<div class="eds-empty">No clients here.</div>' : '') + '</div>';
+    if (top){ const i = g.querySelector('[data-q]'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }
+  }
+};
+/* Anything else that opens a client (the app's own list, its mode buttons, a link
+   from another pillar) opens it here too, on the matching tab. */
+document.addEventListener('click', e => {
+  const t = e.target.closest && e.target.closest('#seoModes .seo-mode, #seoRail .tree-row, #seoRail .tree-kid');
+  if (!t || SeoHome.self) return;
+  setTimeout(() => {
+    const id = state.activeSeoClientId; if (!id) return;
+    const v = t.dataset && t.dataset.seoview;
+    SeoHome.openId = id;
+    if (v) SeoHome.tab = v === 'dashboard' ? 'dash' : (v === 'keywords' || v === 'ai') ? 'seo' : 'other';
+    else if (SeoHome.tab === 'other') SeoHome.tab = 'dash';
+    SeoHome.save(); SeoHome.apply(false);
+  }, 0);
+}, true);
+/* coming in from Home always starts on the clients */
+document.addEventListener('click', e => { const t = e.target.closest && e.target.closest('#osHub [data-osgo="seo"]'); if (t){ SeoHome.openId = ''; SeoHome.save(); SeoHome.sig = ''; } }, true);
+
+/* rails off where the main display has the clients */
+function railState(){
+  const k = secNow(), m = curMod(), B = document.body.classList;
+  const off = !onHub() && ((k === 'seo' && m === 'seo') || k === 'maint' || k === 'report');
+  B.toggle('eds-norail', off);
+  ['seo', 'gbp', 'serp', 'maint', 'ads'].forEach(x => B.toggle('eds-m-' + x, m === x));
+}
+
 /* --- Across EDGE: the other three pillars, for this client --- */
 const moneyK = v => v >= 1e6 ? '$' + (v / 1e6).toFixed(1) + 'M' : v >= 1e4 ? '$' + Math.round(v / 1e3) + 'k' : v >= 1e3 ? '$' + (v / 1e3).toFixed(1) + 'k' : '$' + Math.round(v || 0);
 const monthShort = ym => { try{ const [y, m] = ym.split('-').map(Number); return new Date(y, m - 1, 1).toLocaleDateString('en-CA', {month: 'short'}); }catch(e){ return ''; } };
@@ -577,7 +797,7 @@ function ctxClient(){
   if (k === 'seo' && mod === 'gbp'){
     try{ return (state.seoClients || []).find(c => { const g = window.EDGE_gbpFor && EDGE_gbpFor(c); return g && g.id === state.activeClientId; }) || null; }catch(e){ return null; }
   }
-  if (k === 'seo' && mod === 'seo') return byId(state.activeSeoClientId);
+  if (k === 'seo' && mod === 'seo') return SeoHome.openId ? byId(SeoHome.openId) : null;
   return null;
 }
 function facts(c){
@@ -676,9 +896,9 @@ document.addEventListener('click', e => {
   setTimeout(() => { if (Math.abs(scrollY - y) > 40) window.scrollTo(0, y); try{ (window.EDGE_FX || {}).flash && EDGE_FX.flash(el); }catch(err){} }, 900);
 }, true);
 
-function universeTick(){ paintBadge(); Dock.paint(); Badges.tick(); if (onHub()) sizeHome(); }
+function universeTick(){ paintBadge(); railState(); SeoHome.apply(false); Dock.paint(); Badges.tick(); if (onHub()) sizeHome(); }
 
-window.EDGE_DS = {setup: o => Setup.open(o), board: Board, usage, openClient, portal, enter, dock: Dock};
+window.EDGE_DS = {setup: o => Setup.open(o), board: Board, seo: SeoHome, usage, openClient, portal, enter, dock: Dock};
 
 function boot(){
   wear(); hookAll(); watchHub();
