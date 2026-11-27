@@ -175,8 +175,7 @@ function openClient(c, pillar){
     if (pillar === 'seo'){
       state.activeSeoClientId = c.id;
       if (!u.kws && u.gbp){
-        state.activeClientId = u.gbp.id; state.activeGbpId = (u.gbp.gbps[0] || {}).id; state.view = 'focus';
-        os.go('seo', 'gbp'); setTimeout(() => { try{ renderAll(); }catch(e){} }, 60); return;
+        os.go('seo', 'gbp'); setTimeout(() => GbpHome.open(u.gbp), 80); return;
       }
       os.go('seo', 'seo'); setTimeout(() => { SeoHome.open(c, 'dash'); }, 60);
     } else if (pillar === 'ads'){
@@ -491,10 +490,13 @@ const U = {
   seo:    {n: '01', w: 'Strategy',  name: 'SEO',             line: 'Rankings, local grids and live search', ic: 'seo'},
   maint:  {n: '02', w: 'Website',   name: 'Web Maintenance', line: 'Every site, cared for every month',     ic: 'maint'},
   ads:    {n: '03', w: 'Marketing', name: 'Google Ads',      line: 'Spend and results, read monthly',      ic: 'ads'},
-  report: {n: '04', w: 'Measure',   name: 'Reporting',       line: 'The client report, sent for you',      ic: 'report'}
+  report: {n: '04', w: 'Measure',   name: 'Reporting',       line: 'The client report, sent for you',      ic: 'report'},
+  serp:   {n: '05', w: 'Search',    name: 'Live SERP',       line: 'Google, exactly as that town sees it', ic: 'search'}
 };
 const ORDER = ['seo', 'maint', 'ads', 'report'];
-const secNow = () => { const b = document.body.classList; return ORDER.find(k => b.contains('os-sec-' + k)) || 'seo'; };
+const secRaw = () => { const b = document.body.classList; return ORDER.find(k => b.contains('os-sec-' + k)) || 'seo'; };
+/* Live SERP lives under the SEO section in the app, but it is its own pillar here. */
+const secNow = () => { const k = secRaw(); if (k === 'seo'){ try{ if (((window.EDGE && EDGE.current && EDGE.current()) || state.seoModule) === 'serp') return 'serp'; }catch(e){} } return k; };
 const onHub = () => { const h = $('hubScreen'); return !!(h && (h.classList.contains('on') || getComputedStyle(h).display !== 'none')); };
 
 /* --- the badge in the top bar: where you are --- */
@@ -508,6 +510,7 @@ function paintBadge(){
     if (home && !home.dataset.eu){ home.dataset.eu = '1'; home.title = 'Back to the EDGE Workspace (Alt+H)'; [...home.childNodes].forEach(n => { if (n.nodeType === 3 && n.textContent.trim()) n.textContent = ''; }); home.insertAdjacentHTML('beforeend', '<span class="eu-home-l">Workspace</span>'); }
   }
   const k = secNow(), u = U[k];
+  document.body.classList.toggle('eu-serp', k === 'serp' && !onHub());
   if (b.dataset.k === k) return;
   b.dataset.k = k;
   b.innerHTML = '<span class="eu-ic">' + ic(u.ic) + '</span><span class="eu-tx"><small>' + u.n + ' · ' + u.w + '</small><b>' + esc(u.name) + '</b></span>';
@@ -556,7 +559,7 @@ document.addEventListener('click', e => {
   const t = e.target.closest && e.target.closest('#osHub [data-osgo]'); if (!t) return;
   e.preventDefault(); e.stopImmediatePropagation();
   const k = t.dataset.osgo;
-  enter(k, t.closest('.osh-t') || t, () => { try{ EDGE_showHub(false); }catch(err){} try{ OS().go(k); }catch(err){} });
+  enter(k, t.closest('.osh-t') || t, () => { try{ EDGE_showHub(false); }catch(err){} try{ if (k === 'serp') OS().go('seo', 'serp'); else OS().go(k); }catch(err){} });
 }, true);
 
 
@@ -657,9 +660,10 @@ const SeoHome = {
       {k: 'logo', ic: 'sparkle', t: 'Logo', ok: logoOk, v: logoOk ? 'Their own logo is saved' : 'Using the website icon', a: logoOk ? 'Change' : 'Find their logo', warn: !logoOk},
       {k: 'kw', ic: 'seo', t: 'Keywords and locations', ok: u.kws > 0 && u.locs > 0, v: u.kws ? u.kws + ' keyword' + (u.kws === 1 ? '' : 's') + ' · ' + u.locs + ' location' + (u.locs === 1 ? '' : 's') + (u.locs ? '' : ' (add a city to start scanning)') : 'Nothing tracked yet', a: u.kws ? 'Add more' : 'Add keywords', warn: u.kws > 0 && !u.locs},
       {k: 'gbp', ic: 'gbp', t: 'Google Business Profile', ok: !!u.gbp, v: u.gbp ? (u.gbp.gbps || []).length + ' profile' + ((u.gbp.gbps || []).length === 1 ? '' : 's') + ' linked' : 'Not linked', a: u.gbp ? 'Open' : 'Add profile', opt: 1},
-      {k: 'ads', ic: 'ads', t: 'Google Ads', ok: adsN > 0, v: adsN ? adsN + ' account' + (adsN === 1 ? '' : 's') + ' linked' : 'Not running ads', a: adsN ? 'Open' : 'Link account', opt: 1},
+      {k: 'ads', ic: 'ads', t: 'Google Ads', ok: adsN > 0 || c.adsOn === true, v: adsN ? adsN + ' account' + (adsN === 1 ? '' : 's') + ' linked' : c.adsOn ? 'Runs ads · account matched on the next read' : 'Not running ads', a: adsN || c.adsOn ? 'Edit' : 'Set up', opt: 1},
       {k: 'maint', ic: 'maint', t: 'Web Maintenance', ok: !!u.maint, v: u.maint ? (u.maint === 'ok' ? 'Done this month' : u.maint === 'due' ? 'Due this month' : 'Paused') : 'Not on the care checklist', a: u.maint ? 'Open' : 'Add', opt: 1},
-      {k: 'report', ic: 'report', t: 'Monthly report', ok: !!u.report, v: u.report ? 'Emailed to ' + (u.report.to || []).join(', ') : 'Not emailed yet', a: u.report ? 'Open' : 'Set up', opt: 1}
+      {k: 'report', ic: 'report', t: 'Monthly report', ok: !!u.report, v: u.report ? 'Emailed to ' + (u.report.to || []).join(', ') : 'Not emailed yet', a: u.report ? 'Open' : 'Set up', opt: 1},
+      (() => { const so = c.social || {}, n = SOC.filter(x => so[x[0]]); return {k: 'social', ic: 'globe', t: 'Social media', ok: n.length > 0, v: n.length ? n.map(x => x[1].split(' ')[0]).join(', ') + (so.chrome === false ? ' · Chrome reading off' : ' · Claude reads in Chrome') : 'No accounts added', a: n.length ? 'Edit' : 'Add accounts', opt: 1}; })()
     ];
     const need = rows.filter(r => !r.opt), done = need.filter(r => r.ok).length;
     const sig = JSON.stringify(rows) + ls;
@@ -675,8 +679,9 @@ const SeoHome = {
     if (k === 'site' || k === 'edit'){ const e = document.querySelector('#seoStage .seo-edit-btn, #seoDashEditBtn, [data-seoedit]'); if (e) e.click(); else toastMsg('Edit the website from the client details below'); return; }
     if (k === 'logo'){ if (ui && ui.findLogoFor) ui.findLogoFor(c); return; }
     if (k === 'kw'){ this.setTab('seo'); setTimeout(() => { const b = $('seoAddKwBtn') || document.querySelector('#seoKeywordsView [data-addkw], #seoKeywordsView .seo-add-kw'); if (b){ b.scrollIntoView({block: 'center', behavior: 'smooth'}); setTimeout(() => b.click(), 350); } }, 450); return; }
-    if (k === 'gbp'){ const u = usage(c); if (u.gbp) openClient(c, 'seo'); else Setup.addGbp(c); return; }
-    if (k === 'ads'){ const u = usage(c); if (u.ads.length) enter('ads', btn, () => OS().go('ads')); else Setup.addPillar(c, 'ads'); return; }
+    if (k === 'gbp'){ const u = usage(c); if (u.gbp){ enter('seo', btn, () => { OS().go('seo', 'gbp'); setTimeout(() => GbpHome.open(u.gbp), 80); }); } else Finder.open(c); return; }
+    if (k === 'social'){ Social.open(c); return; }
+    if (k === 'ads'){ AdsSet.open(c); return; }
     if (k === 'maint'){ const u = usage(c); if (u.maint) enter('maint', btn, () => openClient(c, 'maint')); else { c.maintOn = true; try{ save(); }catch(e){} toastMsg(c.name + ' added to Web Maintenance', 'add'); this.apply(true); } return; }
     if (k === 'report'){ try{ OS().reporting.drawer(c); }catch(e){ enter('report', btn, () => openClient(c, 'report')); } return; }
   },
@@ -764,14 +769,439 @@ document.addEventListener('click', e => {
 }, true);
 /* coming in from Home always starts on the clients */
 document.addEventListener('click', e => { const t = e.target.closest && e.target.closest('#osHub [data-osgo="seo"]'); if (t){ SeoHome.openId = ''; SeoHome.save(); SeoHome.sig = ''; } }, true);
+document.addEventListener('click', e => { const t = e.target.closest && e.target.closest('.os-sub-b[data-sub="gbp"], [data-module="gbp"]'); if (t) setTimeout(() => GbpHome.showGrid(), 0); }, true);
 
 /* rails off where the main display has the clients */
 function railState(){
   const k = secNow(), m = curMod(), B = document.body.classList;
-  const off = !onHub() && ((k === 'seo' && m === 'seo') || k === 'maint' || k === 'report');
+  const off = !onHub() && ((k === 'seo' && (m === 'seo' || m === 'gbp')) || k === 'serp' || k === 'maint' || k === 'report');
   B.toggle('eds-norail', off);
   ['seo', 'gbp', 'serp', 'maint', 'ads'].forEach(x => B.toggle('eds-m-' + x, m === x));
 }
+
+
+/* ==========================================================================
+   HOME · Live SERP joins as door 05
+   ========================================================================== */
+function paintSerpDoor(){
+  const g = document.querySelector('#osHub .osh-grid'); if (!g || g.querySelector('.osh-t.serp')) return;
+  const b = document.createElement('button'); b.type = 'button'; b.className = 'osh-t serp'; b.dataset.osgo = 'serp';
+  let n = 0; try{ n = (state.serpHistory || state.serpRecent || []).length; }catch(e){}
+  b.innerHTML = '<span class="osh-k">5</span><div class="osh-th"><span class="osh-ic">' + ic('search') + '</span><div><small>Search</small><h3>Live SERP</h3></div></div>' +
+    '<div class="osh-serp"><div class="eu-mini-serp"><i></i><i></i><i></i><span class="pin"></span></div><p>See Google exactly as someone in that town does: the local pack, the map and every result, from any address.</p></div>' +
+    '<span class="osh-go">Open Live SERP <svg viewBox="0 0 24 24"><path d="M5 12h13M13 6l6 6-6 6"/></svg></span>';
+  g.appendChild(b);
+}
+
+/* ==========================================================================
+   LIVE SERP · a pillar of its own, with a little life
+     Find      a radar on the map while the place is looked up, a pin that drops
+               when it lands
+     Search    a "reading Google" panel while results load, a burst when in
+   ========================================================================== */
+const Serp = {
+  busy: null,
+  show(kind, text){
+    this.hide(true);
+    const d = document.createElement('div'); d.className = 'eu-serp-pop ' + kind;
+    d.innerHTML = (kind === 'find' ? '<span class="eu-radar"><i></i><i></i><i></i><b></b></span>' : '<span class="eu-glass"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg></span>') +
+      '<div><small>' + (kind === 'find' ? 'Location search' : 'Live search') + '</small><b>' + esc(text) + '</b><span class="eu-dots"><i></i><i></i><i></i></span></div>';
+    document.body.appendChild(d);
+    requestAnimationFrame(() => d.classList.add('on'));
+    this.busy = d;
+    clearTimeout(this.to); this.to = setTimeout(() => this.done(kind === 'find' ? 'Place set' : 'Results are in', true), kind === 'find' ? 5000 : 9000);
+  },
+  done(text, quiet){
+    const d = this.busy; if (!d) return;
+    clearTimeout(this.to);
+    d.classList.add('ok');
+    d.querySelector('b').textContent = text;
+    const dots = d.querySelector('.eu-dots'); if (dots) dots.remove();
+    if (!quiet && !RM()){ try{ const r = d.getBoundingClientRect(); const B = UI() && UI().burst; if (B) B(r.left + 30, r.top + 20); }catch(e){} }
+    setTimeout(() => this.hide(), 1600);
+  },
+  hide(now){ const d = this.busy; if (!d) return; this.busy = null; if (now){ d.remove(); return; } d.classList.remove('on'); setTimeout(() => d.remove(), 400); },
+  watch(){
+    document.addEventListener('click', e => {
+      if (secNow() !== 'serp') return;
+      const f = e.target.closest && e.target.closest('[data-sv-find], #geocodeBtn');
+      const g = e.target.closest && e.target.closest('[data-sv-go], #goBtn');
+      if (f){
+        const v = (document.querySelector('.sv-hero [data-in-loc]') || {}).value || 'that place';
+        this.show('find', 'Finding ' + v.trim());
+        const chip = () => (document.querySelector('.sv-hero') || {}).textContent || '';
+        const before = chip(); let n = 0;
+        const iv = setInterval(() => { n++; if (chip() !== before){ clearInterval(iv); this.done('Pinned: ' + v.trim()); const pin = document.querySelector('#serpStage .leaflet-marker-icon'); if (pin && !RM()){ pin.classList.remove('eu-drop'); void pin.offsetWidth; pin.classList.add('eu-drop'); } } else if (n > 40) clearInterval(iv); }, 120);
+      }
+      if (g){
+        const q = (document.querySelector('.sv-hero [data-in-q], .sv-hero input[type=text], .sv-hero input:not([data-in-loc])') || {}).value || 'your search';
+        this.show('search', 'Reading Google for “' + q.trim() + '”');
+        const host = $('serpStage'); if (!host) return;
+        let t = null;
+        const mo = new MutationObserver(() => { clearTimeout(t); t = setTimeout(() => { mo.disconnect(); this.done('Results are in'); }, 700); });
+        setTimeout(() => mo.observe(host, {childList: true, subtree: true}), 250);
+        setTimeout(() => mo.disconnect(), 12000);
+      }
+    }, true);
+  }
+};
+Serp.watch();
+
+/* ==========================================================================
+   GBP · clients first, then the profile
+     Level 1  every client: has a Business Profile or not. "Add profile" asks for
+              what the finder needs (name on Google, town, a Maps link if handy),
+              digs it up, and celebrates when it lands.
+     Level 2  the profile itself: keywords, locations, other profiles, scans.
+   ========================================================================== */
+const parseMaps = u => {
+  const s = String(u || ''); const m = s.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/) || s.match(/[?&](?:q|ll|query)=(-?\d+\.\d+),\s*(-?\d+\.\d+)/) || s.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
+  const nm = (s.match(/\/place\/([^/@?]+)/) || [])[1];
+  return {lat: m ? +m[1] : null, lng: m ? +m[2] : null, name: nm ? decodeURIComponent(nm.replace(/\+/g, ' ')) : ''};
+};
+async function osmFind(q){
+  const res = await fetch('https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&accept-language=en&limit=5&q=' + encodeURIComponent(q), {headers: {Accept: 'application/json'}});
+  if (!res.ok) throw new Error('Lookup answered ' + res.status);
+  const d = await res.json(); return Array.isArray(d) ? d : [];
+}
+const GbpHome = {
+  grid: true, at: null, q: '', sig: '',
+  on(){ return secNow() === 'seo' && curMod() === 'gbp' && !onHub(); },
+  rows(){
+    const out = [], seenG = new Set();
+    (state.seoClients || []).filter(Boolean).filter(c => !isArchived(c)).forEach(c => { let g = null; try{ g = window.EDGE_gbpFor ? EDGE_gbpFor(c) : null; }catch(e){} if (g) seenG.add(g.id); out.push({c, g}); });
+    (state.clients || []).filter(g => g && !seenG.has(g.id)).forEach(g => out.push({c: null, g}));
+    return out;
+  },
+  apply(force){
+    const on = this.on(), B = document.body.classList;
+    /* the app opened a profile itself (a link, a scan, a test): step aside */
+    const now = (state.activeGbpId || '') + '|' + (state.view || '');
+    if (this.at == null) this.at = now;
+    if (on && this.grid && now !== this.at && state.view === 'focus' && state.activeGbpId) this.grid = false;
+    B.toggle('eds-gbp-grid', on && this.grid);
+    B.toggle('eds-gbp-open', on && !this.grid);
+    if (!on) return;
+    if (this.grid){ this.paint(force); this.moveAdd(); }
+    else this.paintBack();
+  },
+  showGrid(){ this.grid = true; if (state.view === 'focus') state.view = 'overview'; this.at = (state.activeGbpId || '') + '|' + (state.view || ''); this.sig = ''; this.apply(true); window.scrollTo(0, 0); },
+  open(g){
+    if (!g || !(g.gbps || []).length) return;
+    state.activeClientId = g.id; state.activeGbpId = g.gbps[0].id; state.view = 'focus';
+    try{ renderAll(); }catch(e){}
+    this.grid = false; this.at = (state.activeGbpId || '') + '|' + (state.view || ''); this.apply(true); window.scrollTo(0, 0);
+  },
+  moveAdd(){
+    const host = document.querySelector('#edsGbpHome [data-addslot]'), b = $('addClientBtn');
+    if (host && b && b.parentNode !== host){ b.classList.add('eds-btn'); b.innerHTML = ic('plus') + 'Profile only'; b.title = 'A Business Profile with no SEO client'; host.appendChild(b); }
+  },
+  paintBack(){
+    const top = document.querySelector('#gbpStage .topbar'); if (!top) return;
+    let t = $('edsGbpBar');
+    if (!t || !top.contains(t)){ if (t) t.remove(); t = document.createElement('div'); t.id = 'edsGbpBar'; t.className = 'eds-sbar'; top.insertBefore(t, top.firstChild); t.innerHTML = '<button type="button" class="eds-back-btn" data-back title="All clients">' + ic('arrowL') + '<span>All clients</span></button>'; t.querySelector('[data-back]').addEventListener('click', () => this.showGrid()); }
+  },
+  paint(force){
+    const panels = document.querySelector('#gbpStage .panels') || $('gbpStage'); if (!panels) return;
+    let h = $('edsGbpHome');
+    if (!h || !panels.contains(h)){
+      if (h) h.remove();
+      h = document.createElement('section'); h.id = 'edsGbpHome'; h.className = 'eds-uhome';
+      panels.insertBefore(h, panels.firstChild);
+      h.addEventListener('input', e => { if (e.target.matches('[data-q]')){ this.q = e.target.value; this.paint(true); const i = h.querySelector('[data-q]'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); } });
+      h.addEventListener('click', e => {
+        const card = e.target.closest('.eds-gcard'); if (!card) return;
+        const row = this.rows()[+card.dataset.i]; if (!row) return;
+        if (e.target.closest('[data-find]')) return Finder.open(row.c);
+        if (row.g) this.open(row.g); else Finder.open(row.c);
+      });
+    }
+    const q = this.q.trim().toLowerCase();
+    const all = this.rows(), list = all.map((r, i) => Object.assign({i}, r)).filter(r => !q || [(r.c || r.g).name, r.c && r.c.website].some(v => String(v || '').toLowerCase().indexOf(q) > -1));
+    const withG = all.filter(r => r.g).length;
+    const sig = q + '|' + list.map(r => (r.c ? r.c.id : '') + ':' + (r.g ? r.g.id + (r.g.gbps || []).length + (r.g.gbps || []).reduce((t, p) => t + (p.keywords || []).length, 0) : '-')).join(',');
+    if (!force && sig === this.sig) return;
+    this.sig = sig;
+    const card = r => {
+      const nm = (r.c || r.g).name || 'Untitled', src = r.c ? logoOf(r.c) : '';
+      const profs = r.g ? (r.g.gbps || []) : [], kws = profs.reduce((t, p) => t + (p.keywords || []).length, 0);
+      const scans = profs.reduce((t, p) => t + (p.keywords || []).reduce((u, k) => u + ((k.scans || []).length ? 1 : 0), 0), 0);
+      return '<article class="eds-gcard' + (r.g ? ' has' : ' none') + '" data-i="' + r.i + '" style="animation-delay:' + Math.min(r.i * 30, 360) + 'ms">' +
+        '<div class="eds-sc-top"><span class="eds-lg">' + (src ? '<img alt="" src="' + esc(src) + '" referrerpolicy="no-referrer">' : '<b>' + esc(initials(nm)) + '</b>') + '</span><div class="eds-sc-n"><h3>' + esc(nm) + '</h3><small>' + esc(r.c ? (normDomain(r.c.website) || 'No website yet') : 'Profile only, no SEO client') + '</small></div></div>' +
+        (r.g ? '<div class="eds-gmap"><span class="pin"></span><div><b>' + esc((profs[0] && (profs[0].bizName || profs[0].name)) || nm) + '</b><small>' + profs.length + ' profile' + (profs.length === 1 ? '' : 's') + ' · ' + kws + ' keyword' + (kws === 1 ? '' : 's') + ' · ' + (scans ? scans + ' scanned' : 'not scanned yet') + '</small></div></div><div class="eds-sc-foot"><span class="eds-tag st"><i></i>Business Profile</span><span class="eds-open">Open ' + ic('arrowR') + '</span></div>'
+             : '<div class="eds-gnone"><b>No Business Profile yet</b><small>Add it and the finder digs it up on Google Maps.</small></div><div class="eds-sc-foot"><span class="eds-tag off"><i></i>No profile</span><button type="button" class="eds-btn sm pri" data-find>' + ic('gbp') + 'Add profile</button></div>') +
+        '</article>';
+    };
+    const keep = $('addClientBtn'); if (keep && h.contains(keep)) document.body.appendChild(keep);
+    h.innerHTML = '<div class="eds-uhero"><div><span class="eds-eyebrow"><i></i>01 · Strategy · Local</span><h2>Business Profiles</h2><p>Every client, and whether they have a Google Business Profile. Add one and the finder digs it up; then add keywords, locations and more profiles inside it.</p></div>' +
+        '<div class="eds-ufig"><div><b>' + withG + '</b><small>with a profile</small></div><div><b>' + (all.length - withG) + '</b><small>without</small></div></div></div>' +
+      '<div class="eds-bar"><label class="eds-search">' + ic('search') + '<input type="search" data-q placeholder="Find a client or profile" value="' + esc(this.q) + '" autocomplete="off"></label><span data-addslot></span></div>' +
+      '<div class="eds-sgrid">' + list.map(card).join('') + (!list.length ? '<div class="eds-empty">No clients match.</div>' : '') + '</div>';
+  }
+};
+
+/* The finder: what it needs, a dig, and a landing */
+const Finder = {
+  open(c){
+    const back = document.createElement('div'); back.className = 'eds-back';
+    const nm = c ? c.name : '';
+    back.innerHTML = '<div class="eds-modal eds-finder"><div class="eds-mh"><h2>Find ' + esc(nm || 'the') + '’s Business Profile</h2><p>Tell the finder what it needs. A Google Maps link is the surest; the name and town work too.</p></div>' +
+      '<form class="eds-mb" novalidate><div class="eds-row2"><div><label class="eds-f">Name on Google</label><input class="eds-in" name="biz" value="' + esc(nm) + '" autocomplete="off"></div>' +
+      '<div><label class="eds-f">Town or address</label><input class="eds-in" name="town" placeholder="Red Deer, Alberta" autocomplete="off"></div></div>' +
+      '<label class="eds-f">Google Maps link <small>optional · open the profile on Maps and copy the address bar</small></label><input class="eds-in" name="link" placeholder="https://www.google.com/maps/place/…" autocomplete="off">' +
+      '<label class="eds-f">Location name</label><input class="eds-in" name="loc" value="Main location" autocomplete="off">' +
+      '<div class="eds-dig" hidden><div class="eds-dig-map"><span class="r"></span><span class="r"></span><span class="r"></span><span class="sweep"></span><span class="pin"></span></div><div class="eds-dig-t"><b data-dt>Digging…</b><ul data-steps></ul></div></div>' +
+      '<div class="eds-err" hidden></div></form>' +
+      '<div class="eds-mf"><button type="button" class="eds-btn" data-cancel>Cancel</button><span class="sp"></span><button type="button" class="eds-btn pri" data-go>' + ic('search') + 'Find the profile</button></div></div>';
+    document.body.appendChild(back);
+    const f = back.querySelector('form'), er = back.querySelector('.eds-err'), dig = back.querySelector('.eds-dig'), go = back.querySelector('[data-go]');
+    const close = () => { back.style.opacity = 0; setTimeout(() => back.remove(), 200); };
+    back.querySelector('[data-cancel]').addEventListener('click', close);
+    back.addEventListener('mousedown', e => { if (e.target === back) close(); });
+    setTimeout(() => f.town.focus(), 80);
+    go.addEventListener('click', async () => {
+      er.hidden = true;
+      const biz = f.biz.value.trim(), town = f.town.value.trim(), link = f.link.value.trim(), loc = f.loc.value.trim() || 'Main location';
+      if (!biz){ er.hidden = false; er.textContent = 'Add the name as it shows on Google.'; return; }
+      if (!town && !link){ er.hidden = false; er.textContent = 'Add the town, or paste the Google Maps link.'; return; }
+      dig.hidden = false; go.disabled = true; back.querySelector('.eds-modal').classList.add('digging');
+      const steps = dig.querySelector('[data-steps]'), dt = dig.querySelector('[data-dt]');
+      const step = (t, cls) => { const li = document.createElement('li'); li.className = cls || ''; li.textContent = t; steps.appendChild(li); return li; };
+      const wait = ms => new Promise(r => setTimeout(r, RM() ? 0 : ms));
+      let found = null, label = '', how = '';
+      try{
+        const m = parseMaps(link);
+        let s1 = step('Reading the Maps link…'); await wait(500);
+        if (m.lat != null){ found = {lat: m.lat, lng: m.lng}; how = 'from the Maps link'; s1.className = 'ok'; s1.textContent = 'Exact spot from the Maps link'; }
+        else { s1.className = link ? 'skip' : 'skip'; s1.textContent = link ? 'The link had no coordinates, searching instead' : 'No Maps link, searching by name'; }
+        if (!found){
+          const s2 = step('Searching for ' + biz + (town ? ' in ' + town : '') + '…'); await wait(400);
+          const hits = await osmFind(biz + (town ? ', ' + town : ''));
+          const hit = hits.find(h => /amenity|shop|office|craft|healthcare|tourism|leisure|building/.test(h.class || '')) || hits[0];
+          if (hit){ found = {lat: +hit.lat, lng: +hit.lon}; label = hit.display_name; how = 'on the map by name'; s2.className = 'ok'; s2.textContent = 'Found ' + biz + ' on the map'; }
+          else { s2.className = 'skip'; s2.textContent = 'Not on the open map by name'; }
+        }
+        if (!found && town){
+          const s3 = step('Centring on ' + town + '…'); await wait(300);
+          const hits = await osmFind(town);
+          if (hits[0]){ found = {lat: +hits[0].lat, lng: +hits[0].lon}; label = hits[0].display_name; how = 'on the town (set the exact spot on Setup)'; s3.className = 'ok'; s3.textContent = 'Centred on ' + town; }
+          else s3.className = 'bad';
+        }
+        if (!found) throw new Error('The finder couldn’t place it. Paste the Google Maps link and try again.');
+        const s4 = step('Creating the profile…'); await wait(300);
+        const g = blankGbp(loc);
+        g.bizName = biz; g.gbpLink = link; g.website = c && c.website ? c.website : '';
+        g.center.lat = found.lat; g.center.lng = found.lng; g.center.label = label || town || biz;
+        try{ g.keywords = ((c && c.keywords) || []).slice(0, 8).map(k => ({id: uid(), text: k.text, scans: []})); g.activeKeywordId = g.keywords[0] ? g.keywords[0].id : null; }catch(e){}
+        let gc = c ? (window.EDGE_gbpFor ? EDGE_gbpFor(c) : null) : null;
+        if (gc){ gc.gbps.push(g); }
+        else { gc = {id: uid(), name: c ? c.name : biz, gbps: [g], compareScans: []}; state.clients.push(gc); if (c){ try{ OS().setGbpLink(c, gc); }catch(e){} } }
+        try{ save(); renderAll(); }catch(e){}
+        s4.className = 'ok'; s4.textContent = 'Profile created' + (g.keywords.length ? ' with ' + g.keywords.length + ' SEO keywords' : '');
+        back.querySelector('.eds-modal').classList.remove('digging'); back.querySelector('.eds-modal').classList.add('landed');
+        dt.textContent = 'Found it';
+        if (!RM()){ try{ const r = dig.getBoundingClientRect(); const B = UI() && UI().burst; if (B) B(r.left + 70, r.top + 60); }catch(e){} }
+        const mf = back.querySelector('.eds-mf');
+        mf.innerHTML = '<small>Placed ' + esc(how) + '</small><span class="sp"></span><button type="button" class="eds-btn" data-x>Done</button><button type="button" class="eds-btn pri" data-open>Open the profile' + ic('arrowR') + '</button>';
+        mf.querySelector('[data-x]').addEventListener('click', () => { close(); GbpHome.sig = ''; GbpHome.apply(true); });
+        mf.querySelector('[data-open]').addEventListener('click', () => { close(); GbpHome.open(gc); });
+      }catch(e){
+        back.querySelector('.eds-modal').classList.remove('digging');
+        er.hidden = false; er.textContent = e.message || 'The finder hit a problem. Try again.'; go.disabled = false;
+      }
+    });
+  }
+};
+
+/* ==========================================================================
+   REPORTING · each client card shows what it is linked to, and changes it
+   ========================================================================== */
+const RLinks = {
+  paint(){
+    if (secNow() !== 'report') return;
+    document.querySelectorAll('.rh-card[data-cid]').forEach(card => {
+      const c = (state.seoClients || []).find(x => x.id === card.dataset.cid); if (!c) return;
+      const u = usage(c), so = c.social || {}, nSoc = ['facebook', 'instagram', 'linkedin', 'tiktok', 'youtube'].filter(k => so[k]).length;
+      const sig = [u.kws, u.gbp && u.gbp.id, u.ads.length, nSoc, !!u.report].join('|');
+      let row = card.querySelector('.eds-rlinks');
+      if (row && row.dataset.sig === sig) return;
+      if (!row){ row = document.createElement('div'); row.className = 'eds-rlinks'; card.appendChild(row); }
+      row.dataset.sig = sig;
+      const chip = (k, on, l, icn) => '<span role="button" tabindex="0" class="eds-rl ' + k + (on ? ' on' : '') + '" data-rl="' + k + '" title="' + esc((on ? 'Linked: ' : 'Not linked: ') + l + ' · click to change') + '">' + ic(icn) + '<em>' + esc(l) + '</em></span>';
+      row.innerHTML = chip('seo', u.kws > 0, 'SEO', 'seo') + chip('gbp', !!u.gbp, 'Business Profile', 'gbp') + chip('ads', u.ads.length > 0, 'Google Ads', 'ads') + chip('social', nSoc > 0, 'Social', 'globe');
+    });
+  },
+  menu(c, k, el){
+    let m = $('edsRlMenu'); if (m) m.remove();
+    m = document.createElement('div'); m.id = 'edsRlMenu'; m.className = 'eds-menu eds-rlmenu';
+    const u = usage(c);
+    let html = '';
+    if (k === 'seo') html = '<p>' + (u.kws ? u.kws + ' keywords feed the ranking widgets.' : 'No keywords yet.') + '</p><button type="button" data-a="seo">Open SEO for ' + esc(c.name) + '</button>';
+    if (k === 'gbp'){
+      const opts = (state.clients || []).filter(g => g && (!u.gbp || g.id !== u.gbp.id));
+      html = (u.gbp ? '<p>Linked to <b>' + esc(u.gbp.name) + '</b>. Its maps feed the Business Profile widgets.</p><button type="button" class="bad" data-a="gbp-off">Break the link</button>' : '<p>No Business Profile linked.</p><button type="button" data-a="gbp-find">Find their profile</button>') +
+        (opts.length ? '<label>Link to</label><select data-gsel><option value="">Choose a profile…</option>' + opts.map(g => '<option value="' + esc(g.id) + '">' + esc(g.name) + '</option>').join('') + '</select>' : '');
+    }
+    if (k === 'ads'){
+      let free = []; try{ const ch = OS().channels; free = ch.list('google_ads').filter(a => !ch.link(a)); }catch(e){}
+      html = (u.ads.length ? '<p>Linked accounts feed the paid ads widgets.</p>' + u.ads.map(a => '<button type="button" class="bad" data-a="ads-off" data-id="' + esc(a.id) + '">Break: ' + esc(a.name || a.id) + '</button>').join('') : '<p>No Google Ads account linked.</p>') +
+        (free.length ? '<label>Link an account</label><select data-asel><option value="">Choose…</option>' + free.map(a => '<option value="' + esc(a.id) + '">' + esc(a.name || a.id) + '</option>').join('') + '</select>' : '');
+    }
+    if (k === 'social') html = '<p>Social accounts Claude can read in Chrome for the social widgets.</p><button type="button" data-a="social">Edit social accounts</button>';
+    m.innerHTML = html;
+    document.body.appendChild(m);
+    const r = el.getBoundingClientRect(); m.style.top = (r.bottom + 6) + 'px'; m.style.left = Math.min(innerWidth - 300, Math.max(12, r.left)) + 'px';
+    const done = t => { m.remove(); toastMsg(t, 'ok'); this.repaint(); };
+    m.addEventListener('click', e => {
+      const b = e.target.closest('[data-a]'); if (!b) return;
+      const a = b.dataset.a;
+      if (a === 'seo'){ m.remove(); enter('seo', el, () => openClient(c, 'seo')); }
+      if (a === 'gbp-off'){ try{ OS().setGbpLink(c, null); }catch(err){} done('Business Profile unlinked from ' + c.name); }
+      if (a === 'gbp-find'){ m.remove(); Finder.open(c); }
+      if (a === 'ads-off'){ try{ const ch = OS().channels, acc = ch.list('google_ads').find(x => String(x.id) === b.dataset.id); if (acc) ch.setLink(acc, null); }catch(err){} done('Google Ads account unlinked'); }
+      if (a === 'social'){ m.remove(); Social.open(c); }
+    });
+    m.addEventListener('change', e => {
+      if (e.target.matches('[data-gsel]') && e.target.value){ const g = (state.clients || []).find(x => x.id === e.target.value); try{ OS().setGbpLink(c, g); }catch(err){} done('Linked ' + c.name + ' to ' + g.name); }
+      if (e.target.matches('[data-asel]') && e.target.value){ try{ const ch = OS().channels, acc = ch.list('google_ads').find(x => String(x.id) === e.target.value); if (acc) ch.setLink(acc, c.id); }catch(err){} done('Google Ads account linked'); }
+    });
+    setTimeout(() => document.addEventListener('mousedown', function away(e){ if (!m.contains(e.target)){ m.remove(); document.removeEventListener('mousedown', away); } }), 0);
+  },
+  repaint(){ document.querySelectorAll('.eds-rlinks').forEach(r => { r.dataset.sig = ''; }); this.paint(); }
+};
+document.addEventListener('click', e => {
+  const ch = e.target.closest && e.target.closest('.eds-rl'); if (!ch) return;
+  e.preventDefault(); e.stopPropagation();
+  const card = ch.closest('.rh-card'); const c = card && (state.seoClients || []).find(x => x.id === card.dataset.cid);
+  if (c) RLinks.menu(c, ch.dataset.rl, ch);
+}, true);
+
+/* Reports keep themselves current: when a client's linked Business Profile has
+   new scan results, a report that is already shared is republished on its own,
+   so the client's link always has the latest maps. Nothing is emailed. */
+const AutoPub = {
+  sigs: {}, busy: false,
+  sigOf(c){ let g = null; try{ g = window.EDGE_gbpFor ? EDGE_gbpFor(c) : null; }catch(e){} if (!g) return ''; return (g.gbps || []).map(p => (p.keywords || []).map(k => (k.scans || []).length + ':' + ((k.scans || []).slice(-1)[0] || {}).at).join(',')).join('|'); },
+  async tick(){
+    const RA = window.EdgeReportsApp; if (!RA || !RA.isPublished || !RA.publish || this.busy) return;
+    for (const c of (state.seoClients || []).filter(Boolean)){
+      let pub = false; try{ pub = RA.isPublished(c); }catch(e){}
+      if (!pub) continue;
+      const s = this.sigOf(c); if (!s) continue;
+      if (this.sigs[c.id] == null){ this.sigs[c.id] = s; continue; }
+      if (this.sigs[c.id] !== s){
+        this.busy = true;
+        try{ await RA.publish(c); this.sigs[c.id] = s; }catch(e){}
+        this.busy = false;
+      }
+    }
+  }
+};
+setTimeout(() => setInterval(() => AutoPub.tick(), 60 * 1000), 20000);
+
+/* ==========================================================================
+   SOCIAL · per client, the accounts Claude may read in Chrome
+   ========================================================================== */
+const SOC = [['facebook', 'Facebook page', 'facebook.com/yourpage'], ['instagram', 'Instagram', '@handle'], ['linkedin', 'LinkedIn page', 'linkedin.com/company/…'], ['tiktok', 'TikTok', '@handle'], ['youtube', 'YouTube channel', 'youtube.com/@channel']];
+const Social = {
+  open(c){
+    const ui = UI(); if (!ui || !c) return;
+    const so = c.social || {};
+    const m = ui.modal('<h2>Social accounts for ' + esc(c.name) + '</h2><p class="s">Only add the ones EDGE looks after. Claude reads these in Chrome with the team’s permissions and saves the figures for the Paid social and Social media tabs and the report widgets.</p>' +
+      SOC.map(x => '<label class="f">' + esc(x[1]) + '</label><input class="in" data-s="' + x[0] + '" placeholder="' + esc(x[2]) + '" value="' + esc(so[x[0]] || '') + '">').join('') +
+      '<label class="f" style="display:flex;gap:8px;align-items:center;margin-top:14px"><input type="checkbox" data-chrome' + (so.chrome !== false ? ' checked' : '') + '> Claude may open and read these in Chrome for analysis</label>' +
+      '<label class="f" style="display:flex;gap:8px;align-items:center"><input type="checkbox" data-paid' + (c.paidSocialOn ? ' checked' : '') + '> They run paid social (Meta Ads)</label>' +
+      '<div class="mf"><button class="eui-btn" type="button" data-close>Cancel</button><button class="eui-btn pri" type="button" data-ok>Save</button></div>');
+    m.el.querySelector('[data-ok]').addEventListener('click', () => {
+      const n = {}; SOC.forEach(x => { const v = m.el.querySelector('[data-s="' + x[0] + '"]').value.trim(); if (v) n[x[0]] = v; });
+      n.chrome = m.el.querySelector('[data-chrome]').checked; n.updatedAt = Date.now();
+      c.social = n; c.paidSocialOn = m.el.querySelector('[data-paid]').checked;
+      try{ save(); }catch(e){}
+      m.close(); toastMsg('Social accounts saved for ' + c.name, 'ok'); RLinks.repaint(); SeoHome.apply(true);
+    });
+  }
+};
+/* Ads: is this client running ads at all, and which account */
+const AdsSet = {
+  open(c){
+    const ui = UI(); if (!ui || !c) return;
+    let free = [], mine = []; try{ const ch = OS().channels; free = ch.list('google_ads').filter(a => !ch.link(a)); mine = ch.list('google_ads').filter(a => (ch.link(a) || {}).id === c.id); }catch(e){}
+    const m = ui.modal('<h2>Google Ads for ' + esc(c.name) + '</h2><p class="s">Read only. Claude reads Google Ads in Chrome every month and saves the numbers, campaigns and warnings here.</p>' +
+      '<label class="f" style="display:flex;gap:8px;align-items:center"><input type="checkbox" data-on' + (c.adsOn !== false && (c.adsOn || mine.length) ? ' checked' : '') + '> ' + esc(c.name) + ' runs Google Ads</label>' +
+      (mine.length ? '<div class="note">Linked: ' + mine.map(a => esc(a.name || a.id)).join(', ') + '</div>' : '') +
+      (free.length ? '<label class="f">Link an account</label><select class="in" data-a><option value="">Match it automatically on the next read</option>' + free.map(a => '<option value="' + esc(a.id) + '">' + esc(a.name || a.id) + ' · ' + esc(a.id) + '</option>').join('') + '</select>' : '') +
+      '<label class="f">Customer ID <small>optional · helps Claude find the account in Chrome</small></label><input class="in" data-cid placeholder="123-456-7890" value="' + esc(c.adsCustomerId || '') + '">' +
+      '<div class="mf"><button class="eui-btn" type="button" data-close>Cancel</button><button class="eui-btn pri" type="button" data-ok>Save</button></div>');
+    m.el.querySelector('[data-ok]').addEventListener('click', () => {
+      c.adsOn = m.el.querySelector('[data-on]').checked; c.adsCustomerId = m.el.querySelector('[data-cid]').value.trim();
+      const sel = m.el.querySelector('[data-a]'); if (sel && sel.value){ try{ const ch = OS().channels, a = free.find(x => String(x.id) === sel.value); if (a) ch.setLink(a, c.id); }catch(e){} }
+      try{ save(); }catch(e){} m.close(); toastMsg('Google Ads saved for ' + c.name, 'ok'); SeoHome.apply(true); RLinks.repaint();
+    });
+  }
+};
+/* What Claude should read in Chrome, per client: the hand-off for the monthly analysis. */
+function analysisTargets(){
+  return (state.seoClients || []).filter(Boolean).filter(c => !isArchived(c)).map(c => {
+    let ads = []; try{ const ch = OS().channels; ads = ch.list('google_ads').filter(a => (ch.link(a) || {}).id === c.id).map(a => ({id: a.id, name: a.name})); }catch(e){}
+    const so = c.social || {};
+    return {id: c.id, name: c.name, website: c.website || '', googleAds: {on: !!(c.adsOn || ads.length), customerId: c.adsCustomerId || '', accounts: ads}, paidSocial: {on: !!c.paidSocialOn},
+      social: so.chrome === false ? {} : SOC.reduce((o, x) => { if (so[x[0]]) o[x[0]] = so[x[0]]; return o; }, {})};
+  }).filter(t => t.googleAds.on || t.paidSocial.on || Object.keys(t.social).length);
+}
+
+
+/* ==========================================================================
+   LOGOS · one size everywhere
+     A logo saved with lots of empty space around it (Electrogas, for one) looks
+     small next to the rest. Each logo image is measured once; the visible mark
+     is scaled up to fill its frame the same way for every client. Logos whose
+     server does not allow reading the pixels are left as they are.
+   ========================================================================== */
+const LogoFit = {
+  cache: (() => { try{ return JSON.parse(localStorage.getItem('edsLogoFit') || '{}'); }catch(e){ return {}; } })(),
+  busy: {},
+  sel: '.eds-lg img, .eds-logo img, .os-logo img, .rh-card img, .mt-logo img, .tn-bell-av img, .seo-logo img, .tree-row img, .eds-ini img',
+  persist(){ try{ localStorage.setItem('edsLogoFit', JSON.stringify(this.cache)); }catch(e){} },
+  measure(src){
+    if (this.busy[src] || this.cache[src] != null) return;
+    if (/^data:image\/svg|\.svg(\?|$)/i.test(src)) { this.cache[src] = 1; return; }
+    this.busy[src] = 1;
+    const im = new Image(); im.crossOrigin = 'anonymous'; im.referrerPolicy = 'no-referrer';
+    im.onload = () => {
+      try{
+        const W = Math.min(im.naturalWidth, 256), H = Math.round(im.naturalHeight * W / Math.max(1, im.naturalWidth));
+        const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+        const x = cv.getContext('2d'); x.drawImage(im, 0, 0, W, H);
+        const d = x.getImageData(0, 0, W, H).data;
+        let x0 = W, y0 = H, x1 = -1, y1 = -1;
+        for (let y = 0; y < H; y++) for (let X = 0; X < W; X++){ const i = (y * W + X) * 4; if (d[i + 3] > 24 && !(d[i] > 244 && d[i + 1] > 244 && d[i + 2] > 244)){ if (X < x0) x0 = X; if (X > x1) x1 = X; if (y < y0) y0 = y; if (y > y1) y1 = y; } }
+        if (x1 < 0){ this.cache[src] = 1; }
+        else {
+          const fw = (x1 - x0 + 1) / W, fh = (y1 - y0 + 1) / H, f = Math.max(fw, fh);
+          this.cache[src] = f < 0.88 ? Math.min(2.4, Math.round(0.94 / f * 100) / 100) + ',' + Math.round(((x0 + x1) / 2 / W - 0.5) * 1000) / 10 + ',' + Math.round(((y0 + y1) / 2 / H - 0.5) * 1000) / 10 : 1;
+        }
+      }catch(e){ this.cache[src] = 1; }
+      delete this.busy[src]; this.persist(); this.apply();
+    };
+    im.onerror = () => { this.cache[src] = 1; delete this.busy[src]; this.persist(); };
+    im.src = src;
+  },
+  apply(){
+    document.querySelectorAll(this.sel).forEach(img => {
+      const src = img.currentSrc || img.src; if (!src || /favicons|faviconV2/.test(src)) return;
+      const v = this.cache[src];
+      if (v == null){ this.measure(src); return; }
+      if (img.dataset.fit === String(v)) return;
+      img.dataset.fit = String(v);
+      if (v === 1){ img.style.transform = ''; return; }
+      const [k, cx, cy] = String(v).split(',').map(Number);
+      img.style.transformOrigin = '50% 50%';
+      img.style.transform = 'translate(' + (-cx * k) + '%,' + (-cy * k) + '%) scale(' + k + ')';
+      const box = img.parentElement; if (box && getComputedStyle(box).overflow === 'visible') box.style.overflow = 'hidden';
+    });
+  }
+};
+setInterval(() => LogoFit.apply(), 1500);
 
 /* --- Across EDGE: the other three pillars, for this client --- */
 const moneyK = v => v >= 1e6 ? '$' + (v / 1e6).toFixed(1) + 'M' : v >= 1e4 ? '$' + Math.round(v / 1e3) + 'k' : v >= 1e3 ? '$' + (v / 1e3).toFixed(1) + 'k' : '$' + Math.round(v || 0);
@@ -896,9 +1326,9 @@ document.addEventListener('click', e => {
   setTimeout(() => { if (Math.abs(scrollY - y) > 40) window.scrollTo(0, y); try{ (window.EDGE_FX || {}).flash && EDGE_FX.flash(el); }catch(err){} }, 900);
 }, true);
 
-function universeTick(){ paintBadge(); railState(); SeoHome.apply(false); Dock.paint(); Badges.tick(); if (onHub()) sizeHome(); }
+function universeTick(){ paintBadge(); railState(); SeoHome.apply(false); GbpHome.apply(false); RLinks.paint(); Dock.paint(); Badges.tick(); if (onHub()){ paintSerpDoor(); sizeHome(); } }
 
-window.EDGE_DS = {setup: o => Setup.open(o), board: Board, seo: SeoHome, usage, openClient, portal, enter, dock: Dock};
+window.EDGE_DS = {setup: o => Setup.open(o), board: Board, seo: SeoHome, gbp: GbpHome, finder: Finder, social: Social, ads: AdsSet, analysisTargets, usage, openClient, portal, enter, dock: Dock};
 
 function boot(){
   wear(); hookAll(); watchHub();

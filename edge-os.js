@@ -612,10 +612,11 @@ const Board = {
    ====================================================================== */
 const SOURCES = {
   google_ads: {l: 'Google Ads', c: '#4285F4'}, meta_ads: {l: 'Meta Ads', c: '#1877F2'},
-  facebook: {l: 'Facebook', c: '#1877F2'}, instagram: {l: 'Instagram', c: '#E1306C'}, linkedin: {l: 'LinkedIn', c: '#0A66C2'}
+  facebook: {l: 'Facebook', c: '#1877F2'}, instagram: {l: 'Instagram', c: '#E1306C'}, linkedin: {l: 'LinkedIn', c: '#0A66C2'},
+  tiktok: {l: 'TikTok', c: '#111111'}, youtube: {l: 'YouTube', c: '#FF0000'}
 };
 /* Channel icons: each platform's own site icon (as analytics tools show sources), with a coloured letter if it can't load. */
-const CH_DOM = {google_ads: 'ads.google.com', meta_ads: 'facebook.com', facebook: 'facebook.com', instagram: 'instagram.com', linkedin: 'linkedin.com', google: 'google.com', gbp: 'business.google.com', ga4: 'analytics.google.com', gsc: 'search.google.com'};
+const CH_DOM = {google_ads: 'ads.google.com', meta_ads: 'facebook.com', facebook: 'facebook.com', instagram: 'instagram.com', linkedin: 'linkedin.com', tiktok: 'tiktok.com', youtube: 'youtube.com', google: 'google.com', gbp: 'business.google.com', ga4: 'analytics.google.com', gsc: 'search.google.com'};
 const chIcon = (src, size, cls) => {
   size = size || 18; const S = SOURCES[src] || {l: src, c: '#8795a1'};
   const d = CH_DOM[src];
