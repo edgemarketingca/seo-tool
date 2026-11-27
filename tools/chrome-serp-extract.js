@@ -9,7 +9,7 @@
 (async (site) => {
   const T = e => (e && (e.innerText || e.textContent) || '').replace(/\s+/g, ' ').trim();
   const clip = (t, n) => String(t || '').slice(0, n);
-  const clean = h => { try{ const u = new URL(h, location.href); if (/(^|\.)google\./.test(u.hostname) && u.pathname === '/url'){ const q = u.searchParams.get('q') || u.searchParams.get('url'); if (q) return clean(q); } return u.origin + u.pathname; }catch(e){ return ''; } };
+  const clean = h => { try{ const u = new URL(h, location.href); if (/(^|\.)google\./.test(u.hostname) && (u.pathname === '/url' || u.pathname === '/goto')){ const q = u.searchParams.get('q') || u.searchParams.get('url'); if (q) return clean(q); } return u.origin + u.pathname; }catch(e){ return ''; } };
   const isG = h => { try{ return /(^|\.)google\.|gstatic\.|youtube\.com\/results/.test(new URL(h).hostname); }catch(e){ return true; } };
   if (location.pathname.startsWith('/sorry') || document.querySelector('#captcha-form, form[action*="sorry"]') || /unusual traffic/i.test(T(document.body).slice(0, 2000))) return {blocked: true};
   /* Open the AI Overview fully and give it time to finish generating. */
@@ -64,7 +64,12 @@
   document.querySelectorAll('#rso a h3, #rso h3 a, #botstuff a h3').forEach(h3 => {
     const a = h3.closest('a') || h3.querySelector('a'); if (!a) return;
     if (inside(h3, '#tads, #bottomads, [data-text-ad], g-section-with-header, [jsname="N760b"]') || (aiHead && aiHead.parentElement && inside(h3, '[data-hveid]') && h3.closest('[data-hveid]').contains(aiHead))) return;
-    const u = clean(a.href); if (!u || isG(u) || seen.has(u)) return;
+    /* Google now links results through an opaque /goto token, so when the
+       link itself is Google's, read the site from the address line under
+       the title instead. */
+    const card0 = h3.closest('.MjjYud, .g, [data-hveid]') || a.parentElement; let u = clean(a.href);
+    if (isG(u)) { const ct = T(card0 && card0.querySelector('cite')); const m = /^((?:https?:\/\/)?[a-z0-9.-]+\.[a-z]{2,})(.*)$/i.exec(ct); if (m) { const segs = m[2].split('\u203a').map(x => x.trim()).filter(x => x && x !== '...'); u = (/^https?:/.test(m[1]) ? m[1] : 'https://' + m[1]) + (segs.length ? '/' + segs.join('/') : ''); } }
+    if (!u || isG(u) || seen.has(u)) return;
     if (h3.closest('[data-q], .related-question-pair')) return;
     seen.add(u);
     const card = h3.closest('.MjjYud, .g, [data-hveid]') || a.parentElement;
