@@ -508,24 +508,49 @@ function paintBadge(){
   if (!RM()){ b.classList.remove('eu-in'); void b.offsetWidth; b.classList.add('eu-in'); }
 }
 
-/* --- the doorway: a tile grows into the pillar's world --- */
-function portal(k, from){
-  if (RM()) return;
-  const u = U[k]; if (!u) return;
-  const r = from ? from.getBoundingClientRect() : {top: innerHeight / 2 - 60, left: innerWidth / 2 - 120, width: 240, height: 120};
+/* --- the doorway ---
+   The tile grows (transform only, so it stays smooth) until it covers the
+   screen; only then does the pillar open behind it, and once that has drawn
+   the cover fades away. Nothing of the pillar shows before the cover is full. */
+let entering = false;
+function enter(k, from, open){
+  const u = U[k];
+  if (!u || entering){ if (open) open(); return; }
+  if (RM()){ if (open) open(); return; }
+  entering = true;
+  const vw = innerWidth, vh = innerHeight;
+  const r = from ? from.getBoundingClientRect() : {top: vh / 2 - 80, left: vw / 2 - 140, width: 280, height: 160};
   const d = document.createElement('div');
   d.className = 'eu-portal eu-' + k;
-  d.innerHTML = '<div class="eu-portal-in"><span class="eu-portal-n">' + u.n + '</span><small>' + u.w + '</small><b>' + esc(u.name) + '</b><em>' + esc(u.line) + '</em></div>';
-  const ins = [r.top, innerWidth - r.left - r.width, innerHeight - r.top - r.height, r.left].map(v => Math.max(0, Math.round(v)) + 'px');
-  d.style.clipPath = 'inset(' + ins.join(' ') + ' round 24px)';
+  d.innerHTML = '<div class="eu-portal-in"><span class="eu-portal-n">' + u.n + '</span><small>' + u.w + '</small><b>' + esc(u.name) + '</b><em>' + esc(u.line) + '</em><i class="eu-portal-bar"><i></i></i></div>';
+  d.style.transform = 'translate(' + r.left + 'px,' + r.top + 'px) scale(' + (r.width / vw) + ',' + (r.height / vh) + ')';
   document.body.appendChild(d);
-  requestAnimationFrame(() => requestAnimationFrame(() => { d.classList.add('open'); d.style.clipPath = 'inset(0 0 0 0 round 0)'; }));
-  setTimeout(() => d.classList.add('gone'), 900);
-  setTimeout(() => d.remove(), 1500);
+  void d.offsetWidth;
+  d.classList.add('grow');
+  d.style.transform = 'translate(0,0) scale(1,1)';
+  let done = false;
+  const covered = () => {
+    if (done) return; done = true;
+    d.classList.add('full');
+    setTimeout(() => {
+      try{ if (open) open(); }catch(e){}
+      /* wait for the pillar to draw (two frames and a beat), then lift the cover */
+      requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(() => {
+        d.classList.add('gone');
+        setTimeout(() => { d.remove(); entering = false; }, 520);
+      }, 260)));
+    }, 380);
+  };
+  d.addEventListener('transitionend', e => { if (e.propertyName === 'transform') covered(); });
+  setTimeout(covered, 700);
 }
+const portal = (k, from) => enter(k, from, null);
+/* Home tiles: the cover goes first, then the pillar opens behind it. */
 document.addEventListener('click', e => {
-  const t = e.target.closest && e.target.closest('#osHub [data-osgo]');
-  if (t) portal(t.dataset.osgo, t.closest('.osh-t') || t);
+  const t = e.target.closest && e.target.closest('#osHub [data-osgo]'); if (!t) return;
+  e.preventDefault(); e.stopImmediatePropagation();
+  const k = t.dataset.osgo;
+  enter(k, t.closest('.osh-t') || t, () => { try{ EDGE_showHub(false); }catch(err){} try{ OS().go(k); }catch(err){} });
 }, true);
 
 /* --- Across EDGE: the other three pillars, for this client --- */
@@ -590,8 +615,7 @@ const Dock = {
         if (matchMedia('(hover: none)').matches && !d.classList.contains('open')){ d.classList.add('open'); return; }
         d.classList.remove('open');
         const k = b.dataset.to, c = (state.seoClients || []).find(x => x.id === b.dataset.c);
-        portal(k, b);
-        setTimeout(() => { if (c) openClient(c, k === 'seo' ? 'seo' : k); else OS() && OS().go(k); }, 60);
+        enter(k, b, () => { if (c) openClient(c, k === 'seo' ? 'seo' : k); else if (OS()) OS().go(k); });
       });
     }
     return d;
@@ -619,9 +643,42 @@ function sizeHome(){
   const h = Math.round(r.top - ri.top + r.height * 0.5);
   if (h > 200 && inner._euh !== h){ inner._euh = h; inner.style.setProperty('--euh', h + 'px'); }
 }
-function universeTick(){ paintBadge(); Dock.paint(); if (onHub()) sizeHome(); }
+/* Counters that clear once opened: the number goes away until it changes. */
+const Badges = {
+  ids: {tnSlow: '.tn-bell-n', osTasksBtn: '#osTasksBadge'},
+  seen: (() => { try{ return JSON.parse(localStorage.getItem('euBadgeSeen') || '{}'); }catch(e){ return {}; } })(),
+  val(id){ const b = $(id); const n = b && b.querySelector(this.ids[id]); return n ? String(n.textContent || '').trim() : ''; },
+  tick(){
+    Object.keys(this.ids).forEach(id => {
+      const b = $(id), n = b && b.querySelector(this.ids[id]); if (!n) return;
+      const v = String(n.textContent || '').trim();
+      n.classList.toggle('eu-quiet', !!v && this.seen[id] === v);
+    });
+  },
+  open(id){ this.seen[id] = this.val(id); try{ localStorage.setItem('euBadgeSeen', JSON.stringify(this.seen)); }catch(e){} this.tick(); }
+};
+document.addEventListener('click', e => {
+  const b = e.target.closest && e.target.closest('#tnSlow,#osTasksBtn'); if (b) setTimeout(() => Badges.open(b.id), 0);
+}, true);
 
-window.EDGE_DS = {setup: o => Setup.open(o), board: Board, usage, openClient, portal, dock: Dock};
+/* Report editor: the Pages list jumps straight to the page. */
+document.addEventListener('click', e => {
+  const b = e.target.closest && e.target.closest('.aab-pages [data-go]'); if (!b) return;
+  const B = window.EDGE_aaBuilder; if (!B || !B.pages) return;
+  e.preventDefault(); e.stopImmediatePropagation();
+  const p = B.pages()[+b.dataset.go]; if (!p) return;
+  const el = p.anchor ? document.querySelector('.rp-w[data-id="' + p.anchor.id + '"]') : document.querySelector('[data-sheet]');
+  document.querySelectorAll('.aab-pages .aab-pg').forEach(x => x.classList.toggle('on', x === b.parentNode));
+  if (!el) return;
+  const top = [...document.querySelectorAll('.topnav,.aab-top,.aab-tools,.aab-bar,.aab-tb')].filter(x => { const cs = getComputedStyle(x); return cs.position === 'sticky' || cs.position === 'fixed'; }).reduce((m, x) => Math.max(m, x.getBoundingClientRect().bottom), 0);
+  const y = Math.max(0, el.getBoundingClientRect().top + scrollY - top - 16);
+  window.scrollTo({top: y, behavior: RM() ? 'auto' : 'smooth'});
+  setTimeout(() => { if (Math.abs(scrollY - y) > 40) window.scrollTo(0, y); try{ (window.EDGE_FX || {}).flash && EDGE_FX.flash(el); }catch(err){} }, 900);
+}, true);
+
+function universeTick(){ paintBadge(); Dock.paint(); Badges.tick(); if (onHub()) sizeHome(); }
+
+window.EDGE_DS = {setup: o => Setup.open(o), board: Board, usage, openClient, portal, enter, dock: Dock};
 
 function boot(){
   wear(); hookAll(); watchHub();

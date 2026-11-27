@@ -29592,7 +29592,8 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
     paintTray(k); place(t); t.panel.hidden = false;
     if (t.match) setTimeout(() => prefetchDetails(rows.filter(t.match).sort((a, b) => b.ms - a.ms).slice(0, 15)), 0);
     document.addEventListener('mousedown', outside, true);
-    if (seen && t.match){ rows.forEach(r => { if (t.match(r) && seen.ids.indexOf(r.id) === -1) seen.ids.push(r.id); }); writeSeen(); }
+    if (!seen) seen = {ids: []};
+    if (t.match){ rows.forEach(r => { if (t.match(r) && seen.ids.indexOf(r.id) === -1) seen.ids.push(r.id); }); writeSeen(); }
     paintBadge();
     poll();
   }
@@ -29913,7 +29914,7 @@ if (typeof REPORT_ID !== 'undefined' && REPORT_ID){
 <script src="edge-ui.js"></script>
 <script src="maintenance.js?v=20261125b"></script>
 <script src="report-nav.js?v=20261106b"></script>
-<script src="edge-os.js?v=10"></script>
+<script src="edge-os.js?v=11"></script>
 <script src="edge-viz.js?v=2"></script>
 <script src="edge-serp-viz.js?v=2"></script>
 <script src="edge-wild.js?v=3"></script>
@@ -29944,10 +29945,10 @@ html.kwr-embedded body::-webkit-scrollbar-thumb:hover{background:#9aa7b3;backgro
 })();
 </script>
 <!-- edge.css: the one stylesheet for the team tool (components, then the EDGE design system at the end). -->
-<link rel="stylesheet" href="edge.css?v=3"/>
+<link rel="stylesheet" href="edge.css?v=4"/>
 <script src="calm.js?v=2"></script>
 <script src="quiet.js?v=2"></script>
 <script src="edge-premium.js?v=1"></script>
-<script src="edge-ds.js?v=2"></script>
+<script src="edge-ds.js?v=3"></script>
 </body>
 </html>

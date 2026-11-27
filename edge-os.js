@@ -144,7 +144,7 @@ function buildBar(){
     '<button type="button" class="os-sec" role="tab" data-sec="' + s.k + '" title="' + esc(s.l) + ' (Alt+' + s.key + ')">' + s.ic + '<span class="l">' + esc(s.l) + '</span><span class="os-badge" data-badge="' + s.k + '"></span></button>').join('');
   const sub = document.createElement('div'); sub.className = 'os-sub'; sub.id = 'osSub';
   sub.innerHTML = SEO_SUBS.map(s => '<button type="button" class="os-sub-b" data-sub="' + s.k + '" title="' + esc(s.l) + '">' + s.ic + '<span class="l">' + esc(s.l) + '</span></button>').join('') +
-    '<button type="button" class="os-sub-act" id="osBoardSync" title="Match the SEO client list to the SEO Clients column on Robert’s Baseboard">' + ICON.sync + '<span class="l">Robert’s board</span></button>';
+    '';  /* Robert's board: off for now (Board.sync is kept for later) */
   const grow = document.createElement('div'); grow.className = 'os-grow';
   const tasks = document.createElement('button'); tasks.type = 'button'; tasks.className = 'os-tasks-btn'; tasks.id = 'osTasksBtn';
   tasks.title = 'Your Basecamp tasks, through Baseboard (T)';
@@ -157,7 +157,6 @@ function buildBar(){
   if (right) right.insertBefore(tasks, right.firstChild); else nav.appendChild(tasks);
   secs.addEventListener('click', e => { const b = e.target.closest('.os-sec'); if (b) go(b.dataset.sec); });
   sub.addEventListener('click', e => { const b = e.target.closest('.os-sub-b'); if (b) go('seo', b.dataset.sub); });
-  $('osBoardSync').addEventListener('click', () => Board.sync(true));
   tasks.addEventListener('click', () => Tasks.open());
   window.addEventListener('resize', movePill);
 }
@@ -1561,7 +1560,7 @@ function boot(){
   setTimeout(() => { Tasks.refresh(true); Mailer.pullLog(); }, 4000);
   setInterval(() => Tasks.refresh(), 2 * 60 * 1000);
   /* Robert's board: once a day, quietly. */
-  setTimeout(() => { if (Date.now() - (settings().boardSyncAt || 0) > 20 * 3600 * 1000) Board.sync(false); }, 9000);
+  /* (off for now) setTimeout(() => { if (Date.now() - (settings().boardSyncAt || 0) > 20 * 3600 * 1000) Board.sync(false); }, 9000); */
   setInterval(paintBadges, 60 * 1000);
   /* Home is the first thing you see after signing in. */
   const shell = $('appShell'), login = $('loginScreen');
