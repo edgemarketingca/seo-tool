@@ -27,6 +27,9 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const normDomain = v => String(v || '').trim().toLowerCase().replace(/^[a-z]+:\/\//, '').replace(/^www\./, '').split(/[\/?#:]/)[0];
 const fmt = n => Number(n || 0).toLocaleString();
 const LOGO = () => window.EDGE_LOGO || '';
+/* The SEO module keeps its functions to itself; window.EDGE.seo is the way in. */
+const SEO = () => (window.EDGE && window.EDGE.seo) || {};
+const seoRender = () => { try{ SEO().renderTree(); }catch(e){} try{ SEO().renderAll(); }catch(e){} };
 const note = (m, k) => { try{ toast(m, k); }catch(e){} };
 
 /* ---------- styles ---------- */
@@ -236,14 +239,10 @@ async function findLogo(domain){
   }
   return {logo: '', icon: googleIcon(domain), candidates: [{url: googleIcon(domain), why: 'Google icon'}], cms: '', title: ''};
 }
-const refreshClientViews = c => {
-  try{ if (typeof renderSeoProfileHead === 'function') renderSeoProfileHead(c); }catch(e){}
-  try{ if (typeof renderSeoTree === 'function') renderSeoTree(); }catch(e){}
-  try{ if (typeof renderSeoAll === 'function') renderSeoAll(); }catch(e){}
-};
+const refreshClientViews = c => { seoRender(); };
 function setLogo(c, url){
   c.logoUrl = url || '';
-  const inp = $('seoLogoUrl'); if (inp && typeof activeSeoClient === 'function' && activeSeoClient() === c) inp.value = c.logoUrl;
+  const inp = $('seoLogoUrl'); if (inp && state.activeSeoClientId === c.id) inp.value = c.logoUrl;
   try{ save(); }catch(e){}
   refreshClientViews(c);
 }
@@ -280,13 +279,15 @@ async function findMissingLogos(){
       const c = list[i]; go(i < list.length / 2 ? 0 : 1, (i + 1) + ' of ' + list.length + ' · ' + (c.name || normDomain(c.website))); go.bar((i + .5) / list.length);
       try{ const r = await findLogo(normDomain(c.website)); const u = r.logo || (r.icon && r.icon.indexOf('google.com/s2') < 0 ? r.icon : ''); if (u){ c.logoUrl = u; found++; } if (!c.cms && r.cms) c.cms = r.cms; }catch(e){}
     }
-    go(2); try{ save(); }catch(e){} refreshClientViews(typeof activeSeoClient === 'function' ? activeSeoClient() : null);
+    go(2); try{ save(); }catch(e){} refreshClientViews((state.seoClients || []).find(x => x.id === state.activeSeoClientId) || null);
   }, () => found + ' logo' + (found === 1 ? '' : 's') + ' found').catch(() => {});
 }
 
 /* ---------- new client ---------- */
 function leadsList(){ const s = new Set(); (state.seoClients || []).forEach(c => { if (c.projectLead) s.add(c.projectLead); }); return [...s].sort(); }
 function newClient(){
+  /* The four-pillar setup (edge-ds.js) takes over when it is loaded. */
+  if (window.EDGE_DS && typeof window.EDGE_DS.setup === 'function') return window.EDGE_DS.setup();
   const m = modal('<h2>New client</h2><p class="s">Name and website are all it takes. The logo, Google Analytics, Search Console and the forms snippet are checked for you right after.</p><form novalidate>' +
     '<label class="f">Client name</label><input class="in" name="name" placeholder="e.g. Black Rock Garage" autocomplete="off">' +
     '<label class="f">Website</label><input class="in" name="site" placeholder="blackrockgarage.ca" autocomplete="off" inputmode="url">' +
@@ -309,18 +310,26 @@ function newClient(){
 async function runNewClient(o){
   const R = {logo: null, ga4: null, gsc: null, snippet: null, tracker: hasTracker(), conn: null, errors: []};
   let c = null;
-  const steps = ['Creating ' + o.name, 'Finding their logo', 'Adding them to the tracker', 'Matching Google Analytics', 'Checking Search Console', 'Looking for the forms snippet'];
+  const base = ['Creating ' + o.name, 'Finding their logo', 'Adding them to the tracker', 'Matching Google Analytics', 'Checking Search Console', 'Looking for the forms snippet'];
+  /* o.extraSteps / o.extra(go, c, R, first): more steps after the standard ones (the
+     four-pillar setup uses them for keywords, the Business Profile, Google Ads,
+     maintenance and the monthly report). */
+  const extraSteps = o.extraSteps || [], steps = base.concat(extraSteps);
   try{
     await stage('Setting up ' + o.name, steps, async go => {
+      await (async () => {
       go(0);
-      try{ if (typeof ensureSeoState === 'function') ensureSeoState(); }catch(e){}
-      c = blankSeoClient(o.name);
+      try{ SEO().ensure(); }catch(e){}
+      if (!Array.isArray(state.seoClients)) state.seoClients = [];
+      c = SEO().blank(o.name);
       c.website = o.site; c.projectLead = o.lead || ''; c.status = o.status || 'Active';
+      if (o.cms) c.cms = o.cms;
+      if (o.maintOn === true || o.maintOn === false) c.maintOn = o.maintOn;
       state.seoClients.push(c); state.activeSeoClientId = c.id;
-      save(); try{ renderSeoTree(); renderSeoAll(); }catch(e){}
+      save(); seoRender();
       if (!o.domain){ [1, 2, 3, 4, 5].forEach(k => go.skip(k)); return; }
       go(1);
-      try{ R.logo = await findLogo(o.domain); const u = R.logo.logo || R.logo.icon; if (u) c.logoUrl = u; if (R.logo.cms) c.cms = R.logo.cms; save(); refreshClientViews(c); }catch(e){ R.errors.push('logo: ' + e.message); }
+      try{ R.logo = await findLogo(o.domain); const u = R.logo.logo || R.logo.icon; if (u) c.logoUrl = u; if (R.logo.cms && !c.cms) c.cms = R.logo.cms; save(); refreshClientViews(c); }catch(e){ R.errors.push('logo: ' + e.message); }
       if (!R.tracker){ [2, 3, 4, 5].forEach(k => go.skip(k)); return; }
       go(2);
       try{ await tpost({action: 'register', clients: [trackerClient(c)], url: tracker().url}); }catch(e){ R.errors.push(e.message); [3, 4, 5].forEach(k => go.skip(k)); return; }
@@ -340,6 +349,8 @@ async function runNewClient(o){
       go(5);
       try{ R.snippet = await tpost({action: 'checkSnippet', domain: o.domain}); if (!c.cms && R.snippet.cms){ c.cms = R.snippet.cms; save(); } }catch(e){ R.snippet = {error: e.message}; }
       try{ if (window.EDGE_CONN && window.EDGE_CONN.forget) window.EDGE_CONN.forget(o.domain); }catch(e){}
+      })();
+      if (o.extra && c){ try{ await o.extra(go, c, R, base.length); }catch(e){ R.errors.push(e.message); } }
     }, () => o.name + ' is ready');
   }catch(e){ if (!c) return; }
   if (c) summary(c, o, R);
@@ -367,11 +378,12 @@ function summary(c, o, R){
     rows += row(sn.found ? 'ok' : 'warn', 'code', 'Website forms', sn.found ? 'The forms snippet is on the site, so new submissions come in on their own.' : sn.wrongDomain ? 'A snippet for another domain is on the site. Replace it with this client’s.' : 'Add the snippet once and every form submission comes in on its own.' + (sn.cms ? ' The site runs ' + esc(sn.cms) + '.' : ''), sn.found ? 'Live' : 'Add snippet',
       sn.found ? '' : '<button class="eui-btn sm pri" type="button" data-x="snippet">' + ic('code') + 'Get snippet</button>');
   }
+  if (typeof o.extraRows === 'function'){ try{ rows += o.extraRows(c, R, row); }catch(e){} }
   const m = modal('<div class="eui-hero"><div class="eui-logo">' + (logoUrl ? '<img src="' + esc(logoUrl) + '" alt="" referrerpolicy="no-referrer">' : esc((o.name.match(/\b\w/g) || ['?']).slice(0, 2).join('').toUpperCase())) + '</div>' +
     '<div><h2>' + esc(o.name) + ' is set up</h2><p class="s" style="margin:4px 0 0">' + esc(o.domain || 'No website yet') + '</p></div></div>' +
     '<div class="eui-sum">' + rows + '</div>' +
     (R.errors.length ? '<div class="err">' + esc(R.errors.join(' · ')) + '</div>' : '') +
-    '<div class="mf"><button class="eui-btn pri" type="button" data-close>Open ' + esc(o.name) + '</button></div>', {wide: true, onClose: () => { try{ renderSeoAll(); }catch(e){} }});
+    '<div class="mf"><button class="eui-btn pri" type="button" data-close>Open ' + esc(o.name) + '</button></div>', {wide: true, onClose: () => seoRender()});
   m.el.querySelectorAll('[data-x]').forEach(b => b.addEventListener('click', async () => {
     const x = b.dataset.x;
     if (x === 'logo') logoPicker(c, R.logo || await findLogo(o.domain));
@@ -388,7 +400,7 @@ function rebind(id, fn){
   nb.addEventListener('click', e => { e.preventDefault(); fn(); });
 }
 function hookAdd(){
-  if (typeof blankSeoClient !== 'function') return;
+  if (typeof SEO().blank !== 'function') return;
   rebind('seoAddClientBtn', newClient);
   rebind('seoEmptyAddBtn', newClient);
   /* "Find missing logos", next to the add button */
@@ -405,7 +417,7 @@ function hookLogoField(){
   const inp = $('seoLogoUrl'); if (!inp || $('euiFindLogo')) return;
   const b = document.createElement('button'); b.type = 'button'; b.id = 'euiFindLogo'; b.className = 'eui-btn sm eui-logo-btn'; b.innerHTML = ic('wand') + 'Find automatically';
   inp.insertAdjacentElement('afterend', b);
-  b.addEventListener('click', () => { const c = typeof activeSeoClient === 'function' ? activeSeoClient() : null; if (c) findLogoFor(c, false); });
+  b.addEventListener('click', () => { const c = (state.seoClients || []).find(x => x.id === state.activeSeoClientId) || null; if (c) findLogoFor(c, false); });
 }
 function hookRunbar(){
   const add = (id, k) => { const b = $(id); if (b && !b.querySelector('svg')) b.insertAdjacentHTML('afterbegin', ic(k)); };
@@ -421,5 +433,5 @@ setInterval(hookAll, 3000);
 window.edgeStage = stage;
 window.edgeModal = modal;
 window.edgeBurst = burst;
-window.EDGE_UI = {stage, modal, burst, findLogo, findLogoFor, logoPicker, findMissingLogos, newClient, ic};
+window.EDGE_UI = {stage, modal, burst, findLogo, findLogoFor, logoPicker, findMissingLogos, newClient, runNewClient, normDomain, ic};
 })();

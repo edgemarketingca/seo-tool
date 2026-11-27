@@ -1578,6 +1578,6 @@ function boot(){
   const markAds = () => { tree.querySelectorAll('.rail-folder').forEach(w => { const n = w.querySelector('.folder-name'); w.classList.toggle('os-adsfolder', !!(n && n.textContent === ADS_FOLDER)); }); };
   if (tree){ new MutationObserver(markAds).observe(tree, {childList: true}); markAds(); }
 }
-window.EDGE_OS = {renders, go: (s, sub) => go(s, sub), section: () => section, fx: FX, channels: Channels, attention: Attention, board: Board, tasks: Tasks, reporting: Reporting, template: TEMPLATE};
+window.EDGE_OS = {renders, go: (s, sub) => go(s, sub), section: () => section, fx: FX, channels: Channels, attention: Attention, board: Board, tasks: Tasks, reporting: Reporting, template: TEMPLATE, mailer: Mailer, setGbpLink: (sc, gc) => setGbpLink(sc, gc), repaintHub: () => paintHub(false)};
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
 })();
