@@ -4119,6 +4119,19 @@ html body.os-on.eds:not(.report-mode):not(.embed-mode):not(#_eds):not(#_eds2) #a
 html body.os-on.eds:not(.report-mode):not(.embed-mode):not(#_eds):not(#_eds2) #adsStage .os-acct .os-acct-link{font:400 12px Roboto,var(--ui) !important;border-top:1px solid #f1f3f4 !important;padding-top:10px !important;color:var(--g-mute) !important}
 html body.os-on.eds:not(.report-mode):not(.embed-mode):not(#_eds):not(#_eds2) #adsStage .os-acct .os-acct-link span[style]{color:#b06000 !important}
 
+/* the way back to Home */
+html body.os-on.eds:not(.report-mode):not(.embed-mode):not(#_eds):not(#_eds2).eu-leaving .stage,html body.os-on.eds:not(.report-mode):not(.embed-mode):not(#_eds):not(#_eds2).eu-leaving .topnav{transition:transform .38s cubic-bezier(.4,0,.2,1),opacity .38s ease,filter .38s ease;transform:scale(.975);opacity:.55;filter:blur(2px);transform-origin:50% 0}
+.eu-leave{position:fixed;inset:0;z-index:10050;display:grid;place-items:center;pointer-events:auto;opacity:0;background:radial-gradient(50% 60% at 85% 10%,rgba(232,119,34,.22),transparent 70%),radial-gradient(60% 70% at 10% 90%,rgba(168,230,238,.14),transparent 70%),linear-gradient(160deg,#00545e,#004851 40%,#00323a);transition:opacity .36s ease;will-change:opacity}
+.eu-leave.on{opacity:1}
+.eu-leave.gone{opacity:0;transition:opacity .5s ease}
+.eu-leave-in{display:flex;flex-direction:column;align-items:center;gap:14px;color:#fff;transform:scale(.96);opacity:0;transition:transform .45s cubic-bezier(.2,.8,.2,1) .08s,opacity .3s ease .08s}
+.eu-leave.on .eu-leave-in{transform:none;opacity:1}
+.eu-leave.gone .eu-leave-in{transform:translateY(-8px) scale(1.02);opacity:0}
+.eu-leave-in b{font:700 30px var(--display,Outfit,sans-serif);letter-spacing:-.03em}
+.eu-leave-dots{display:flex;gap:7px}
+.eu-leave-dots i{width:10px;height:10px;border-radius:50%;background:#ff9a4a;animation:euDot 1s infinite}
+.eu-leave-dots i:nth-child(2){background:#5fd3e0;animation-delay:.1s}.eu-leave-dots i:nth-child(3){background:#a9a7e8;animation-delay:.2s}.eu-leave-dots i:nth-child(4){background:#9cc9b6;animation-delay:.3s}.eu-leave-dots i:nth-child(5){background:#ffd36e;animation-delay:.4s}
+
 /* ==========================================================================
    NEW: the Clients board on home and the New client setup (edge-ds.js)
    ========================================================================== */

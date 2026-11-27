@@ -554,6 +554,40 @@ function enter(k, from, open){
   setTimeout(covered, 700);
 }
 const portal = (k, from) => enter(k, from, null);
+
+/* --- the way back: the pillar eases away, the EDGE floor fades in, Home's doors rise --- */
+function leave(){
+  const go = () => { try{ EDGE_showHub(true); }catch(e){} };
+  if (onHub()) return;
+  if (RM() || entering){ go(); return; }
+  entering = true;
+  document.body.classList.add('eu-leaving');
+  const d = document.createElement('div');
+  d.className = 'eu-leave';
+  d.innerHTML = '<div class="eu-leave-in"><span class="eu-leave-dots"><i></i><i></i><i></i><i></i><i></i></span><b>EDGE Workspace</b></div>';
+  document.body.appendChild(d);
+  void d.offsetWidth;
+  d.classList.add('on');
+  setTimeout(() => {
+    go();
+    document.body.classList.remove('eu-leaving');
+    window.scrollTo(0, 0);
+    requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(() => {
+      d.classList.add('gone');
+      setTimeout(() => { d.remove(); entering = false; }, 520);
+    }, 140)));
+  }, 380);
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest && e.target.closest('#tnHome, .tn-home');
+  if (!b || onHub()) return;
+  e.preventDefault(); e.stopImmediatePropagation();
+  leave();
+}, true);
+document.addEventListener('keydown', e => {
+  if (e.altKey && (e.key === 'h' || e.key === 'H') && !onHub() && document.body.classList.contains('os-on')){ e.preventDefault(); e.stopImmediatePropagation(); leave(); }
+}, true);
+
 /* Home tiles: the cover goes first, then the pillar opens behind it. */
 document.addEventListener('click', e => {
   const t = e.target.closest && e.target.closest('#osHub [data-osgo]'); if (!t) return;
@@ -1328,7 +1362,7 @@ document.addEventListener('click', e => {
 
 function universeTick(){ paintBadge(); railState(); SeoHome.apply(false); GbpHome.apply(false); RLinks.paint(); Dock.paint(); Badges.tick(); if (onHub()){ paintSerpDoor(); sizeHome(); } }
 
-window.EDGE_DS = {setup: o => Setup.open(o), board: Board, seo: SeoHome, gbp: GbpHome, finder: Finder, social: Social, ads: AdsSet, analysisTargets, usage, openClient, portal, enter, dock: Dock};
+window.EDGE_DS = {setup: o => Setup.open(o), board: Board, seo: SeoHome, gbp: GbpHome, finder: Finder, social: Social, ads: AdsSet, analysisTargets, usage, openClient, portal, enter, leave, dock: Dock};
 
 function boot(){
   wear(); hookAll(); watchHub();
